@@ -23,7 +23,7 @@ local config = {
   enemy_names = { "dust_slime" },
   battle = { enemy_hp = 3, enemy_atk = 0, reward_exp = 1, reward_gold = 1 },
   event_distances = {},
-  ui = { track_length = 12, width = 36, max_height = 2, height = 1, info_cycle_seconds = 4, sprites = { enabled = true } },
+  ui = { track_length = 12, width = 36, max_height = 2, height = 1, sprites = { enabled = true } },
 }
 
 local base_state = state.new_state(config)
@@ -48,7 +48,6 @@ local battle_state = {
 }
 
 local lines = render.build_lines(battle_state, config)
-assert_match(lines[1], "H", "戦闘表示に勇者側スプライトの印が含まれる")
-assert_match(lines[1], ">", "戦闘表示に対峙記号が含まれる")
+assert_match(lines[1], ".+>.+", "戦闘表示に勇者と敵のスプライトが含まれる")
 
 print("OK")

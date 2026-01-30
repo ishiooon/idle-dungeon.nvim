@@ -1,6 +1,6 @@
 -- このモジュールは画像スプライトの選択を純粋関数として提供する。
 -- 画像スプライト関連の参照先はui配下へ統一する。
-local pet = require("idle_dungeon.ui.pet")
+local animation = require("idle_dungeon.ui.animation")
 local sprite = require("idle_dungeon.ui.sprite")
 local catalog = require("idle_dungeon.ui.sprite_catalog")
 
@@ -9,9 +9,8 @@ local M = {}
 local function image_config(config)
   local ui = (config or {}).ui or {}
   local image = ui.image_sprites or {}
-  local pet_config = ui.pet or {}
   return {
-    frame_seconds = image.frame_seconds or pet_config.frame_seconds or 1,
+    frame_seconds = image.frame_seconds or 1,
     boss_frames = image.boss or {},
   }
 end
@@ -41,7 +40,7 @@ local function pick_frame(frames, time_sec, frame_seconds)
   if not frames or #frames == 0 then
     return nil
   end
-  return pet.select_frame(frames, time_sec, frame_seconds)
+  return animation.select_frame(frames, time_sec, frame_seconds)
 end
 
 local function pick_actor_frame(state, config, mode)

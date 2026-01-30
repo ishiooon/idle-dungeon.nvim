@@ -1,7 +1,7 @@
 -- このモジュールはスプライト部分のハイライト指定を生成する。
 -- スプライト関連はui配下のモジュールを参照する。
-local pet = require("idle_dungeon.ui.pet")
 local sprite = require("idle_dungeon.ui.sprite")
+local track = require("idle_dungeon.ui.track")
 local catalog = require("idle_dungeon.ui.sprite_catalog")
 
 local M = {}
@@ -52,7 +52,7 @@ local function build_track_highlights(state, config, line, settings)
     end
   end
   local length = (config.ui or {}).track_length or 18
-  local position = pet.calculate_position(state.progress.distance or 0, length, #hero)
+  local position = track.calculate_position(state.progress.distance or 0, length, #hero)
   table.insert(highlights, { line = 0, start_col = position, end_col = position + #hero, palette = palette_key_for_actor(state) })
   return highlights
 end

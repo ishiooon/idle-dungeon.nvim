@@ -29,15 +29,13 @@ local config = {
   enemy_names = { "a", "b", "c" },
   battle = { enemy_hp = 3, enemy_atk = 0, reward_exp = 1, reward_gold = 1 },
   event_distances = {},
-  ui = { track_length = 12, width = 36, max_height = 2, height = 2, info_cycle_seconds = 4 },
+  ui = { track_length = 12, width = 36, max_height = 2, height = 2 },
 }
 
 local st0 = state.new_state(config)
 local lines_visual = render.build_lines(st0, config)
--- 可視モードではペットの歩行フレームが含まれる。
-assert_match(lines_visual[1], "o_o", "可視モードでは歩行フレームがある")
+-- 可視モードでは進行状況が表示される。
 assert_match(lines_visual[1], "d1%-1", "可視モードに短縮ステージ名が入る")
-assert_match(lines_visual[1], "MOVE", "可視モードにモード表示が入る")
 assert_true(#lines_visual == 2, "可視モードは2行表示が既定である")
 assert_true(#lines_visual <= 2, "表示行数は最大2行に収まる")
 assert_match(lines_visual[2], "HP", "可視モードに体力が表示される")

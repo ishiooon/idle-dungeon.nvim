@@ -30,7 +30,7 @@ local config = {
   enemy_names = { "a", "b", "c" },
   battle = { enemy_hp = 3, enemy_atk = 0, reward_exp = 1, reward_gold = 1 },
   event_distances = {},
-  ui = { track_length = 12, width = 36, max_height = 2, height = 1, info_cycle_seconds = 4 },
+  ui = { track_length = 12, width = 36, max_height = 2, height = 1 },
 }
 
 local base_state = state.new_state(config)

@@ -57,14 +57,14 @@ local function default_config()
       auto_start = true,
       language = "en",
       languages = { "en", "ja" },
-      -- 情報表示の切り替え間隔を秒で指定する。
-      info_cycle_seconds = 4,
-      -- ペット表示は既定で有効とし、1行の中で動きを表現する。
-      pet = {
-        enabled = true,
-        style = "auto",
-        frame_seconds = 1,
-        ground_char = ".",
+      -- 進行トラックの埋め文字を指定する。
+      track_fill = ".",
+      -- 表示に使うアイコンを定義する。
+      icons = {
+        hero = "",
+        enemy = "",
+        boss = "",
+        separator = ">",
       },
       -- スプライトの色味をキャラクターや敵ごとに定義する。
       sprite_palette = {

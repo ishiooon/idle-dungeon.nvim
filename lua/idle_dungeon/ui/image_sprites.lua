@@ -1,6 +1,6 @@
 -- このモジュールは画像スプライト表示の描画処理を担当する。
--- 画像スプライトとペット表示はui配下の参照に統一する。
-local picker = require("idle_dungeon.ui.image_sprite_picker"); local pet = require("idle_dungeon.ui.pet")
+-- 画像スプライトの参照先はui配下に統一する。
+local picker = require("idle_dungeon.ui.image_sprite_picker"); local track = require("idle_dungeon.ui.track")
 local M = {}
 local image_state = { images = {}, last = {}, last_buf = nil }
 
@@ -41,7 +41,9 @@ end
 
 local function resolve_positions(state, config, settings)
   local track_length = (config.ui or {}).track_length or 18; local hero_col = settings.col_offset
-  if state.ui.mode == "move" then hero_col = pet.calculate_position(state.progress.distance or 0, track_length, settings.cols) + settings.col_offset end
+  if state.ui.mode == "move" then
+    hero_col = track.calculate_position(state.progress.distance or 0, track_length, settings.cols) + settings.col_offset
+  end
   return settings.row_offset, hero_col, track_length - settings.cols + settings.col_offset
 end
 

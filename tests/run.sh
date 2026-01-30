@@ -67,8 +67,7 @@ lua tests/test_i18n.lua
 lua tests/test_auto_start.lua
 lua tests/test_state.lua
 lua tests/test_render.lua
-# ペット表示の単体テストを追加して確認する。
-lua tests/test_pet.lua
+# ペット表示は削除したため、該当テストは実行しない。
 # メニュー表示のレイアウト生成を確認する。
 lua tests/test_menu_layout.lua
 # メニュータブの文字列生成を確認する。

@@ -31,7 +31,6 @@ assert_true(type(built.ui.languages) == "table", "言語一覧が定義される
 assert_true(built.ui.auto_start == true, "自動開始の既定値はtrueである")
 assert_true(built.ui.max_height == 2, "最大表示行数は2である")
 assert_true(built.ui.height == 1, "表示行数の既定値は1である")
-assert_true(type(built.ui.info_cycle_seconds) == "number", "情報表示の切り替え間隔が定義される")
 assert_true(type(built.floor_length) == "number", "階層の横幅が数値で定義される")
 assert_true(type(built.floor_encounters) == "table", "階層遭遇数の設定が定義される")
 assert_true(type(built.floor_encounters.min) == "number", "階層遭遇数の最小値が定義される")
@@ -39,9 +38,9 @@ assert_true(type(built.floor_encounters.max) == "number", "階層遭遇数の最
 assert_true(type(built.boss_every) == "number", "ボスの出現間隔が定義される")
 -- 会話待機の既定値は0秒で停止時間を発生させない。
 assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒である")
--- ペット表示の既定値が設定に含まれることを確認する。
-assert_true(type(built.ui.pet) == "table", "ペット表示の設定が定義される")
-assert_true(built.ui.pet.enabled == true, "ペット表示は既定で有効である")
+-- 表示用アイコンと進行トラックの設定が含まれることを確認する。
+assert_true(type(built.ui.icons) == "table", "表示用アイコンの設定が定義される")
+assert_true(type(built.ui.track_fill) == "string", "進行トラックの埋め文字が定義される")
 assert_true(type(built.ui.sprites) == "table", "スプライト表示の設定が定義される")
 assert_true(built.ui.sprites.enabled == true, "スプライト表示は既定で有効である")
 assert_true(type(built.ui.sprite_palette) == "table", "スプライトの色設定が定義される")
