@@ -18,6 +18,8 @@ local ui_state = {
   opts = {},
   config = {},
   on_close = nil,
+  tabs_line_index = nil,
+  tab_segments = {},
 }
 
 -- タブ内の表示行を整形し、セクションごとの見た目を揃える。
@@ -105,8 +107,12 @@ local function render()
   local labels = build_tab_labels(tab, config)
   local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active, config.tabs_style)
   local title = (ui_state.opts or {}).title or ""
+  local footer_hints = (ui_state.opts or {}).footer_hints or {}
+  -- メニュー下部の案内文は幅に合わせて整形する。
+  local hint_lines = menu_view_util.build_footer_hint_lines(footer_hints, config, math.max(config.width or 0, 24))
+  local hint_block = #hint_lines > 0 and (#hint_lines + 1) or 0
   local header_count = (title ~= "" and 1 or 0) + (config.tabs_position == "bottom" and 1 or 2)
-  local footer_count = config.tabs_position == "bottom" and 2 or 0
+  local footer_count = (config.tabs_position == "bottom" and 2 or 0) + hint_block
   local visible = math.max((config.height or config.max_height) - header_count - footer_count, 1)
   ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels)
   ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
@@ -117,7 +123,7 @@ local function render()
     max_items = visible,
     max_width = max_width,
   })
-  local sections = menu_view_util.build_tabs_sections(ui_state.opts, config, tabs_line, built, max_width)
+  local sections = menu_view_util.build_tabs_sections(ui_state.opts, config, tabs_line, built, max_width, hint_lines)
   local content_lines = pad_content_lines(built.lines, visible)
   local lines = {}
   for _, line in ipairs(sections.header_lines) do
@@ -139,7 +145,7 @@ local function render()
     highlight_specs[#highlight_specs + 1] = { line = 1, group = "IdleDungeonMenuTitle" }
   end
   local tabs_line_index = config.tabs_position == "bottom"
-    and (#sections.header_lines + #content_lines + #sections.footer_lines)
+    and (#sections.header_lines + #content_lines + (sections.tabs_line_offset or 0))
     or (title ~= "" and 2 or 1)
   highlight_specs[#highlight_specs + 1] = { line = tabs_line_index, group = "IdleDungeonMenuTabs" }
   local divider_line_top = config.tabs_position == "bottom"
@@ -152,6 +158,13 @@ local function render()
     local divider_line_bottom = #sections.header_lines + #content_lines + 1
     highlight_specs[#highlight_specs + 1] = { line = divider_line_bottom, group = "IdleDungeonMenuDivider" }
   end
+  if #hint_lines > 0 then
+    local hint_divider = #lines - #hint_lines
+    highlight_specs[#highlight_specs + 1] = { line = hint_divider, group = "IdleDungeonMenuDivider" }
+    for index = (#lines - #hint_lines + 1), #lines do
+      highlight_specs[#highlight_specs + 1] = { line = index, group = "IdleDungeonMenuMuted" }
+    end
+  end
   for _, spec in ipairs(collect_item_highlights(tab, built, #sections.header_lines)) do
     table.insert(highlight_specs, spec)
   end
@@ -160,6 +173,19 @@ local function render()
     vim.api.nvim_win_set_cursor(win, { math.max(#sections.header_lines + (ui_state.selected - built.offset), 1), 0 })
   end
   ui_state.labels, ui_state.items = labels, (tab.items or {})
+  ui_state.tabs_line_index = tabs_line_index
+  ui_state.tab_segments = {}
+  do
+    local padding = math.max(config.padding or 0, 0)
+    -- タブ行のクリック判定用に列の範囲を保存する。
+    for _, segment in ipairs(menu_tabs.build_tabs_segments(ui_state.tabs, ui_state.active, config.tabs_style)) do
+      table.insert(ui_state.tab_segments, {
+        index = segment.index,
+        start_col = segment.start_col + padding,
+        end_col = segment.end_col + padding,
+      })
+    end
+  end
   ui_state.win, ui_state.buf = win, buf
 end
 local function move(delta)
@@ -181,6 +207,11 @@ local function select_current()
   if not tab or not tab.on_choice then return end
   local choice = #ui_state.items > 0 and ui_state.items[ui_state.selected] or nil
   local callback = tab.on_choice
+  if choice and choice.keep_open then
+    callback(choice)
+    render()
+    return
+  end
   close()
   callback(choice)
 end
@@ -201,6 +232,26 @@ local function set_keymaps(buf)
     { "gg", function() ui_state.selected = menu_view_util.clamp_selected(1, #ui_state.items) render() end },
     { "G", function() ui_state.selected = menu_view_util.clamp_selected(#ui_state.items, #ui_state.items) render() end },
     { "<CR>", select_current },
+    { "<LeftMouse>", function()
+      -- タブ行クリック時のみタブ切り替えを行う。
+      local pos = vim.fn.getmousepos()
+      if pos.winid ~= ui_state.win then
+        return
+      end
+      if pos.line ~= ui_state.tabs_line_index then
+        return
+      end
+      for _, segment in ipairs(ui_state.tab_segments or {}) do
+        if pos.column >= segment.start_col and pos.column <= segment.end_col then
+          ui_state.active = menu_view_util.clamp_selected(segment.index, #ui_state.tabs)
+          local tab = ui_state.tabs[ui_state.active] or {}
+          ui_state.selected = menu_view_util.clamp_selected(1, #(tab.items or {}))
+          ui_state.offset = 0
+          render()
+          return
+        end
+      end
+    end },
     { "<Esc>", cancel },
     { "q", cancel },
   }

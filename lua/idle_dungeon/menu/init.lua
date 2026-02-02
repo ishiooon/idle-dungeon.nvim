@@ -12,9 +12,15 @@ local tabs_view = require("idle_dungeon.menu.tabs_view")
 local M = {}
 local menu_open = false
 -- 状態に応じてラベルが変わる項目を整形する。
-local function format_item_with_state(item, state, lang)
+local function format_item_with_state(item, get_state, lang)
+  local state = get_state()
+  -- トグル系はボタン風の表示で状態が分かるように整形する。
   if item.id == "auto_start" then
-    return menu_locale.auto_start_label(state.ui.auto_start ~= false, lang)
+    return menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang)
+  end
+  if item.id == "toggle_text" then
+    local is_text = (state.ui and state.ui.render_mode) == "text"
+    return menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang)
   end
   return i18n.t(item.key, lang)
 end
@@ -89,7 +95,7 @@ local function build_tabs(get_state, set_state, config)
       label = i18n.t("menu_tab_config", lang),
       items = tabs_data.build_config_items(),
       format_item = function(item)
-        return format_item_with_state(item, state, lang)
+        return format_item_with_state(item, get_state, lang)
       end,
       on_choice = function(action)
         return handle_config_choice(action, get_state, set_state, config)
@@ -117,7 +123,12 @@ local function open_status_root(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local tabs = build_tabs(get_state, set_state, config)
   -- メニューの最初のページは状態詳細として表示する。
-  tabs_view.select(tabs, { active = 1, on_close = mark_closed, title = i18n.t("menu_title", lang) }, config)
+  tabs_view.select(tabs, {
+    active = 1,
+    on_close = mark_closed,
+    title = i18n.t("menu_title", lang),
+    footer_hints = menu_locale.menu_footer_hints(lang),
+  }, config)
   menu_open = true
 end
 local function open(get_state, set_state, config)

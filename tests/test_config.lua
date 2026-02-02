@@ -15,6 +15,8 @@ local stages = built.stages or {}
 assert_true(#stages == 8, "ステージ数は8である")
 assert_true(stages[1].id == 1, "ステージ1のIDが1である")
 assert_true(stages[8].id == 8, "ステージ8のIDが8である")
+assert_true(stages[1].name ~= "dungeon1", "ステージ1の名称は味気ない既定値ではない")
+assert_true(stages[8].name ~= "last-dungeon", "ステージ8の名称は味気ない既定値ではない")
 local infinite_stage = nil
 for _, stage in ipairs(built.stages or {}) do
   if stage.infinite then

@@ -3,6 +3,7 @@
 local battle = require("idle_dungeon.game.battle")
 -- 戦闘中の遷移は専用モジュールに委譲して整理する。
 local battle_flow = require("idle_dungeon.core.transition.battle")
+local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local floor_state = require("idle_dungeon.game.floor.state")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
@@ -13,6 +14,28 @@ local rules = require("idle_dungeon.core.transition_rules")
 local util = require("idle_dungeon.util")
 
 local M = {}
+
+-- ステージIDから該当ステージを取得する。
+local function find_stage(config, stage_id)
+  for _, stage in ipairs((config or {}).stages or {}) do
+    if stage.id == stage_id then
+      return stage
+    end
+  end
+  return nil
+end
+
+-- ボスの敵情報をステージ設定と敵定義から解決する。
+local function resolve_boss_spec(progress, config)
+  local stage = find_stage(config, progress and progress.stage_id or nil)
+  local boss_id = stage and stage.boss_id or "boss"
+  local boss_data = enemy_catalog.find_enemy(boss_id) or {}
+  local element = boss_data.element
+  if not element and type(boss_data.elements) == "table" and #boss_data.elements > 0 then
+    element = boss_data.elements[1]
+  end
+  return { id = boss_id, element = element or "dark", is_boss = true }
+end
 
 -- 戦闘開始時に図鑑へ記録し、戦闘状態へ切り替える。
 local function start_battle(state, progress, enemy, enemy_spec)
@@ -62,10 +85,10 @@ local function tick_move(state, config)
   end
   if rules.should_start_boss(refreshed, config) then
     -- ボス階層では通常遭遇に優先してボス戦を開始する。
-    local enemy = battle.build_enemy(next_distance, config, { id = "boss", element = "dark", is_boss = true })
-    enemy.name = "Boss"
+    local boss_spec = resolve_boss_spec(refreshed, config)
+    local enemy = battle.build_enemy(next_distance, config, boss_spec)
     local boss_progress = floor_state.clear_boss_pending(refreshed)
-    return start_battle(base_state, boss_progress, enemy, { id = enemy.id, element = enemy.element, is_boss = true })
+    return start_battle(base_state, boss_progress, enemy, boss_spec)
   end
   local floor_length = floor_progress.resolve_floor_length(config)
   local floor_step = floor_progress.floor_step(next_distance, floor_length)

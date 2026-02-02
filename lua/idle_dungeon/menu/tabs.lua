@@ -1,5 +1,7 @@
 -- このモジュールはメニュータブの文字列生成と切り替え計算を提供する純粋関数をまとめる。
 
+local util = require("idle_dungeon.util")
+
 local M = {}
 
 -- タブ表示の既定スタイルを定義して統一感を保つ。
@@ -60,6 +62,22 @@ local function build_tabs_line(tabs, active_index, style)
   return table.concat(labels, resolved.separator or " ")
 end
 
+-- タブ文字列の各タブ位置を列情報として返す。
+local function build_tabs_segments(tabs, active_index, style)
+  local resolved = resolve_style(style)
+  local segments = {}
+  local cursor = 0
+  local separator = resolved.separator or " "
+  local sep_width = util.display_width(separator)
+  for index, tab in ipairs(tabs or {}) do
+    local label = build_tab_label(tab, index, resolved, index == active_index)
+    local width = util.display_width(label)
+    table.insert(segments, { index = index, start_col = cursor + 1, end_col = cursor + width })
+    cursor = cursor + width + sep_width
+  end
+  return segments
+end
+
 local function shift_index(current, delta, total)
   local count = math.max(total or 0, 0)
   if count <= 0 then
@@ -72,6 +90,7 @@ local function shift_index(current, delta, total)
 end
 
 M.build_tabs_line = build_tabs_line
+M.build_tabs_segments = build_tabs_segments
 M.shift_index = shift_index
 
 return M

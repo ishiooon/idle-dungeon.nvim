@@ -97,6 +97,12 @@ lua tests/test_reset.lua
 # 画像スプライトの単体テストは廃止したため実行しない。
 # ステージ解放の単体テストを確認する。
 lua tests/test_stage_unlock.lua
+# スプライトの色割当ルールを確認する。
+lua tests/test_sprite_highlight.lua
+# ステージのボス設定が有効であることを確認する。
+lua tests/test_boss_config.lua
+# メニューのヒント文言とトグル表記を確認する。
+lua tests/test_menu_hints.lua
 # 属性相性の単体テストを確認する。
 lua tests/test_element_chart.lua
 # 文字列切り詰めのUTF-8対応を確認する。

@@ -29,6 +29,22 @@ local function auto_start_label(auto_start, lang)
   return string.format("%s: %s", title, status)
 end
 
+-- トグル表示をボタン風の文言へ整形する。
+local function toggle_label(title, enabled, lang)
+  local status_key = enabled and "status_on" or "status_off"
+  local status = i18n.t(status_key, lang)
+  return string.format("%s: [ %s ]", title, status)
+end
+
+-- メニュー下部の案内文を行配列で返す。
+local function menu_footer_hints(lang)
+  return {
+    i18n.t("menu_hint_tabs", lang),
+    i18n.t("menu_hint_toggle", lang),
+    i18n.t("menu_hint_close", lang),
+  }
+end
+
 -- メニュー内の状態表示用の行を組み立てる。
 local function status_lines(state, lang, config)
   local progress = state.progress or {}
@@ -66,6 +82,8 @@ end
 M.resolve_lang = resolve_lang
 M.slot_label = slot_label
 M.auto_start_label = auto_start_label
+M.toggle_label = toggle_label
+M.menu_footer_hints = menu_footer_hints
 M.status_lines = status_lines
 
 return M

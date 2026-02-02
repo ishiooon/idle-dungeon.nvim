@@ -18,8 +18,8 @@ end
 
 local function build_config_items()
   return {
-    { id = "toggle_text", key = "menu_action_toggle_text" },
-    { id = "auto_start", key = "menu_action_auto_start" },
+    { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
+    { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
     { id = "language", key = "menu_action_language" },
     { id = "reset", key = "menu_action_reset" },
   }

@@ -100,7 +100,18 @@ local function menu_config(config)
   }
 end
 
-local function build_tabs_sections(opts, config, tabs_line, built, max_width)
+-- 下部に表示する案内文を幅に合わせて整形する。
+local function build_footer_hint_lines(hints, config, max_width)
+  local padding = math.max(config.padding or 0, 0)
+  local pad = string.rep(" ", padding)
+  local lines = {}
+  for _, hint in ipairs(hints or {}) do
+    table.insert(lines, util.clamp_line(pad .. hint, max_width))
+  end
+  return lines
+end
+
+local function build_tabs_sections(opts, config, tabs_line, built, max_width, hint_lines)
   local padding = math.max(config.padding or 0, 0)
   local pad = string.rep(" ", padding)
   local title = (opts or {}).title or ""
@@ -112,22 +123,36 @@ local function build_tabs_sections(opts, config, tabs_line, built, max_width)
   local divider = pad .. string.rep("-", math.max(width - padding, 1))
   local divider_line = util.clamp_line(divider, max_width)
   local header_lines, footer_lines = {}, {}
+  local tabs_line_offset = nil
   if config.tabs_position == "bottom" then
     if title_line then table.insert(header_lines, title_line) end
     table.insert(header_lines, divider_line)
     table.insert(footer_lines, divider_line)
+    tabs_line_offset = #footer_lines + 1
     table.insert(footer_lines, tabs_text)
   else
     if title_line then table.insert(header_lines, title_line) end
     table.insert(header_lines, tabs_text)
     table.insert(header_lines, divider_line)
   end
-  return { header_lines = header_lines, footer_lines = footer_lines, width = width }
+  if hint_lines and #hint_lines > 0 then
+    table.insert(footer_lines, divider_line)
+    for _, line in ipairs(hint_lines) do
+      table.insert(footer_lines, line)
+    end
+  end
+  return {
+    header_lines = header_lines,
+    footer_lines = footer_lines,
+    width = width,
+    tabs_line_offset = tabs_line_offset,
+  }
 end
 
 M.clamp_selected = clamp_selected
 M.adjust_offset = adjust_offset
 M.menu_config = menu_config
+M.build_footer_hint_lines = build_footer_hint_lines
 M.build_tabs_sections = build_tabs_sections
 
 return M

@@ -22,8 +22,13 @@ local function palette_key_for_enemy_instance(enemy)
   if enemy.is_boss then
     return "boss"
   end
-  if enemy.element and enemy.element ~= "" then
+  -- ノーマル以外の属性は属性色を優先する。
+  if enemy.element and enemy.element ~= "" and enemy.element ~= "normal" then
     return "element_" .. enemy.element
+  end
+  -- ノーマル属性は敵IDの色味を優先する。
+  if enemy.id and enemy.id ~= "" then
+    return enemy.id
   end
   local enemy_data = catalog.find_enemy(enemy.id or enemy.name)
   return enemy_data and enemy_data.sprite_palette or "default_enemy"

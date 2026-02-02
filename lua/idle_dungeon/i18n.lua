@@ -19,6 +19,10 @@ local translations = {
   menu_action_auto_start = { en = "Auto Start", jp = "自動開始" },
   menu_action_language = { en = "Language", jp = "言語設定" },
   menu_action_status = { en = "Status", jp = "状態確認" },
+  -- メニュー下部の案内文を定義する。
+  menu_hint_tabs = { en = "Tabs: Click / <- -> / Tab", jp = "タブ: クリック / <- -> / Tab" },
+  menu_hint_toggle = { en = "Toggle: Enter switches", jp = "切り替え: Enterで変更" },
+  menu_hint_close = { en = "Close: q / Esc", jp = "閉じる: q / Esc" },
   -- 状態詳細メニューの文言を定義する。
   menu_action_open_actions = { en = "Open Actions", jp = "操作メニューへ" },
   menu_action_close = { en = "Close Menu", jp = "閉じる" },
