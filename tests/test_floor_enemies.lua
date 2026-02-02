@@ -40,12 +40,25 @@ local enemy = refreshed.floor_enemies[1]
 assert_true(enemy.position >= 2 and enemy.position <= 9, "敵の位置が階層の範囲内に収まる")
 
 local floor_length = floor_progress.resolve_floor_length(config)
--- 勇者位置は床ステップ+1なので、直前は敵位置-2になる。
-local step_before = math.max(enemy.position - 2, 0)
-local distance_before = step_before
-local progress_before = floor_state.refresh({ distance = distance_before, stage_start = 0, boss_every = 10, rng_seed = refreshed.rng_seed, floor_enemies = refreshed.floor_enemies, floor_index = refreshed.floor_index }, config)
-local ahead = floor_state.find_enemy_ahead(progress_before, floor_progress.floor_step(distance_before, floor_length))
-assert_true(ahead ~= nil, "勇者が直前に来た場合に敵を検出できる")
+-- 敵位置から実際の距離を復元し、移動量が大きくても遭遇できるかを確認する。
+local floor_start = floor_progress.floor_start_distance(refreshed.floor_index, floor_length)
+local enemy_distance = floor_start + math.max(enemy.position - 2, 0)
+local distance_before = math.max(enemy_distance - 2, 0)
+local distance_after = enemy_distance + 1
+local progress_before = floor_state.refresh({
+  distance = distance_before,
+  stage_start = 0,
+  boss_every = 10,
+  rng_seed = refreshed.rng_seed,
+  floor_enemies = refreshed.floor_enemies,
+  floor_index = refreshed.floor_index,
+  floor_encounters_total = refreshed.floor_encounters_total,
+  floor_encounters_remaining = refreshed.floor_encounters_remaining,
+  floor_boss_pending = refreshed.floor_boss_pending,
+}, config)
+local ahead, ahead_distance = floor_state.find_enemy_in_path(progress_before, floor_length, distance_before, distance_after)
+assert_true(ahead ~= nil, "移動量が大きくても敵の遭遇が検出できる")
+assert_equal(ahead_distance, enemy_distance, "遭遇距離が敵位置と一致する")
 
 local defeated = floor_state.mark_enemy_defeated(refreshed, enemy)
 assert_equal(defeated.floor_enemies[1].defeated, true, "敵の撃破状態が記録される")

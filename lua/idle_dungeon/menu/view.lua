@@ -1,15 +1,29 @@
 -- このモジュールは画面中央にメニューを表示するためのUIを提供する。
 -- 画面表示の参照先はmenu配下で統一する。
+local detail_window = require("idle_dungeon.menu.detail_window")
 local layout = require("idle_dungeon.menu.layout")
 local menu_view_util = require("idle_dungeon.menu.view_util")
 local window = require("idle_dungeon.menu.window")
 
 local M = {}
 
-local ui_state = { win = nil, buf = nil, prev_win = nil, items = {}, labels = {}, selected = 1, offset = 0, opts = {}, config = {}, on_choice = nil }
+local ui_state = {
+  win = nil,
+  buf = nil,
+  prev_win = nil,
+  items = {},
+  labels = {},
+  selected = 1,
+  offset = 0,
+  opts = {},
+  config = {},
+  on_choice = nil,
+  detail = { win = nil, buf = nil },
+}
 
 local function close()
   window.close_window(ui_state.win, ui_state.prev_win)
+  ui_state.detail = detail_window.close(ui_state.detail)
   ui_state.win = nil
   ui_state.buf = nil
 end
@@ -17,7 +31,8 @@ end
 local function render()
   local config = menu_view_util.menu_config(ui_state.config)
   local labels = layout.build_labels(ui_state.items, ui_state.opts.format_item)
-  local title = ui_state.opts.prompt or ""
+  -- 表示タイトルは必要に応じて動的に生成する。
+  local title = ui_state.opts.prompt_provider and ui_state.opts.prompt_provider() or (ui_state.opts.prompt or "")
   local title_lines = title ~= "" and 1 or 0
   local max_height = math.max(config.max_height, title_lines + 1)
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 4)
@@ -39,13 +54,21 @@ local function render()
   window.update_window(win, height, width)
   window.set_lines(buf, built.lines)
   if title ~= "" then
-    window.apply_highlights(buf, { { line = 1, group = "IdleDungeonMenuTitle" } })
+  window.apply_highlights(buf, { { line = 1, group = "IdleDungeonMenuTitle" } })
   else
     window.apply_highlights(buf, nil)
   end
   if ui_state.selected > 0 then
     local line = built.items_start + (ui_state.selected - built.offset) - 1
     vim.api.nvim_win_set_cursor(win, { math.max(line, 1), 0 })
+  end
+  -- 選択中の項目に合わせて詳細ウィンドウを更新する。
+  if ui_state.opts.detail_provider then
+    local choice = #ui_state.items > 0 and ui_state.items[ui_state.selected] or nil
+    local detail = ui_state.opts.detail_provider(choice)
+    ui_state.detail = detail_window.render(ui_state.detail, win, config, detail)
+  else
+    ui_state.detail = detail_window.close(ui_state.detail)
   end
   ui_state.labels = labels
   ui_state.win = win
@@ -62,6 +85,14 @@ local function select_current()
   local total = #ui_state.items
   local choice = total > 0 and ui_state.items[ui_state.selected] or nil
   local callback = ui_state.on_choice
+  if ui_state.opts.keep_open then
+    -- 選択後もメニューを閉じずに連続操作できるようにする。
+    if callback then
+      callback(choice)
+    end
+    render()
+    return
+  end
   close()
   if callback then
     callback(choice)

@@ -2,7 +2,10 @@
 local battle = require("idle_dungeon.game.battle")
 local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
+local inventory = require("idle_dungeon.game.inventory")
+local loot = require("idle_dungeon.game.loot")
 local player = require("idle_dungeon.game.player")
+local state_dex = require("idle_dungeon.game.dex.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
@@ -58,6 +61,13 @@ local function tick_battle(state, config)
   local next_combat = util.merge_tables(state.combat or {}, { enemy = next_enemy, last_turn = { hero = hero_result, enemy = enemy_result } })
   local next_progress = util.merge_tables(state.progress, { rng_seed = seed })
   if next_enemy_hp <= 0 then
+    -- 撃破時に戦利品の抽選を行い、報酬画面で表示できるように保持する。
+    local drop
+    drop, seed = loot.roll_drop(seed, config, content.items, enemy)
+    local gold_bonus
+    gold_bonus, seed = loot.roll_gold(seed, enemy)
+    next_progress = util.merge_tables(state.progress, { rng_seed = seed })
+    next_combat = util.merge_tables(next_combat, { pending_drop = drop, pending_gold = gold_bonus })
     local next_ui = { mode = "reward" }
     return util.merge_tables(state, {
       actor = next_actor,
@@ -81,13 +91,25 @@ end
 -- 戦闘勝利時の報酬と階層状態を更新する。
 local function tick_reward(state, config)
   local reward_exp = (config.battle or {}).reward_exp or 0
-  local reward_gold = (config.battle or {}).reward_gold or 0
+  local base_gold = (config.battle or {}).reward_gold or 0
+  local bonus_gold = (state.combat or {}).pending_gold or 0
+  local reward_gold = base_gold + bonus_gold
+  local pending_drop = state.combat and state.combat.pending_drop or nil
   local leveled = player.add_exp(state.actor, reward_exp)
   local applied = player.apply_equipment(leveled, state.equipment, content.items)
-  local next_currency = util.merge_tables(state.currency, { gold = state.currency.gold + reward_gold })
+  local current_gold = (state.currency and state.currency.gold) or 0
+  local next_currency = util.merge_tables(state.currency, { gold = current_gold + reward_gold })
   local source_enemy = state.combat and state.combat.source or nil
+  local next_inventory = state.inventory
+  local next_state = util.merge_tables(state, { actor = applied, currency = next_currency })
+  if pending_drop and pending_drop.id then
+    -- 戦利品が出た場合は所持品と図鑑を更新する。
+    next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)
+    next_state = util.merge_tables(next_state, { inventory = next_inventory })
+    next_state = state_dex.record_item(next_state, pending_drop.id, 1)
+  end
   local updated_progress = floor_state.mark_enemy_defeated(state.progress, source_enemy)
-  local next_state = util.merge_tables(state, { actor = applied, currency = next_currency, combat = nil, progress = updated_progress })
+  next_state = util.merge_tables(next_state, { combat = nil, progress = updated_progress })
   return util.merge_tables(next_state, { ui = util.merge_tables(state.ui, { mode = "move", event_id = nil, battle_message = nil }) })
 end
 

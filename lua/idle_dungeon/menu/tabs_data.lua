@@ -8,6 +8,7 @@ local M = {}
 
 local function build_action_items()
   return {
+    -- 操作系はメニューを閉じてから各サブメニューを開く。
     { id = "equip", key = "menu_action_equip" },
     { id = "stage", key = "menu_action_stage" },
     { id = "purchase", key = "menu_action_purchase" },
@@ -20,8 +21,9 @@ local function build_config_items()
   return {
     { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
     { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
-    { id = "language", key = "menu_action_language" },
-    { id = "reset", key = "menu_action_reset" },
+    -- 設定系は閉じずに選択できるようkeep_openで維持する。
+    { id = "language", key = "menu_action_language", keep_open = true },
+    { id = "reset", key = "menu_action_reset", keep_open = true },
   }
 end
 
@@ -74,13 +76,111 @@ local function append_section(items, title, lines, empty_label)
   return items
 end
 
+-- 図鑑のタイル表示に使う1行テキストを組み立てる。
+local function build_tile_label(entry, kind, lang)
+  local name = entry.name or ""
+  local icon = entry.icon or ""
+  local base = icon ~= "" and (icon .. " " .. name) or name
+  local element_label = entry.element_label
+  if element_label and element_label ~= "" then
+    base = string.format("%s [%s]", base, element_label)
+  end
+  local count = tonumber(entry.count) or 0
+  if kind == "enemy" then
+    return string.format("%s x%d", base, count)
+  end
+  return string.format("%s x%d", base, count)
+end
+
+-- レアリティの表示名を整形する。
+local function rarity_label(rarity, lang)
+  if rarity == "rare" then
+    return i18n.t("dex_rarity_rare", lang)
+  end
+  if rarity == "pet" then
+    return i18n.t("dex_rarity_pet", lang)
+  end
+  return i18n.t("dex_rarity_common", lang)
+end
+
+-- 図鑑の詳細表示用に行を組み立てる。
+local function build_detail_lines(entry, kind, lang)
+  local lines = {}
+  local name_label = i18n.t("dex_detail_name", lang)
+  local type_label = i18n.t("dex_detail_type", lang)
+  local count_label = i18n.t("dex_detail_count", lang)
+  local element_label = i18n.t("dex_detail_element", lang)
+  local flavor_label = i18n.t("dex_detail_flavor", lang)
+  local drops_label = i18n.t("dex_label_drops", lang)
+  local type_value = kind == "enemy" and i18n.t("dex_detail_kind_enemy", lang) or i18n.t("dex_detail_kind_item", lang)
+  table.insert(lines, string.format("%s %s", type_label, type_value))
+  table.insert(lines, string.format("%s %s", name_label, entry.name or ""))
+  table.insert(lines, string.format("%s %d", count_label, tonumber(entry.count) or 0))
+  if entry.element_label and entry.element_label ~= "" then
+    table.insert(lines, string.format("%s %s", element_label, entry.element_label))
+  end
+  if kind == "item" then
+    local slot_label = i18n.t("dex_detail_slot", lang)
+    local rarity_text = i18n.t("dex_detail_rarity", lang)
+    local slot_text = entry.slot and menu_locale.slot_label(entry.slot, lang) or ""
+    local rarity_text_value = rarity_label(entry.rarity, lang)
+    if slot_text ~= "" then
+      table.insert(lines, string.format("%s %s", slot_label, slot_text))
+    end
+    table.insert(lines, string.format("%s %s", rarity_text, rarity_text_value))
+  end
+  if kind == "enemy" then
+    local parts = {}
+    for _, drop in ipairs(entry.drops or {}) do
+      table.insert(parts, drop.name or "")
+    end
+    if #parts > 0 then
+      table.insert(lines, string.format("%s %s", drops_label, table.concat(parts, ", ")))
+    end
+  end
+  if entry.flavor and entry.flavor ~= "" then
+    table.insert(lines, string.format("%s %s", flavor_label, entry.flavor))
+  end
+  return lines
+end
+
 -- 図鑑タブで表示する敵と装備の一覧を生成する。
 local function build_dex_items(state, config, lang)
   local items = {}
-  local enemy_lines = dex_catalog.build_enemy_lines(state, lang)
-  local item_lines = dex_catalog.build_item_lines(state, lang)
-  append_section(items, i18n.t("dex_title_enemies", lang), enemy_lines, i18n.t("dex_empty_enemies", lang))
-  append_section(items, i18n.t("dex_title_items", lang), item_lines, i18n.t("dex_empty_items", lang))
+  local enemy_entries = dex_catalog.build_enemy_entries(state, lang)
+  local item_entries = dex_catalog.build_item_entries(state, lang)
+  table.insert(items, { id = "header", label = i18n.t("dex_title_enemies", lang) })
+  if #enemy_entries == 0 then
+    table.insert(items, { id = "empty", label = i18n.t("dex_empty_enemies", lang) })
+  else
+    for _, entry in ipairs(enemy_entries) do
+      table.insert(items, {
+        id = "dex_entry",
+        kind = "enemy",
+        label = build_tile_label(entry, "enemy", lang),
+        tile_label = build_tile_label(entry, "enemy", lang),
+        detail_title = entry.name,
+        detail_lines = build_detail_lines(entry, "enemy", lang),
+        keep_open = true,
+      })
+    end
+  end
+  table.insert(items, { id = "header", label = i18n.t("dex_title_items", lang) })
+  if #item_entries == 0 then
+    table.insert(items, { id = "empty", label = i18n.t("dex_empty_items", lang) })
+  else
+    for _, entry in ipairs(item_entries) do
+      table.insert(items, {
+        id = "dex_entry",
+        kind = "item",
+        label = build_tile_label(entry, "item", lang),
+        tile_label = build_tile_label(entry, "item", lang),
+        detail_title = entry.name,
+        detail_lines = build_detail_lines(entry, "item", lang),
+        keep_open = true,
+      })
+    end
+  end
   return items
 end
 

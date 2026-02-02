@@ -5,6 +5,14 @@ local stage_progress = require("idle_dungeon.game.stage_progress")
 
 local M = {}
 
+-- ステージ名の多言語表記を解決する。
+local function resolve_text(value, lang)
+  if type(value) == "table" then
+    return value[lang] or value.ja or value.jp or value.en or ""
+  end
+  return value or ""
+end
+
 local function abbreviate_stage_name(name)
   if not name or name == "" then
     return "stage"
@@ -20,8 +28,13 @@ local function find_stage(progress, config)
 end
 
 -- ステージ名は短縮せずにそのまま返す。
-local function resolve_stage_name(stage, progress)
-  return (stage and stage.name) or (progress and progress.stage_name) or "stage"
+local function resolve_stage_name(stage, progress, lang)
+  local candidate = (stage and stage.name) or (progress and progress.stage_name) or "stage"
+  local resolved = resolve_text(candidate, lang)
+  if resolved ~= "" then
+    return resolved
+  end
+  return "stage"
 end
 
 -- ステージ内の階層進行を表示用の文字列に整形する。
@@ -50,18 +63,18 @@ local function build_stage_token(progress, stage, config)
 end
 
 -- 表示用のステージ名とトークンをまとめて返す。
-local function build_stage_parts(progress, config)
+local function build_stage_parts(progress, config, lang)
   local stage = find_stage(progress or {}, config or {}) or {}
   return {
     stage = stage,
-    name = resolve_stage_name(stage, progress or {}),
+    name = resolve_stage_name(stage, progress or {}, lang),
     token = build_stage_token(progress or {}, stage, config or {}),
   }
 end
 
-local function build_stage_summary(progress, config)
+local function build_stage_summary(progress, config, lang)
   local stage = find_stage(progress, config) or {}
-  local name = abbreviate_stage_name(stage.name or progress.stage_name or "stage")
+  local name = abbreviate_stage_name(resolve_stage_name(stage, progress, lang))
   local progress_text = build_stage_progress_text(progress, stage, config)
   return string.format("%s %s", name, progress_text)
 end
@@ -70,5 +83,6 @@ M.abbreviate_stage_name = abbreviate_stage_name
 M.build_stage_progress_text = build_stage_progress_text
 M.build_stage_summary = build_stage_summary
 M.build_stage_parts = build_stage_parts
+M.resolve_stage_name = resolve_stage_name
 
 return M

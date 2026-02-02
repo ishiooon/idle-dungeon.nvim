@@ -8,6 +8,17 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
+-- 敵一覧は敵定義から構築して重複管理を避ける。
+local function build_enemy_names()
+  local names = {}
+  for _, enemy in ipairs(content.enemies or {}) do
+    if enemy.id and enemy.id ~= "" then
+      table.insert(names, enemy.id)
+    end
+  end
+  return names
+end
+
 local function build_event_distances()
   local distances = {}
   for _, event in ipairs(content.events) do
@@ -23,8 +34,8 @@ end
 local function default_config()
   return {
     tick_seconds = 1,
-    -- 進行テンポを上げるため、1ティックで進む距離を増やす。
-    move_step = 2,
+    -- 進行テンポをさらに上げるため、1ティックで進む距離を増やす。
+    move_step = 5,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。
     dialogue_seconds = 0,
@@ -34,36 +45,20 @@ local function default_config()
     floor_encounters = { min = 1, max = 5 },
     -- ボスは10階層ごとに出現する。
     boss_every = 10,
-    stage_name = "Glacier Command",
+    stage_name = { en = "Glacier Command", ja = "初手の氷回廊" },
     stages = stage_defaults.default_stages(),
-    -- 図鑑と連携するため、敵のIDを指定する。
-    -- 敵の種類を増やしたため、初期候補を広めに設定する。
-    enemy_names = {
-      "dust_slime",
-      "tux_penguin",
-      "vim_mantis",
-      "c_sentinel",
-      "cpp_colossus",
-      "php_elephant",
-      "docker_whale",
-      "go_gopher",
-      "bash_hound",
-      "mysql_dolphin",
-      "postgres_colossus",
-      "dbeaver",
-      "ruby_scarab",
-      "node_phantom",
-      "python_serpent",
-      "java_ifrit",
-      "kotlin_fox",
-      "swift_raptor",
-      "git_wyrm",
-      "rust_crab",
-      "gnu_bison",
-      "clojure_oracle",
-    },
+    -- 図鑑と遭遇候補のための敵IDは敵定義から生成する。
+    enemy_names = build_enemy_names(),
     elements = { "normal", "fire", "water", "grass", "light", "dark" },
-    battle = { enemy_hp = 6, enemy_atk = 1, reward_exp = 2, reward_gold = 2 },
+    battle = {
+      enemy_hp = 6,
+      enemy_atk = 1,
+      reward_exp = 2,
+      reward_gold = 2,
+      -- 戦利品のドロップ率はさらに低めに調整して希少性を強める。
+      -- レアとペットはほぼ出ない前提で数値を設定する。
+      drop_rates = { common = 5, rare = 1, pet = 0, boss_bonus = 1 },
+    },
     storage = {
       -- ユーザー共通の保存を前提とするため、短い同期間隔を既定にする。
       autosave_seconds = 60,

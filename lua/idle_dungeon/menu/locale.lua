@@ -53,6 +53,7 @@ local function status_lines(state, lang, config)
   -- ステージ長を参照して進行度を表示する。
   local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
   local stage_progress_text = render_stage.build_stage_progress_text(progress, stage, config)
+  local stage_name = render_stage.resolve_stage_name(stage, progress, lang)
   -- 階層番号と階層内の進行を表示に反映する。
   local floor_length = floor_progress.resolve_floor_length(config or {})
   local floor_index = floor_progress.floor_index(progress.distance or 0, floor_length)
@@ -63,7 +64,7 @@ local function status_lines(state, lang, config)
   local step_text = string.format("%d/%d", floor_step, floor_length)
   local auto_start_key = (state.ui and state.ui.auto_start ~= false) and "status_on" or "status_off"
   return {
-    string.format("%s %s", i18n.t("label_stage", lang), progress.stage_name or ""),
+    string.format("%s %s", i18n.t("label_stage", lang), stage_name),
     string.format("%s %s", i18n.t("label_progress", lang), stage_progress_text),
     string.format("%s %s", i18n.t("label_floor", lang), floor_text),
     string.format("%s %s", i18n.t("label_floor_step", lang), step_text),

@@ -42,6 +42,23 @@ assert_true(item_state.dex.items.wood_sword.count >= 1, "取得した装備が�
 
 local dex_items = menu_data.build_dex_items(item_state, config, "en")
 assert_true(#dex_items > 0, "図鑑タブの表示項目が生成される")
-assert_match(dex_items[1].label or "", "Enemies", "敵の見出しが含まれる")
+
+local found_header = false
+local found_entry = false
+local found_detail = false
+for _, entry in ipairs(dex_items) do
+  if entry.id == "header" and (entry.label or ""):match("Enemies") then
+    found_header = true
+  end
+  if entry.id == "dex_entry" then
+    found_entry = true
+    if entry.detail_lines and #entry.detail_lines > 0 then
+      found_detail = true
+    end
+  end
+end
+assert_true(found_header, "敵の見出しが含まれる")
+assert_true(found_entry, "図鑑のタイル項目が生成される")
+assert_true(found_detail, "図鑑の詳細行が生成される")
 
 print("OK")

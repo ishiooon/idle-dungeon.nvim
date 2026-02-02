@@ -6,17 +6,25 @@ local function assert_true(value, message)
   end
 end
 
+local function resolve_stage_name(name)
+  if type(name) == "table" then
+    return name.en or name.ja or name.jp or ""
+  end
+  return name or ""
+end
+
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local config = require("idle_dungeon.config")
+local content = require("idle_dungeon.content")
 
 local built = config.build({})
 local stages = built.stages or {}
 assert_true(#stages == 8, "ステージ数は8である")
 assert_true(stages[1].id == 1, "ステージ1のIDが1である")
 assert_true(stages[8].id == 8, "ステージ8のIDが8である")
-assert_true(stages[1].name ~= "dungeon1", "ステージ1の名称は味気ない既定値ではない")
-assert_true(stages[8].name ~= "last-dungeon", "ステージ8の名称は味気ない既定値ではない")
+assert_true(resolve_stage_name(stages[1].name) ~= "dungeon1", "ステージ1の名称は味気ない既定値ではない")
+assert_true(resolve_stage_name(stages[8].name) ~= "last-dungeon", "ステージ8の名称は味気ない既定値ではない")
 local infinite_stage = nil
 for _, stage in ipairs(built.stages or {}) do
   if stage.infinite then
@@ -75,5 +83,16 @@ assert_true(type(built.ui.menu.theme) == "table", "メニューのテーマ設�
 assert_true(built.ui.menu.theme.inherit == true, "メニューのテーマ継承が既定で有効である")
 assert_true(type(built.ui.menu.tabs) == "table", "タブ表示スタイルが定義される")
 assert_true(built.ui.menu.tabs_position == "top", "タブ表示の既定位置が上部である")
+assert_true(type(built.ui.menu.detail_width_ratio) == "number", "詳細表示の幅比率が数値で定義される")
+assert_true(type(built.ui.menu.detail_min_width) == "number", "詳細表示の最小幅が定義される")
+assert_true(type(built.ui.menu.detail_max_width) == "number", "詳細表示の最大幅が定義される")
+assert_true(type(built.ui.menu.detail_gap) == "number", "詳細表示の間隔が定義される")
+assert_true(built.ui.menu.detail_width_ratio == 0.3, "詳細表示の既定幅比率が設定される")
+assert_true(built.ui.menu.detail_min_width == 28, "詳細表示の既定最小幅が設定される")
+assert_true(built.ui.menu.detail_max_width == 56, "詳細表示の既定最大幅が設定される")
+assert_true(built.ui.menu.detail_gap == 2, "詳細表示の既定間隔が設定される")
+-- 敵一覧はコンテンツ定義から生成し、二重管理を避ける。
+assert_true(type(built.enemy_names) == "table", "敵一覧が設定に含まれる")
+assert_true(#built.enemy_names == #(content.enemies or {}), "敵一覧は敵定義の件数と一致する")
 
 print("OK")

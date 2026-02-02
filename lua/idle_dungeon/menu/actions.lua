@@ -5,9 +5,12 @@ local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
 local i18n = require("idle_dungeon.i18n")
 local inventory = require("idle_dungeon.game.inventory")
+local equip_detail = require("idle_dungeon.menu.equip_detail")
+local menu_detail = require("idle_dungeon.menu.detail")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
 local player = require("idle_dungeon.game.player")
+local render_stage = require("idle_dungeon.ui.render_stage")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
 local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
@@ -56,7 +59,8 @@ local function open_stage_menu(get_state, set_state, config)
         or item.id == (initial_state.progress or {}).stage_id
         or (first_stage and item.id == first_stage.id)
       local label = unlocked and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
-      return string.format("%s [%s]", item.name, label)
+      local stage_name = render_stage.resolve_stage_name(item, nil, lang)
+      return string.format("%s [%s]", stage_name, label)
     end,
   }, function(choice)
     if not choice then
@@ -84,40 +88,52 @@ local function open_stage_menu(get_state, set_state, config)
   end, config)
 end
 
-local function open_equip_menu(get_state, set_state, config)
+local function open_equip_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local slots = { "weapon", "armor", "accessory", "companion" }
-  -- 装備枠を選択するためのメニューを表示する。
-  menu_view.select(slots, {
-    prompt = i18n.t("prompt_slot", lang),
-    format_item = function(item)
-      return menu_locale.slot_label(item, lang)
-    end,
-  }, function(slot)
-    if not slot then
-      return
-    end
-    local state = get_state()
-    local choices = {}
-    for _, item in ipairs(content.items) do
-      if item.slot == slot and inventory.has_item(state.inventory, item.id) then
-        table.insert(choices, item)
-      end
-    end
-    -- 選択可能な装備を表示する。
-    menu_view.select(choices, {
-      prompt = i18n.t("prompt_equipment", lang),
+  local function open_slot_menu()
+    -- 装備枠を選択するためのメニューを表示する。
+    menu_view.select(slots, {
+      prompt = i18n.t("prompt_slot", lang),
       format_item = function(item)
-        return item.name
+        return menu_locale.slot_label(item, lang)
       end,
-    }, function(item)
-      if not item then
+    }, function(slot)
+      if not slot then
+        if on_close then
+          on_close()
+        end
         return
       end
-      local next_state = apply_equipment(state, slot, item.id)
-      set_state(next_state)
+      local state = get_state()
+      local choices = {}
+      for _, item in ipairs(content.items) do
+        if item.slot == slot and inventory.has_item(state.inventory, item.id) then
+          table.insert(choices, item)
+        end
+      end
+      -- 選択可能な装備を表示し、差分を詳細で確認できるようにする。
+      menu_view.select(choices, {
+        prompt = i18n.t("prompt_equipment", lang),
+        -- 装備確定後もメニューを閉じずに連続で選択できるようにする。
+        keep_open = true,
+        format_item = function(item)
+          return item.name
+        end,
+        detail_provider = function(item)
+          return equip_detail.build_detail(item, get_state(), lang) or menu_detail.build_item_detail(item, get_state(), lang)
+        end,
+      }, function(item)
+        if not item then
+          -- 装備枠の選択へ戻る。
+          return open_slot_menu()
+        end
+        local next_state = apply_equipment(state, slot, item.id)
+        set_state(next_state)
+      end, config)
     end, config)
-  end, config)
+  end
+  open_slot_menu()
 end
 
 M.open_character_menu = open_character_menu

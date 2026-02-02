@@ -38,6 +38,14 @@ assert_match(action_items[1].id or "", "equip", "操作項目に装備変更が�
 local config_items = menu_data.build_config_items()
 assert_true(#config_items >= 3, "設定タブの項目が生成される")
 assert_match(config_items[1].id or "", "toggle_text", "設定項目にモード切り替えが含まれる")
+local found_language = false
+for _, item in ipairs(config_items) do
+  if item.id == "language" then
+    found_language = true
+    assert_true(item.keep_open == true, "言語設定はメニューを閉じずに開ける")
+  end
+end
+assert_true(found_language, "言語設定の項目が含まれる")
 
 local credits_items = menu_data.build_credits_items("en")
 assert_true(#credits_items > 0, "クレジットタブの項目が生成される")

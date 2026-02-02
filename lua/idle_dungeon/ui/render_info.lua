@@ -8,6 +8,14 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
+-- アイコンと数値を区切って読みやすくする。
+local function format_icon_value(icon, text)
+  if not icon or icon == "" then
+    return text
+  end
+  return string.format("%s %s", icon, text)
+end
+
 -- 表示言語の優先順位を決めて返す。
 local function resolve_language(state, config)
   return (state.ui and state.ui.language) or (config.ui or {}).language or "en"
@@ -17,7 +25,8 @@ end
 local function build_status_line(state, config)
   local actor = state.actor or {}
   local gold = (state.currency or {}).gold or 0
-  local summary = render_stage.build_stage_summary(state.progress or {}, config)
+  local lang = resolve_language(state, config)
+  local summary = render_stage.build_stage_summary(state.progress or {}, config, lang)
   return string.format("%s HP%d/%d Lv%d G%d", summary, actor.hp or 0, actor.max_hp or 0, actor.level or 1, gold)
 end
 
@@ -52,15 +61,27 @@ local function build_scrolling_text(text, max_width, time_sec)
   return table.concat(parts, "")
 end
 
-local function build_move_info_line(state, config)
+-- 移動中の情報を切り替え表示できるように候補をまとめる。
+local function build_move_info_variants(state, lang, icons)
   local actor = state.actor or {}
   local currency = state.currency or {}
-  local parts = render_stage.build_stage_parts(state.progress or {}, config or {})
+  local hp_label = format_icon_value(icons.hp or "", string.format("%d/%d", actor.hp or 0, actor.max_hp or 0))
+  local exp_label = format_icon_value(icons.exp or "", string.format("%d/%d", actor.exp or 0, actor.next_level or 0))
+  local gold_label = format_icon_value(icons.gold or "", string.format("%d", currency.gold or 0))
+  return {
+    string.format("%s %s", hp_label, exp_label),
+    string.format("%s %s", hp_label, gold_label),
+  }
+end
+
+local function build_move_info_line(state, config)
+  local lang = resolve_language(state, config)
+  local parts = render_stage.build_stage_parts(state.progress or {}, config or {}, lang)
   local icons = icon_module.config(config)
-  local hp_label = string.format("%s%d/%d", icons.hp or "", actor.hp or 0, actor.max_hp or 0)
-  local exp_label = string.format("%s%d/%d", icons.exp or "", actor.exp or 0, actor.next_level or 0)
-  local gold_label = string.format("%s%d", icons.gold or "", currency.gold or 0)
-  local info_text = table.concat({ hp_label, exp_label, gold_label }, " ")
+  local variants = build_move_info_variants(state, lang, icons)
+  local time_sec = (state.metrics or {}).time_sec or 0
+  local index = (#variants > 0) and ((math.floor(time_sec / 2) % #variants) + 1) or 1
+  local info_text = variants[index] or ""
   local token = parts.token or ""
   local width = (config.ui or {}).width or 36
   local bracket_prefix = "["
@@ -70,7 +91,6 @@ local function build_move_info_line(state, config)
     + util.display_width(info_text)
     + 1
   local name_width = math.max(width - fixed_width, 1)
-  local time_sec = (state.metrics or {}).time_sec or 0
   -- 長いステージ名は自動でスクロールする。
   local name = build_scrolling_text(parts.name or "stage", name_width, time_sec)
   local label = string.format("%s%s%s", bracket_prefix, name, bracket_suffix)
@@ -93,9 +113,39 @@ local function build_dialogue_info_line(state, lang)
 end
 
 -- 報酬表示の短文を生成する。
-local function build_reward_info_line(config)
+local function resolve_item_name(item, lang)
+  if not item then
+    return ""
+  end
+  if lang == "en" and item.name_en then
+    return item.name_en
+  end
+  return item.name or item.name_en or item.id or ""
+end
+
+-- 報酬表示の短文を生成する。
+local function build_reward_info_line(state, config, lang)
   local reward = config.battle or {}
-  return string.format("+%dexp +%dg", reward.reward_exp or 0, reward.reward_gold or 0)
+  local bonus_gold = (state.combat and state.combat.pending_gold) or 0
+  local reward_gold = (reward.reward_gold or 0) + bonus_gold
+  local base = string.format("+%dexp +%dg", reward.reward_exp or 0, reward_gold)
+  local drop = state.combat and state.combat.pending_drop or nil
+  if not drop or not drop.id then
+    return base
+  end
+  local content = require("idle_dungeon.content")
+  local drop_item = nil
+  for _, item in ipairs(content.items or {}) do
+    if item.id == drop.id then
+      drop_item = item
+      break
+    end
+  end
+  local name = resolve_item_name(drop_item, lang)
+  if name == "" then
+    name = drop.id
+  end
+  return string.format("%s Drop:%s", base, name)
 end
 
 -- 画面下段の情報行をモードに応じて切り替える。
@@ -114,7 +164,7 @@ local function build_info_line(state, config)
     return util.clamp_line(build_dialogue_info_line(state, lang), width)
   end
   if state.ui.mode == "reward" then
-    return util.clamp_line(build_reward_info_line(config), width)
+    return util.clamp_line(build_reward_info_line(state, config, lang), width)
   end
   if state.ui.mode == "defeat" then
     return util.clamp_line("Defeated", width)
@@ -136,7 +186,8 @@ end
 
 -- テキストモード用の状態表示を組み立てる。
 local function build_text_status(state, config)
-  local summary = render_stage.build_stage_summary(state.progress or {}, config)
+  local lang = resolve_language(state, config)
+  local summary = render_stage.build_stage_summary(state.progress or {}, config, lang)
   local mode = state.ui.mode
   local ro_label = state.ui and state.ui.read_only and " RO" or ""
   if mode == "move" then

@@ -5,9 +5,24 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
+-- ステージ名の一致判定を言語表記にも対応させる。
+local function match_stage_name(stage_name, progress_name)
+  if stage_name == progress_name then
+    return true
+  end
+  if type(stage_name) == "table" and type(progress_name) == "string" then
+    for _, name in pairs(stage_name) do
+      if name == progress_name then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function find_stage_index(stages, progress)
   for index, stage in ipairs(stages or {}) do
-    if stage.id == progress.stage_id or stage.name == progress.stage_name then
+    if stage.id == progress.stage_id or match_stage_name(stage.name, progress.stage_name) then
       return index, stage
     end
   end

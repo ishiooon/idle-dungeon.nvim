@@ -85,6 +85,36 @@ local function open_window(height, width, border, theme)
   return win, buf
 end
 
+local function open_window_at(row, col, height, width, border, theme, focusable)
+  -- 任意位置に詳細表示用のウィンドウを作成する。
+  ensure_highlights(theme)
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
+  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
+  vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
+  local enter = focusable == true
+  local win = vim.api.nvim_open_win(buf, enter, {
+    relative = "editor",
+    row = row,
+    col = col,
+    width = width,
+    height = height,
+    style = "minimal",
+    border = border,
+    focusable = focusable == true,
+    noautocmd = true,
+  })
+  vim.api.nvim_set_option_value("wrap", false, { win = win })
+  vim.api.nvim_set_option_value("cursorline", false, { win = win })
+  vim.api.nvim_set_option_value(
+    "winhl",
+    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder",
+    { win = win }
+  )
+  return win, buf
+end
+
 local function ensure_window(win, buf, height, width, border, theme)
   if is_valid_window(win) and is_valid_buffer(buf) then
     return win, buf
@@ -93,9 +123,22 @@ local function ensure_window(win, buf, height, width, border, theme)
   return open_window(height, width, border, theme)
 end
 
+local function ensure_window_at(win, buf, row, col, height, width, border, theme, focusable)
+  if is_valid_window(win) and is_valid_buffer(buf) then
+    return win, buf
+  end
+  -- 既存の表示が無い場合は新規ウィンドウを作る。
+  return open_window_at(row, col, height, width, border, theme, focusable)
+end
+
 local function update_window(win, height, width)
   local row, col = calculate_center(height, width)
   -- 画面サイズ変更に追従して中央位置を更新する。
+  vim.api.nvim_win_set_config(win, { relative = "editor", row = row, col = col, width = width, height = height })
+end
+
+local function update_window_at(win, row, col, height, width)
+  -- 詳細ウィンドウは指定位置を保ったまま更新する。
   vim.api.nvim_win_set_config(win, { relative = "editor", row = row, col = col, width = width, height = height })
 end
 
@@ -142,7 +185,9 @@ local function close_window(win, prev_win)
 end
 
 M.ensure_window = ensure_window
+M.ensure_window_at = ensure_window_at
 M.update_window = update_window
+M.update_window_at = update_window_at
 M.set_lines = set_lines
 M.apply_highlights = apply_highlights
 M.close_window = close_window

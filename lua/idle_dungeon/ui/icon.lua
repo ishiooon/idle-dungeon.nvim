@@ -10,8 +10,10 @@ local function config(config)
     boss = icons.boss or icons.enemy or "",
     separator = icons.separator or ">",
     -- 右下の情報行で使うアイコンをまとめて定義する。
+    -- HPはハートアイコンを既定に戻す。
     hp = icons.hp or "",
-    gold = icons.gold or "",
+    -- ゴールドは別アイコンに置き換えて視認性を上げる。
+    gold = icons.gold or "",
     exp = icons.exp or "",
   }
 end

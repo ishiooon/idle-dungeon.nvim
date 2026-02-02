@@ -85,6 +85,9 @@ local function menu_config(config)
   local screen_height = math.max(safe_lines() - safe_cmdheight() - 4, 10)
   local width = resolve_dimension(menu.width, menu.width_ratio or 0.72, menu.min_width or 72, menu.max_width, screen_width)
   local height = resolve_dimension(menu.height, menu.height_ratio or 0.75, menu.min_height or 24, menu.max_height, screen_height)
+  -- 詳細表示は右側に開くため、メニュー幅とは別に算出する。
+  local detail_width = resolve_dimension(menu.detail_width, menu.detail_width_ratio or 0.3, menu.detail_min_width or 28, menu.detail_max_width, screen_width)
+  local detail_gap = clamp_number(menu.detail_gap or 2, 0, 10)
   return {
     width = width,
     height = height,
@@ -97,6 +100,8 @@ local function menu_config(config)
     section_prefix = menu.section_prefix or "◆ ",
     empty_prefix = menu.empty_prefix or "  · ",
     theme = theme.resolve(config),
+    detail_width = detail_width,
+    detail_gap = detail_gap,
   }
 end
 

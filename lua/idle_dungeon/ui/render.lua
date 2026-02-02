@@ -1,14 +1,12 @@
 -- このモジュールは表示用の文字列を生成する純粋関数を提供する。
 -- 描画関連の参照先はui配下へ統一する。
+local battle_effect = require("idle_dungeon.ui.battle_effect")
 local render_info = require("idle_dungeon.ui.render_info")
 local sprite = require("idle_dungeon.ui.sprite")
 local track = require("idle_dungeon.ui.track")
+local util = require("idle_dungeon.util")
 
 local M = {}
-
-local function join_names(names)
-  return table.concat(names or {}, ",")
-end
 
 local function build_floor_enemies(state, config)
   local enemies = {}
@@ -25,13 +23,18 @@ local function build_floor_enemies(state, config)
   return enemies
 end
 
+
 local function build_track_line(state, config)
   local length = (config.ui or {}).track_length or 18
   local ground = (config.ui or {}).track_fill or "."
   local mode = state.ui.mode == "battle" and "battle" or "move"
   local hero_icon = sprite.build_hero_sprite(state, config, mode)
   local enemies = build_floor_enemies(state, config)
-  local track_line = track.build_track_line(state.progress.distance or 0, length, hero_icon ~= "" and hero_icon or "@", ground, enemies)
+  local track_model = track.build_track(state.progress.distance or 0, length, hero_icon ~= "" and hero_icon or "@", ground, enemies)
+  local track_line = track_model.line
+  if state.ui.mode == "battle" then
+    return battle_effect.apply(track_line, track_model, state, config)
+  end
   return track_line
 end
 
@@ -46,8 +49,11 @@ end
 local function build_text_status(state, config)
   local mode = state.ui.mode
   if mode == "battle" then
-    local label = state.combat and state.combat.enemy.is_boss and "boss" or "enemy"
-    return string.format("[Encountered %s (%s)]", label, join_names(config.enemy_names))
+    local enemy = state.combat and state.combat.enemy or {}
+    local label = enemy.is_boss and "boss" or "enemy"
+    local name = enemy.name or enemy.id or "enemy"
+    -- テキストモードでは現在の敵名を優先して表示する。
+    return string.format("[Encountered %s: %s]", label, name)
   end
   if mode == "reward" then
     return string.format("[Reward exp+%d gold+%d]", config.battle.reward_exp, config.battle.reward_gold)

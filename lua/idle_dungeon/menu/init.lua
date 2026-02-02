@@ -3,6 +3,7 @@
 local actions = require("idle_dungeon.menu.actions")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
+local menu_view = require("idle_dungeon.menu.view")
 local settings = require("idle_dungeon.menu.settings")
 local shop = require("idle_dungeon.menu.shop")
 local tabs_data = require("idle_dungeon.menu.tabs_data")
@@ -11,6 +12,7 @@ local state_module = require("idle_dungeon.core.state")
 local tabs_view = require("idle_dungeon.menu.tabs_view")
 local M = {}
 local menu_open = false
+local open_status_root
 -- 状態に応じてラベルが変わる項目を整形する。
 local function format_item_with_state(item, get_state, lang)
   local state = get_state()
@@ -29,13 +31,18 @@ local function handle_action_choice(action, get_state, set_state, config, lang)
     return
   end
   if action.id == "equip" then
-    return actions.open_equip_menu(get_state, set_state, config)
+    -- 装備メニューのキャンセル時に状態画面へ戻す。
+    return actions.open_equip_menu(get_state, set_state, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "stage" then
     return actions.open_stage_menu(get_state, set_state, config)
   end
   if action.id == "purchase" then
-    return shop.open_purchase_menu(get_state, set_state, lang, config)
+    return shop.open_purchase_menu(get_state, set_state, lang, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "sell" then
     return shop.open_sell_menu(get_state, set_state, lang, config)
@@ -105,8 +112,24 @@ local function build_tabs(get_state, set_state, config)
       id = "dex",
       label = i18n.t("menu_tab_dex", lang),
       items = tabs_data.build_dex_items(state, config, lang),
+      layout = "grid",
       format_item = function(item)
         return item.label
+      end,
+      format_tile = function(item)
+        return item.tile_label or item.label
+      end,
+      on_choice = function(item)
+        if not item or item.id ~= "dex_entry" then
+          return
+        end
+        -- 図鑑タイルの詳細表示を開く。
+        menu_view.select(item.detail_lines or {}, {
+          prompt = item.detail_title or "",
+          format_item = function(line)
+            return line
+          end,
+        }, function() end, config)
       end,
     },
     {
@@ -119,7 +142,8 @@ local function build_tabs(get_state, set_state, config)
     },
   }
 end
-local function open_status_root(get_state, set_state, config)
+-- メニューの最初のページを再表示するための入口を用意する。
+open_status_root = function(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local tabs = build_tabs(get_state, set_state, config)
   -- メニューの最初のページは状態詳細として表示する。

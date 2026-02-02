@@ -13,6 +13,8 @@ local function open_language_menu(get_state, set_state, config)
   -- 言語選択のメニューを表示する。
   menu_view.select(languages, {
     prompt = i18n.t("prompt_language", lang),
+    -- 言語を選んでも閉じず、連続操作できるようにする。
+    keep_open = true,
     format_item = function(item)
       return i18n.language_label(item, lang)
     end,

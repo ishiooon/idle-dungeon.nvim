@@ -24,10 +24,14 @@ local function default_ui()
       boss = "",
       separator = ">",
       -- 右下の情報表示に使うアイコンを追加する。
+      -- HPはハートアイコンに戻し、数値と重ならないように余白を付けて使う。
       hp = "",
-      gold = "",
+      -- ゴールドは別アイコンに置き換えて視認性を上げる。
+      gold = "",
       exp = "",
     },
+    -- 戦闘中に進行トラックへ表示する演出記号を定義する。
+    battle_effects = { "*", "+", "x" },
     -- 表示はアイコンを優先し、文字スプライトは補助扱いにする。
     icons_only = true,
     -- スプライトの色味をキャラクターや敵ごとに定義する。
@@ -89,6 +93,11 @@ local function default_ui()
       padding = 2,
       border = "rounded",
       tabs_position = "top",
+      -- 右側に詳細表示を開くための幅と余白を定義する。
+      detail_width_ratio = 0.3,
+      detail_min_width = 28,
+      detail_max_width = 56,
+      detail_gap = 2,
       -- タブ表示のスタイルを調整する。
       tabs = {
         separator = " │ ",

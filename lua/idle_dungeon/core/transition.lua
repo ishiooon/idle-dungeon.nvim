@@ -51,10 +51,20 @@ end
 -- 移動中の進行を計算して次状態へ進める。
 local function tick_move(state, config)
   local intro_state, intro_event_id = story.apply_stage_intro(state, state.progress)
+  -- 進行中の階層状態を確実に生成してから移動距離を計算する。
+  local base_progress = floor_state.refresh(intro_state.progress, config)
   local base_state = intro_state
   local move_step = config.move_step or 1
-  local next_distance = base_state.progress.distance + move_step
-  local progress = util.merge_tables(base_state.progress, { distance = next_distance })
+  local next_distance = base_progress.distance + move_step
+  local floor_length = floor_progress.resolve_floor_length(config)
+  local enemy_spec, enemy_distance = floor_state.find_enemy_in_path(base_progress, floor_length, base_progress.distance, next_distance)
+  if enemy_spec then
+    -- 移動量が大きい場合でも敵に遭遇したら必ず戦闘を開始する。
+    local progress_for_battle = util.merge_tables(base_progress, { distance = enemy_distance })
+    local enemy = battle.build_enemy(enemy_distance, config, enemy_spec)
+    return start_battle(base_state, progress_for_battle, enemy, enemy_spec)
+  end
+  local progress = util.merge_tables(base_progress, { distance = next_distance })
   local advanced_progress, advanced = stage_progress.advance_if_needed(progress, config)
   if advanced then
     -- ステージ終端に達した場合は次のステージ情報へ切り替える。
@@ -89,14 +99,6 @@ local function tick_move(state, config)
     local enemy = battle.build_enemy(next_distance, config, boss_spec)
     local boss_progress = floor_state.clear_boss_pending(refreshed)
     return start_battle(base_state, boss_progress, enemy, boss_spec)
-  end
-  local floor_length = floor_progress.resolve_floor_length(config)
-  local floor_step = floor_progress.floor_step(next_distance, floor_length)
-  local enemy_spec = floor_state.find_enemy_ahead(refreshed, floor_step)
-  if enemy_spec then
-    -- 階層内の敵が目前に来たら戦闘へ切り替える。
-    local enemy = battle.build_enemy(next_distance, config, enemy_spec)
-    return start_battle(base_state, refreshed, enemy, enemy_spec)
   end
   local floor_enabled = (config.floor_encounters or {}).enabled ~= false
   if not floor_enabled then

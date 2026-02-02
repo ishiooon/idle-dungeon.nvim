@@ -27,6 +27,9 @@ assert_equal(line2, "1 Status │ [2 Actions] │ 3 Config", "中間タブが強
 local line3 = tabs.build_tabs_line(items, 3)
 assert_equal(line3, "1 Status │ 2 Actions │ [3 Config]", "末尾タブが強調表示される")
 
+local segments = tabs.build_tabs_segments(items, 2)
+assert_equal(#segments, 3, "タブのクリック領域が3件生成される")
+
 assert_equal(tabs.shift_index(1, 1, 3), 2, "右方向の移動が反映される")
 assert_equal(tabs.shift_index(3, 1, 3), 1, "末尾から先頭へ循環する")
 assert_equal(tabs.shift_index(1, -1, 3), 3, "先頭から末尾へ循環する")

@@ -60,6 +60,8 @@ local function build_enemy(distance, config, enemy_spec)
     def = base_def + math.floor(growth / 3),
     accuracy = stats.accuracy,
     is_boss = enemy_spec and enemy_spec.is_boss or false,
+    -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。
+    drops = enemy_data.drops,
   }
 end
 
