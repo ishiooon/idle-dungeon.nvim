@@ -35,10 +35,14 @@ local function render()
   local height = math.max(#built.lines, 1)
   local width = math.min(built.width, max_width)
   -- 画面中央のメニュー表示を更新する。
-  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border)
+  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border, config.theme)
   window.update_window(win, height, width)
   window.set_lines(buf, built.lines)
-  window.apply_highlights(buf, title ~= "" and 1 or nil)
+  if title ~= "" then
+    window.apply_highlights(buf, { { line = 1, group = "IdleDungeonMenuTitle" } })
+  else
+    window.apply_highlights(buf, nil)
+  end
   if ui_state.selected > 0 then
     local line = built.items_start + (ui_state.selected - built.offset) - 1
     vim.api.nvim_win_set_cursor(win, { math.max(line, 1), 0 })

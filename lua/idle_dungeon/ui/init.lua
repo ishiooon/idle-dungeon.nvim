@@ -1,12 +1,12 @@
 -- このモジュールはNeovimの右下に表示するための処理を担当する。
 -- 描画関連の参照先はui配下に統一する。
-local image_sprites = require("idle_dungeon.ui.image_sprites")
+local click = require("idle_dungeon.ui.click")
 local render = require("idle_dungeon.ui.render")
 local sprite_highlight = require("idle_dungeon.ui.sprite_highlight")
 
 local M = {}
 
-local ui_state = { buf = nil, win = nil, on_click = nil }
+local ui_state = { buf = nil, win = nil, on_click = nil, prev_win = nil }
 local highlight_ns = vim.api.nvim_create_namespace("IdleDungeonSprites")
 
 local function is_valid_window(win)
@@ -56,7 +56,7 @@ local function ensure_window(height, width)
     width = width,
     height = height,
     style = "minimal",
-    focusable = false,
+    focusable = true,
     noautocmd = true,
   })
   vim.api.nvim_set_option_value("wrap", false, { win = win })
@@ -66,13 +66,26 @@ local function ensure_window(height, width)
   if ui_state.on_click then
     -- 左クリックでメニューを開くためのバッファローカルマッピングを設定する。
     vim.keymap.set("n", "<LeftMouse>", function()
+      local mousepos = vim.fn.getmousepos()
+      if not click.is_click_on_ui(mousepos, ui_state.win) then
+        return
+      end
       ui_state.on_click()
+      if is_valid_window(ui_state.prev_win) and vim.api.nvim_get_current_win() == ui_state.win then
+        -- 表示側にフォーカスが残る場合は直前のウィンドウへ戻す。
+        vim.api.nvim_set_current_win(ui_state.prev_win)
+      end
     end, { buffer = buf, silent = true, nowait = true })
   end
   return win, buf
 end
 
 local function render_ui(state, config)
+  local current_win = vim.api.nvim_get_current_win()
+  if current_win ~= ui_state.win then
+    -- 直前の作業ウィンドウを記録してクリック後の復帰に使う。
+    ui_state.prev_win = current_win
+  end
   local max_height = math.min((config.ui or {}).max_height or 2, 2)
   local preferred_height = (config.ui or {}).height or max_height
   -- 表示行数は設定の希望値を優先し、最大2行までに制限する。
@@ -88,20 +101,19 @@ local function render_ui(state, config)
   vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
-  -- ハイライトと画像スプライトの描画を更新する。
+  -- ハイライトは維持し、画像スプライトは廃止する。
   local highlights = sprite_highlight.build(state, config, lines)
   sprite_highlight.apply(buf, highlight_ns, highlights, config)
-  image_sprites.render(state, config, buf)
 end
 
 local function close()
   if is_valid_window(ui_state.win) then
     -- 表示を終了するためにウィンドウを閉じる。
-    image_sprites.clear(ui_state.buf)
     vim.api.nvim_win_close(ui_state.win, true)
   end
   ui_state.win = nil
   ui_state.buf = nil
+  ui_state.prev_win = nil
 end
 
 local function set_on_click(callback)
@@ -109,7 +121,15 @@ local function set_on_click(callback)
   if is_valid_buffer(ui_state.buf) and callback then
     -- 既存の表示がある場合はクリック用マッピングを再設定する。
     vim.keymap.set("n", "<LeftMouse>", function()
+      local mousepos = vim.fn.getmousepos()
+      if not click.is_click_on_ui(mousepos, ui_state.win) then
+        return
+      end
       ui_state.on_click()
+      if is_valid_window(ui_state.prev_win) and vim.api.nvim_get_current_win() == ui_state.win then
+        -- 表示側にフォーカスが残る場合は直前のウィンドウへ戻す。
+        vim.api.nvim_set_current_win(ui_state.prev_win)
+      end
     end, { buffer = ui_state.buf, silent = true, nowait = true })
   end
 end

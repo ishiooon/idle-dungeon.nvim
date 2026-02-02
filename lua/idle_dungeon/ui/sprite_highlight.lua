@@ -15,10 +15,15 @@ local function palette_key_for_actor(state)
   return character and character.sprite_palette or "default_hero"
 end
 
-local function palette_key_for_enemy(state)
-  local enemy = state.combat and state.combat.enemy or {}
+local function palette_key_for_enemy_instance(enemy)
+  if not enemy then
+    return "default_enemy"
+  end
   if enemy.is_boss then
     return "boss"
+  end
+  if enemy.element and enemy.element ~= "" then
+    return "element_" .. enemy.element
   end
   local enemy_data = catalog.find_enemy(enemy.id or enemy.name)
   return enemy_data and enemy_data.sprite_palette or "default_enemy"
@@ -26,6 +31,22 @@ end
 
 local function group_name(key)
   return "IdleDungeonSprite_" .. key
+end
+
+local function build_floor_enemies(state, config)
+  local enemies = {}
+  for _, enemy in ipairs((state.progress or {}).floor_enemies or {}) do
+    if not enemy.defeated then
+      table.insert(enemies, {
+        position = enemy.position,
+        icon = sprite.build_floor_enemy_icon(enemy, config),
+        id = enemy.id,
+        element = enemy.element,
+        is_boss = enemy.is_boss,
+      })
+    end
+  end
+  return enemies
 end
 
 local function build_track_highlights(state, config, line, settings)
@@ -40,20 +61,25 @@ local function build_track_highlights(state, config, line, settings)
   if hero == "" then
     return {}
   end
-  local highlights = {}
-  if mode == "battle" then
-    local hero_start = 1
-    local enemy = settings.show_enemy_on_track and sprite.build_enemy_sprite(state, config, "battle") or ""
-    if enemy ~= "" then
-      local enemy_start = hero_start + #hero + 1
-      table.insert(highlights, { line = 0, start_col = hero_start, end_col = hero_start + #hero, palette = palette_key_for_actor(state) })
-      table.insert(highlights, { line = 0, start_col = enemy_start, end_col = enemy_start + #enemy, palette = palette_key_for_enemy(state) })
-      return highlights
-    end
-  end
   local length = (config.ui or {}).track_length or 18
-  local position = track.calculate_position(state.progress.distance or 0, length, #hero)
-  table.insert(highlights, { line = 0, start_col = position, end_col = position + #hero, palette = palette_key_for_actor(state) })
+  local ground = (config.ui or {}).track_fill or "."
+  local enemies = settings.show_enemy_on_track and build_floor_enemies(state, config) or {}
+  local track_model = track.build_track(state.progress.distance or 0, length, hero, ground, enemies)
+  local offsets = track_model.offsets or {}
+  local highlights = {}
+  local hero_start = offsets[track_model.hero.position] or 0
+  local hero_end = offsets[track_model.hero.position + track_model.hero.width] or #track_model.line
+  table.insert(highlights, { line = 0, start_col = hero_start, end_col = hero_end, palette = palette_key_for_actor(state) })
+  for _, enemy in ipairs(track_model.enemies or {}) do
+    local start_col = offsets[enemy.position] or 0
+    local end_col = offsets[enemy.position + enemy.width] or #track_model.line
+    table.insert(highlights, {
+      line = 0,
+      start_col = start_col,
+      end_col = end_col,
+      palette = palette_key_for_enemy_instance(enemy.enemy),
+    })
+  end
   return highlights
 end
 

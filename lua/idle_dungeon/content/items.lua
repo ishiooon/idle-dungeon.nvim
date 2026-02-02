@@ -3,14 +3,15 @@
 local M = {}
 
 -- 図鑑表示に使う英語名とフレーバーテキストも定義する。
+-- 武器の属性タイプはelementで定義する。
 M.items = {
-  { id = "wood_sword", name = "木の剣", name_en = "Wooden Sword", slot = "weapon", atk = 1, price = 5, flavor = { en = "A starter blade that smells faintly of forest rain.", ja = "森の雨の匂いが残る初心者向けの木剣。" } },
-  { id = "round_shield", name = "丸盾", name_en = "Round Shield", slot = "weapon", def = 1, price = 6, flavor = { en = "A sturdy circle that never looks away from danger.", ja = "危険から目を逸らさない堅実な円盾。" } },
-  { id = "typing_blade", name = "タイピングブレード", name_en = "Typing Blade", slot = "weapon", atk = 3, price = 20, flavor = { en = "Each keystroke sharpens its edge just a little more.", ja = "キーを叩くたびに刃が僅かに研ぎ澄まされる。" } },
-  { id = "save_hammer", name = "連続保存の槌", name_en = "Save Hammer", slot = "weapon", atk = 4, price = 35, flavor = { en = "A heavy hammer that leaves save marks on the ground.", ja = "地面に保存の刻印を残す重たい槌。" } },
-  { id = "short_spell_staff", name = "短い詠唱の杖", name_en = "Short Spell Staff", slot = "weapon", atk = 2, price = 25, flavor = { en = "Built for quick chants and even quicker escapes.", ja = "短い詠唱と素早い撤退のための杖。" } },
-  { id = "short_bow", name = "近距離弓", name_en = "Short Bow", slot = "weapon", atk = 2, price = 12, flavor = { en = "A compact bow that thrives in narrow corridors.", ja = "狭い通路で真価を発揮する小型の弓。" } },
-  { id = "sand_staff", name = "砂の杖", name_en = "Sand Staff", slot = "weapon", atk = 2, price = 14, flavor = { en = "A faint grit follows its swings, blinding foes briefly.", ja = "振るうたびに微かな砂が舞い、敵の視界を曇らせる。" } },
+  { id = "wood_sword", name = "木の剣", name_en = "Wooden Sword", slot = "weapon", atk = 1, element = "grass", price = 5, flavor = { en = "A starter blade that smells faintly of forest rain.", ja = "森の雨の匂いが残る初心者向けの木剣。" } },
+  { id = "round_shield", name = "丸盾", name_en = "Round Shield", slot = "weapon", def = 1, element = "normal", price = 6, flavor = { en = "A sturdy circle that never looks away from danger.", ja = "危険から目を逸らさない堅実な円盾。" } },
+  { id = "typing_blade", name = "タイピングブレード", name_en = "Typing Blade", slot = "weapon", atk = 3, element = "light", price = 20, flavor = { en = "Each keystroke sharpens its edge just a little more.", ja = "キーを叩くたびに刃が僅かに研ぎ澄まされる。" } },
+  { id = "save_hammer", name = "連続保存の槌", name_en = "Save Hammer", slot = "weapon", atk = 4, element = "dark", price = 35, flavor = { en = "A heavy hammer that leaves save marks on the ground.", ja = "地面に保存の刻印を残す重たい槌。" } },
+  { id = "short_spell_staff", name = "短い詠唱の杖", name_en = "Short Spell Staff", slot = "weapon", atk = 2, element = "fire", price = 25, flavor = { en = "Built for quick chants and even quicker escapes.", ja = "短い詠唱と素早い撤退のための杖。" } },
+  { id = "short_bow", name = "近距離弓", name_en = "Short Bow", slot = "weapon", atk = 2, element = "water", price = 12, flavor = { en = "A compact bow that thrives in narrow corridors.", ja = "狭い通路で真価を発揮する小型の弓。" } },
+  { id = "sand_staff", name = "砂の杖", name_en = "Sand Staff", slot = "weapon", atk = 2, element = "normal", price = 14, flavor = { en = "A faint grit follows its swings, blinding foes briefly.", ja = "振るうたびに微かな砂が舞い、敵の視界を曇らせる。" } },
   { id = "cloth_armor", name = "布の上着", name_en = "Cloth Armor", slot = "armor", def = 1, price = 5, flavor = { en = "Light and flexible, it favors speed over pride.", ja = "軽くしなやかで、誇りよりも速度を選ぶ。" } },
   { id = "leather_armor", name = "革の上着", name_en = "Leather Armor", slot = "armor", def = 2, price = 10, flavor = { en = "Softened by long travel, it moves with the wearer.", ja = "長旅で柔らかくなり、身体の動きに寄り添う。" } },
   { id = "thick_cloak", name = "厚手の外套", name_en = "Thick Cloak", slot = "armor", def = 2, price = 12, flavor = { en = "A cloak that feels like a small campfire on cold floors.", ja = "冷たい床でも小さな焚き火のように温かい外套。" } },

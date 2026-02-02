@@ -2,6 +2,15 @@
 
 local M = {}
 
+-- タブ表示の既定スタイルを定義して統一感を保つ。
+local DEFAULT_STYLE = {
+  separator = " │ ",
+  active_prefix = "[",
+  active_suffix = "]",
+  show_index = true,
+  icons = {},
+}
+
 local function resolve_label(tab, index)
   if type(tab) == "table" then
     return tab.label or tab.id or tostring(index)
@@ -9,16 +18,46 @@ local function resolve_label(tab, index)
   return tostring(tab)
 end
 
-local function build_tabs_line(tabs, active_index)
+local function resolve_style(style)
+  local merged = {}
+  for key, value in pairs(DEFAULT_STYLE) do
+    merged[key] = value
+  end
+  for key, value in pairs(style or {}) do
+    merged[key] = value
+  end
+  return merged
+end
+
+local function build_tab_label(tab, index, style, is_active)
+  local label = resolve_label(tab, index)
+  local icon = ""
+  if type(tab) == "table" and tab.id and style.icons and style.icons[tab.id] then
+    icon = style.icons[tab.id]
+  end
+  local parts = {}
+  if style.show_index then
+    table.insert(parts, tostring(index))
+  end
+  if icon ~= "" then
+    table.insert(parts, icon)
+  end
+  table.insert(parts, label)
+  local joined = table.concat(parts, " ")
+  if is_active then
+    return string.format("%s%s%s", style.active_prefix, joined, style.active_suffix)
+  end
+  return joined
+end
+
+local function build_tabs_line(tabs, active_index, style)
+  local resolved = resolve_style(style)
   local labels = {}
   for index, tab in ipairs(tabs or {}) do
-    local label = resolve_label(tab, index)
-    if index == active_index then
-      label = string.format("[%s]", label)
-    end
+    local label = build_tab_label(tab, index, resolved, index == active_index)
     table.insert(labels, label)
   end
-  return table.concat(labels, " | ")
+  return table.concat(labels, resolved.separator or " ")
 end
 
 local function shift_index(current, delta, total)

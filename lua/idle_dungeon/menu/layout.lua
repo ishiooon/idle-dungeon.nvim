@@ -55,10 +55,11 @@ local function build_lines(title, labels, options)
   end
   local items_count = #view_labels
   local width = 0
+  -- 表示幅はマルチバイト文字も考慮して計算する。
   for index, line in ipairs(lines) do
     local clamped = util.clamp_line(line, opts.max_width)
     lines[index] = clamped
-    width = math.max(width, #clamped)
+    width = math.max(width, util.display_width(clamped))
   end
   return {
     lines = lines,

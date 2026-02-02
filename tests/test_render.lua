@@ -13,6 +13,12 @@ local function assert_true(value, message)
   end
 end
 
+local function assert_not_match(text, pattern, message)
+  if text:match(pattern) then
+    error((message or "assert_not_match failed") .. ": " .. tostring(text) .. " =~ " .. pattern)
+  end
+end
+
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local state = require("idle_dungeon.core.state")
@@ -29,17 +35,26 @@ local config = {
   enemy_names = { "a", "b", "c" },
   battle = { enemy_hp = 3, enemy_atk = 0, reward_exp = 1, reward_gold = 1 },
   event_distances = {},
-  ui = { track_length = 12, width = 36, max_height = 2, height = 2 },
+  ui = {
+    track_length = 12,
+    width = 36,
+    max_height = 2,
+    height = 2,
+    -- 画面右下の情報行で使うアイコンを明示的に指定する。
+    icons = { hero = "H", hp = "", gold = "", exp = "" },
+  },
 }
 
 local st0 = state.new_state(config)
 local lines_visual = render.build_lines(st0, config)
 -- 可視モードでは進行状況が表示される。
-assert_match(lines_visual[1], "d1%-1", "可視モードに短縮ステージ名が入る")
+assert_match(lines_visual[1], "H", "可視モードに勇者アイコンが入る")
+assert_not_match(lines_visual[1], "o_o", "可視モードにペットの文字列が含まれない")
 assert_true(#lines_visual == 2, "可視モードは2行表示が既定である")
 assert_true(#lines_visual <= 2, "表示行数は最大2行に収まる")
-assert_match(lines_visual[2], "HP", "可視モードに体力が表示される")
-assert_match(lines_visual[2], "Lv", "可視モードにレベルが表示される")
+assert_match(lines_visual[2], "", "可視モードに体力アイコンが表示される")
+assert_match(lines_visual[2], "", "可視モードに経験値アイコンが表示される")
+assert_match(lines_visual[2], "", "可視モードにゴールドアイコンが表示される")
 
 local st1 = state.set_render_mode(st0, "text")
 local lines_text = render.build_lines(st1, config)
@@ -47,7 +62,7 @@ assert_match(lines_text[1], "%[Walking", "テキストモードでは歩行表�
 assert_match(lines_text[1], "d1%-1", "テキストモードに短縮ステージ名が入る")
 assert_true(#lines_text <= 2, "テキストモードでも最大2行に収まる")
 if lines_text[2] then
-  assert_match(lines_text[2], "HP", "テキストモードに体力が表示される")
+  assert_match(lines_text[2], "", "テキストモードに体力アイコンが表示される")
 end
 
 print("OK")

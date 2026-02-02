@@ -11,6 +11,11 @@ local function find_event_by_id(event_id)
       return event
     end
   end
+  for _, event in ipairs(content.stage_intros or {}) do
+    if event.id == event_id then
+      return event
+    end
+  end
   return nil
 end
 

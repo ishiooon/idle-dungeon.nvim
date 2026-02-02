@@ -31,8 +31,12 @@ local function record_item(dex, item_id, count, time_sec)
   return record_entry(dex, "items", item_id, count, time_sec)
 end
 
-local function record_enemy(dex, enemy_id, time_sec)
-  return record_entry(dex, "enemies", enemy_id, 1, time_sec)
+local function record_enemy(dex, enemy_id, element, time_sec)
+  local key = enemy_id
+  if element and element ~= "" then
+    key = enemy_id .. ":" .. element
+  end
+  return record_entry(dex, "enemies", key, 1, time_sec)
 end
 
 M.new_dex = new_dex

@@ -17,14 +17,15 @@ local items = {
   { label = "Config" },
 }
 
+-- タブの番号表示と区切り記号が含まれることを確認する。
 local line1 = tabs.build_tabs_line(items, 1)
-assert_equal(line1, "[Status] | Actions | Config", "先頭タブが強調表示される")
+assert_equal(line1, "[1 Status] │ 2 Actions │ 3 Config", "先頭タブが強調表示される")
 
 local line2 = tabs.build_tabs_line(items, 2)
-assert_equal(line2, "Status | [Actions] | Config", "中間タブが強調表示される")
+assert_equal(line2, "1 Status │ [2 Actions] │ 3 Config", "中間タブが強調表示される")
 
 local line3 = tabs.build_tabs_line(items, 3)
-assert_equal(line3, "Status | Actions | [Config]", "末尾タブが強調表示される")
+assert_equal(line3, "1 Status │ 2 Actions │ [3 Config]", "末尾タブが強調表示される")
 
 assert_equal(tabs.shift_index(1, 1, 3), 2, "右方向の移動が反映される")
 assert_equal(tabs.shift_index(3, 1, 3), 1, "末尾から先頭へ循環する")

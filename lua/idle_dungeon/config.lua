@@ -1,6 +1,9 @@
 -- このモジュールは設定の既定値と結合処理を提供する。
 
 local content = require("idle_dungeon.content")
+local stage_defaults = require("idle_dungeon.config.stages")
+local ui_defaults = require("idle_dungeon.config.ui")
+local floor_progress = require("idle_dungeon.game.floor.progress")
 local util = require("idle_dungeon.util")
 
 local M = {}
@@ -20,25 +23,36 @@ end
 local function default_config()
   return {
     tick_seconds = 1,
-    move_step = 1,
+    -- 進行テンポを上げるため、1ティックで進む距離を増やす。
+    move_step = 2,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。
     dialogue_seconds = 0,
-    -- 左から右までの歩幅を1階層として扱う。
-    floor_length = 18,
+    -- 左から右までの歩幅を1階層として扱い、既定は短めに整える。
+    floor_length = 32,
     -- 階層ごとの遭遇数を1〜5体で設定する。
     floor_encounters = { min = 1, max = 5 },
     -- ボスは10階層ごとに出現する。
     boss_every = 10,
-    stage_name = "dungeon1-1",
-    stages = {
-      { id = 1, name = "dungeon1-1", start = 0, floors = 14, boss_every = 10 },
-      { id = 2, name = "dungeon1-2", start = 0, floors = 15, boss_every = 10 },
-      -- 無限に進み続けるラストダンジョンの設定。
-      { id = 3, name = "last-dungeon", start = 0, infinite = true, boss_every = 10 },
-    },
+    stage_name = "dungeon1",
+    stages = stage_defaults.default_stages(),
     -- 図鑑と連携するため、敵のIDを指定する。
-    enemy_names = { "dust_slime", "cave_bat", "moss_goblin" },
+    -- 敵の種類を増やしたため、初期候補を広めに設定する。
+    enemy_names = {
+      "dust_slime",
+      "cave_bat",
+      "moss_goblin",
+      "frost_penguin",
+      "php_elephant",
+      "ember_wisp",
+      "dbeaver",
+      "tidal_urchin",
+      "go_gopher",
+      "python_serpent",
+      "shade_wraith",
+      "rust_crab",
+    },
+    elements = { "normal", "fire", "water", "grass", "light", "dark" },
     battle = { enemy_hp = 6, enemy_atk = 1, reward_exp = 2, reward_gold = 2 },
     storage = {
       -- ユーザー共通の保存を前提とするため、短い同期間隔を既定にする。
@@ -47,69 +61,7 @@ local function default_config()
       lock_ttl_seconds = 180,
     },
     event_distances = build_event_distances(),
-    ui = {
-      width = 36,
-      -- 表示は1行を既定とし、最大2行に制限する。
-      height = 1,
-      max_height = 2,
-      track_length = 18,
-      render_mode = "visual",
-      auto_start = true,
-      language = "en",
-      languages = { "en", "ja" },
-      -- 進行トラックの埋め文字を指定する。
-      track_fill = ".",
-      -- 表示に使うアイコンを定義する。
-      icons = {
-        hero = "",
-        enemy = "",
-        boss = "",
-        separator = ">",
-      },
-      -- スプライトの色味をキャラクターや敵ごとに定義する。
-      sprite_palette = {
-        default_hero = { fg = "#B7E5FF" },
-        default_enemy = { fg = "#FFD6D6" },
-        boss = { fg = "#FF6B6B" },
-        recorder = { fg = "#A8E5FF" },
-        guardian = { fg = "#D8D8D8" },
-        hunter = { fg = "#C7FF9A" },
-        alchemist = { fg = "#F3C2FF" },
-        dust_slime = { fg = "#FFD18A" },
-        cave_bat = { fg = "#B7A7FF" },
-        moss_goblin = { fg = "#A4FFB5" },
-      },
-      -- 勇者と敵のドットスプライト表示を設定する。
-      sprites = {
-        enabled = true,
-        frame_seconds = 1,
-        show_hero_on_track = true,
-        show_enemy_on_track = true,
-      },
-      -- 画像スプライトはオプションで有効化する。
-      image_sprites = {
-        enabled = false,
-        backend = "kitty",
-        asset_dir = "assets/idle_dungeon/sprites",
-        frame_seconds = 1,
-        rows = 1,
-        cols = 4,
-        opacity = 1,
-        row_offset = 0,
-        col_offset = 0,
-        show_hero = true,
-        show_enemy = true,
-        boss = { "enemy_boss_idle_1.png", "enemy_boss_battle.png" },
-      },
-      -- 中央メニューの表示設定をまとめる。
-      menu = {
-        width = 72,
-        max_height = 22,
-        padding = 1,
-        border = "single",
-        tabs_position = "top",
-      },
-    },
+    ui = ui_defaults.default_ui(),
     unlock_rules = {
       { id = "typing_blade", target = "items", kind = "chars", value = 200 },
       { id = "save_hammer", target = "items", kind = "saves", value = 10 },
@@ -119,6 +71,27 @@ local function default_config()
       { id = "wind_bird", target = "items", kind = "time_sec", value = 900 },
     },
   }
+end
+
+-- ステージの開始距離を階層数から計算して埋める。
+local function apply_stage_starts(stages, config)
+  local result = {}
+  local cursor = 0
+  local floor_length = floor_progress.resolve_floor_length(config)
+  for _, stage in ipairs(stages or {}) do
+    local next_stage = util.merge_tables(stage, {})
+    if next_stage.start == nil then
+      next_stage.start = cursor
+    end
+    local length = floor_progress.stage_length_steps(next_stage, floor_length)
+    if length and not next_stage.infinite then
+      cursor = next_stage.start + length
+    else
+      cursor = next_stage.start
+    end
+    table.insert(result, next_stage)
+  end
+  return result
 end
 
 -- 利用者の設定を安全に統合して新しい設定を返す。
@@ -133,6 +106,8 @@ local function build(user_config)
   if not merged.event_distances or #merged.event_distances == 0 then
     merged.event_distances = build_event_distances()
   end
+  -- ステージ開始距離を自動補完する。
+  merged.stages = apply_stage_starts(merged.stages or {}, merged)
   return merged
 end
 

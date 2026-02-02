@@ -1,6 +1,7 @@
 -- このモジュールは図鑑表示用の整形を純粋関数として提供する。
 
 local content = require("idle_dungeon.content")
+local element = require("idle_dungeon.game.element")
 
 local M = {}
 
@@ -23,6 +24,21 @@ local function resolve_name(entry, lang)
   return resolve_text(entry.name, lang) ~= "" and resolve_text(entry.name, lang) or (entry.id or "")
 end
 
+local function resolve_icon(entry)
+  return entry and entry.icon or ""
+end
+
+local function split_enemy_key(entry_id)
+  if not entry_id then
+    return nil, nil
+  end
+  local base, element_id = entry_id:match("^([^:]+):(.+)$")
+  if base then
+    return base, element_id
+  end
+  return entry_id, nil
+end
+
 -- IDで参照できるように一覧をマップ化する。
 local function build_map(entries)
   local map = {}
@@ -33,24 +49,38 @@ local function build_map(entries)
 end
 
 -- 図鑑で表示する1行の文を組み立てる。
-local function build_entry_line(name, count, flavor)
+local function build_entry_line(name, count, flavor, icon_text, element_label)
   local safe_name = name ~= "" and name or "Unknown"
   local suffix = string.format(" x%d", count or 0)
+  local icon = icon_text and icon_text ~= "" and (icon_text .. " ") or ""
+  local element_text = element_label and element_label ~= "" and ("[" .. element_label .. "] ") or ""
   if flavor ~= "" then
-    return string.format("%s%s - %s", safe_name, suffix, flavor)
+    return string.format("%s%s%s%s - %s", icon, element_text, safe_name, suffix, flavor)
   end
-  return string.format("%s%s", safe_name, suffix)
+  return string.format("%s%s%s%s", icon, element_text, safe_name, suffix)
 end
 
 -- 図鑑に記録済みの対象だけを整形して返す。
-local function build_lines(dex_entries, source_entries, lang)
+local function build_lines(dex_entries, source_entries, lang, kind)
   local map = build_map(source_entries)
   local lines = {}
   for entry_id, info in pairs(dex_entries or {}) do
-    local source = map[entry_id] or { id = entry_id, name = entry_id }
+    local base_id, element_id = split_enemy_key(entry_id)
+    local source = map[base_id or entry_id] or { id = base_id or entry_id, name = base_id or entry_id }
     local name = resolve_name(source, lang)
     local flavor = resolve_text(source.flavor, lang)
-    table.insert(lines, { sort_key = name, line = build_entry_line(name, info.count or 0, flavor) })
+    local icon_text = resolve_icon(source)
+    local element_label = nil
+    if kind == "enemy" and element_id then
+      element_label = element.label(element_id, lang)
+    end
+    if kind == "item" and source.element then
+      element_label = element.label(source.element, lang)
+    end
+    table.insert(lines, {
+      sort_key = name .. (element_label or ""),
+      line = build_entry_line(name, info.count or 0, flavor, icon_text, element_label),
+    })
   end
   table.sort(lines, function(a, b)
     return a.sort_key < b.sort_key
@@ -63,11 +93,11 @@ local function build_lines(dex_entries, source_entries, lang)
 end
 
 local function build_enemy_lines(state, lang)
-  return build_lines((state.dex or {}).enemies or {}, content.enemies or {}, lang)
+  return build_lines((state.dex or {}).enemies or {}, content.enemies or {}, lang, "enemy")
 end
 
 local function build_item_lines(state, lang)
-  return build_lines((state.dex or {}).items or {}, content.items or {}, lang)
+  return build_lines((state.dex or {}).items or {}, content.items or {}, lang, "item")
 end
 
 M.build_enemy_lines = build_enemy_lines

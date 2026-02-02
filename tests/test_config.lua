@@ -11,6 +11,10 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 local config = require("idle_dungeon.config")
 
 local built = config.build({})
+local stages = built.stages or {}
+assert_true(#stages == 8, "ステージ数は8である")
+assert_true(stages[1].id == 1, "ステージ1のIDが1である")
+assert_true(stages[8].id == 8, "ステージ8のIDが8である")
 local infinite_stage = nil
 for _, stage in ipairs(built.stages or {}) do
   if stage.infinite then
@@ -29,8 +33,10 @@ assert_true(type(built.ui) == "table", "表示設定が定義される")
 assert_true(built.ui.language == "en", "既定言語は英語である")
 assert_true(type(built.ui.languages) == "table", "言語一覧が定義される")
 assert_true(built.ui.auto_start == true, "自動開始の既定値はtrueである")
+-- 右下の進行表示は少し短めの既定長にして視認性を高める。
+assert_true(built.ui.track_length == 32, "進行トラックの既定長は32である")
 assert_true(built.ui.max_height == 2, "最大表示行数は2である")
-assert_true(built.ui.height == 1, "表示行数の既定値は1である")
+assert_true(built.ui.height == 2, "表示行数の既定値は2である")
 assert_true(type(built.floor_length) == "number", "階層の横幅が数値で定義される")
 assert_true(type(built.floor_encounters) == "table", "階層遭遇数の設定が定義される")
 assert_true(type(built.floor_encounters.min) == "number", "階層遭遇数の最小値が定義される")
@@ -41,17 +47,31 @@ assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒であ�
 -- 表示用アイコンと進行トラックの設定が含まれることを確認する。
 assert_true(type(built.ui.icons) == "table", "表示用アイコンの設定が定義される")
 assert_true(type(built.ui.track_fill) == "string", "進行トラックの埋め文字が定義される")
+assert_true(built.ui.icons_only == true, "表示はアイコン優先が既定である")
 assert_true(type(built.ui.sprites) == "table", "スプライト表示の設定が定義される")
 assert_true(built.ui.sprites.enabled == true, "スプライト表示は既定で有効である")
 assert_true(type(built.ui.sprite_palette) == "table", "スプライトの色設定が定義される")
-assert_true(type(built.ui.image_sprites) == "table", "画像スプライト設定が定義される")
-assert_true(built.ui.image_sprites.enabled == false, "画像スプライトは既定で無効である")
+-- 画像スプライト設定は廃止したため検証しない。
 -- メニュー表示の既定値が設定に含まれることを確認する。
+-- 比率ベースのメニュー設定が追加されたため検証内容を更新する。
 assert_true(type(built.ui.menu) == "table", "メニュー表示の設定が定義される")
-assert_true(type(built.ui.menu.width) == "number", "メニューの幅設定が数値で定義される")
-assert_true(type(built.ui.menu.max_height) == "number", "メニューの高さ上限が数値で定義される")
-assert_true(built.ui.menu.width == 72, "メニューの既定幅が拡大されている")
-assert_true(built.ui.menu.max_height == 22, "メニューの既定高さ上限が拡大されている")
+assert_true(type(built.ui.menu.width_ratio) == "number", "メニューの幅比率が数値で定義される")
+assert_true(type(built.ui.menu.height_ratio) == "number", "メニューの高さ比率が数値で定義される")
+assert_true(type(built.ui.menu.min_width) == "number", "メニューの最小幅が定義される")
+assert_true(type(built.ui.menu.min_height) == "number", "メニューの最小高さが定義される")
+assert_true(type(built.ui.menu.max_width) == "number", "メニューの最大幅が定義される")
+assert_true(type(built.ui.menu.max_height) == "number", "メニューの最大高さが定義される")
+assert_true(built.ui.menu.width_ratio == 0.72, "メニューの既定幅比率が設定される")
+assert_true(built.ui.menu.height_ratio == 0.78, "メニューの既定高さ比率が設定される")
+assert_true(built.ui.menu.min_width == 72, "メニューの既定最小幅が設定される")
+assert_true(built.ui.menu.min_height == 24, "メニューの既定最小高さが設定される")
+assert_true(built.ui.menu.max_width == 120, "メニューの既定最大幅が設定される")
+assert_true(built.ui.menu.max_height == 32, "メニューの既定最大高さが設定される")
+assert_true(built.ui.menu.padding == 2, "メニューの既定余白が拡大されている")
+assert_true(built.ui.menu.border == "rounded", "メニューの既定境界線が丸みのある設定である")
+assert_true(type(built.ui.menu.theme) == "table", "メニューのテーマ設定が定義される")
+assert_true(built.ui.menu.theme.inherit == true, "メニューのテーマ継承が既定で有効である")
+assert_true(type(built.ui.menu.tabs) == "table", "タブ表示スタイルが定義される")
 assert_true(built.ui.menu.tabs_position == "top", "タブ表示の既定位置が上部である")
 
 print("OK")

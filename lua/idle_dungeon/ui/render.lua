@@ -10,23 +10,29 @@ local function join_names(names)
   return table.concat(names or {}, ",")
 end
 
-local function build_track_line(state, config)
-  local sprite_line = state.ui.mode == "battle" and sprite.build_battle_line(state, config) or nil
-  if sprite_line then
-    return sprite_line
+local function build_floor_enemies(state, config)
+  local enemies = {}
+  for _, enemy in ipairs((state.progress or {}).floor_enemies or {}) do
+    if not enemy.defeated then
+      table.insert(enemies, {
+        position = enemy.position,
+        icon = sprite.build_floor_enemy_icon(enemy, config),
+        id = enemy.id,
+        element = enemy.element,
+      })
+    end
   end
+  return enemies
+end
+
+local function build_track_line(state, config)
   local length = (config.ui or {}).track_length or 18
   local ground = (config.ui or {}).track_fill or "."
-  local hero_line = sprite.build_hero_track(state, config, length, ground)
-  if hero_line then
-    return hero_line
-  end
-  local hero_icon = sprite.build_hero_sprite(state, config, "move")
-  if hero_icon and hero_icon ~= "" then
-    return track.build_track_line(state.progress.distance or 0, length, hero_icon, ground)
-  end
-  -- スプライト情報が無い場合は簡易マーカーで表示する。
-  return track.build_track_line(state.progress.distance or 0, length, "@", ground)
+  local mode = state.ui.mode == "battle" and "battle" or "move"
+  local hero_icon = sprite.build_hero_sprite(state, config, mode)
+  local enemies = build_floor_enemies(state, config)
+  local track_line = track.build_track_line(state.progress.distance or 0, length, hero_icon ~= "" and hero_icon or "@", ground, enemies)
+  return track_line
 end
 
 local function build_visual_lines(state, config)

@@ -55,9 +55,8 @@ local function build_credits_items(lang)
   table.insert(items, { id = "spacer", label = "" })
   table.insert(items, { id = "header", label = i18n.t("credits_title", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_created", lang) })
-  table.insert(items, { id = "entry", label = i18n.t("credits_line_inspired", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_ui", lang) })
-  table.insert(items, { id = "entry", label = i18n.t("credits_line_sprites", lang) })
+  -- 画像スプライト参照の表示は廃止した。
   table.insert(items, { id = "entry", label = i18n.t("credits_line_thanks", lang) })
   return items
 end

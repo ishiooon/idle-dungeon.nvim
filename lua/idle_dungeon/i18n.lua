@@ -36,9 +36,8 @@ local translations = {
   menu_status_title = { en = "Current Status", jp = "現在の状態(詳細)" },
   credits_title = { en = "Credits", jp = "クレジット" },
   credits_line_created = { en = "Created by the Idle Dungeon team", jp = "Idle Dungeon 開発チーム" },
-  credits_line_inspired = { en = "Inspired by ひまつぶクエスト+", jp = "ひまつぶクエスト+ から着想" },
   credits_line_ui = { en = "UI concept: gisketch/triforce.nvim", jp = "UI参考: gisketch/triforce.nvim" },
-  credits_line_sprites = { en = "Sprite concept: giusgad/pets.nvim", jp = "スプライト参考: giusgad/pets.nvim" },
+  -- 画像スプライトの参照表記は廃止した。
   credits_line_thanks = { en = "Thanks for playing!", jp = "遊んでくれてありがとう！" },
   dex_title_enemies = { en = "Enemies", jp = "出会った敵" },
   dex_title_items = { en = "Items", jp = "入手した装備" },

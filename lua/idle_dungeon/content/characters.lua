@@ -2,6 +2,7 @@
 
 local M = {}
 
+-- 画像スプライトは廃止したため定義しない。
 M.characters = {
   {
     id = "recorder",
@@ -14,12 +15,6 @@ M.characters = {
     sprite = { idle = { "o_o", "o.o" }, walk = { "o_o", "o^o", "o-o" }, battle = { "o>o", "o>o" }, defeat = { "x_x" } },
     -- スプライトの色味をキャラクターごとに割り当てる。
     sprite_palette = "recorder",
-    -- 画像スプライトのパスを定義する。
-    image_sprite = {
-      idle = { "hero_recorder_idle_1.png", "hero_recorder_idle_2.png" },
-      walk = { "hero_recorder_idle_1.png", "hero_recorder_idle_2.png" },
-      battle = { "hero_recorder_battle.png" },
-    },
   },
   {
     id = "guardian",
@@ -32,12 +27,6 @@ M.characters = {
     sprite = { idle = { "O_O", "O.O" }, walk = { "O_O", "O^O", "O-O" }, battle = { "O>O", "O>O" }, defeat = { "X_X" } },
     -- スプライトの色味をキャラクターごとに割り当てる。
     sprite_palette = "guardian",
-    -- 画像スプライトのパスを定義する。
-    image_sprite = {
-      idle = { "hero_guardian_idle_1.png", "hero_guardian_idle_2.png" },
-      walk = { "hero_guardian_idle_1.png", "hero_guardian_idle_2.png" },
-      battle = { "hero_guardian_battle.png" },
-    },
   },
   {
     id = "hunter",
@@ -50,12 +39,6 @@ M.characters = {
     sprite = { idle = { "^_^", "^~^" }, walk = { "^_^", "^-^", "^~^" }, battle = { "^>^", "^>^" }, defeat = { "x-x" } },
     -- スプライトの色味をキャラクターごとに割り当てる。
     sprite_palette = "hunter",
-    -- 画像スプライトのパスを定義する。
-    image_sprite = {
-      idle = { "hero_hunter_idle_1.png", "hero_hunter_idle_2.png" },
-      walk = { "hero_hunter_idle_1.png", "hero_hunter_idle_2.png" },
-      battle = { "hero_hunter_battle.png" },
-    },
   },
   {
     id = "alchemist",
@@ -68,12 +51,6 @@ M.characters = {
     sprite = { idle = { "-_-", "-.-" }, walk = { "-_-", "-^-", "-.-" }, battle = { "->-", "->-" }, defeat = { "x_x" } },
     -- スプライトの色味をキャラクターごとに割り当てる。
     sprite_palette = "alchemist",
-    -- 画像スプライトのパスを定義する。
-    image_sprite = {
-      idle = { "hero_alchemist_idle_1.png", "hero_alchemist_idle_2.png" },
-      walk = { "hero_alchemist_idle_1.png", "hero_alchemist_idle_2.png" },
-      battle = { "hero_alchemist_battle.png" },
-    },
   },
 }
 

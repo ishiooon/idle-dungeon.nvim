@@ -50,8 +50,8 @@ local function record_item(state, item_id, count)
 end
 
 -- 敵との遭遇を図鑑へ記録する。
-local function record_enemy(state, enemy_id)
-  local next_dex = dex.record_enemy(ensure_dex(state), enemy_id, time_sec(state))
+local function record_enemy(state, enemy_id, element)
+  local next_dex = dex.record_enemy(ensure_dex(state), enemy_id, element, time_sec(state))
   return with_dex(state, next_dex)
 end
 

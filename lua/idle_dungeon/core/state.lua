@@ -3,39 +3,20 @@
 local content = require("idle_dungeon.content")
 -- 階層内の遭遇状態はgame/floor/stateに委譲する。
 local floor_state = require("idle_dungeon.game.floor.state")
+local helpers = require("idle_dungeon.core.state_helpers")
 local inventory = require("idle_dungeon.game.inventory")
 local metrics = require("idle_dungeon.game.metrics")
 local player = require("idle_dungeon.game.player")
+local stage_unlock = require("idle_dungeon.game.stage_unlock")
 local state_dex = require("idle_dungeon.game.dex.state")
 local transition = require("idle_dungeon.core.transition")
 local util = require("idle_dungeon.util")
 local M = {}
-local function find_character(character_id)
-  for _, character in ipairs(content.characters) do
-    if character.id == character_id then
-      return character
-    end
-  end
-  return content.characters[1]
-end
-local function ensure_equipment(starter_items)
-  return {
-    weapon = starter_items.weapon,
-    armor = starter_items.armor,
-    accessory = starter_items.accessory,
-    companion = starter_items.companion,
-  }
-end
-local function update_section(state, key, updates)
-  local result = util.shallow_copy(state)
-  result[key] = util.merge_tables(state[key] or {}, updates or {})
-  return result
-end
 local function new_state(config)
   local stage = (config.stages or {})[1] or { id = 1, name = config.stage_name or "dungeon1-1", start = 0 }
-  local character = find_character(config.default_character_id)
+  local character = helpers.find_character(config.default_character_id)
   local actor = player.new_actor(character)
-  local equipment = ensure_equipment(character.starter_items)
+  local equipment = helpers.ensure_equipment(character.starter_items)
   local inventory_items = inventory.new_inventory(character.starter_items)
   local applied_actor = player.apply_equipment(actor, equipment, content.items)
   local base_state = {
@@ -61,9 +42,18 @@ local function new_state(config)
       auto_start = (config.ui or {}).auto_start ~= false,
       language = (config.ui or {}).language or "en",
       event_id = nil,
+      battle_message = nil,
     },
     metrics = metrics.new_metrics(),
-    unlocks = { items = {}, titles = {}, characters = {} },
+    unlocks = {
+      items = {},
+      titles = {},
+      characters = {},
+      -- ステージ解放の状態を保持する。
+      stages = stage_unlock.initial_unlocks(config.stages or {}),
+    },
+    -- ストーリー表示の既読状態を保持する。
+    story = { stage_intro = {} },
   }
   -- 初期階層の遭遇状態を反映して返す。
   local with_floor = util.merge_tables(base_state, { progress = floor_state.refresh(base_state.progress, config) })
@@ -75,20 +65,20 @@ local function reset_state(config)
   return new_state(config)
 end
 local function set_render_mode(state, mode)
-  return update_section(state, "ui", { render_mode = mode })
+  return helpers.update_section(state, "ui", { render_mode = mode })
 end
 local function toggle_render_mode(state)
   local next_mode = state.ui.render_mode == "visual" and "text" or "visual"
   return set_render_mode(state, next_mode)
 end
 local function set_language(state, language)
-  return update_section(state, "ui", { language = language })
+  return helpers.update_section(state, "ui", { language = language })
 end
 local function set_auto_start(state, auto_start)
-  return update_section(state, "ui", { auto_start = auto_start })
+  return helpers.update_section(state, "ui", { auto_start = auto_start })
 end
 local function set_ui_mode(state, mode, updates)
-  return update_section(update_section(state, "ui", { mode = mode }), "ui", updates or {})
+  return helpers.update_section(helpers.update_section(state, "ui", { mode = mode }), "ui", updates or {})
 end
 local function with_metrics(state, next_metrics)
   return util.merge_tables(state, { metrics = next_metrics })
@@ -112,7 +102,7 @@ local function tick(state, config)
   return transition.tick(state, config)
 end
 local function change_character(state, character_id)
-  local character = find_character(character_id)
+  local character = helpers.find_character(character_id)
   local actor = player.new_actor(character)
   local leveled = player.apply_level(actor, state.actor.level, state.actor.exp, state.actor.next_level)
   local next_equipment = util.merge_tables(state.equipment, {})

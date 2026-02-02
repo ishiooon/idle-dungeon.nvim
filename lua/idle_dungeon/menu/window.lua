@@ -4,6 +4,25 @@ local M = {}
 
 local namespace = vim.api.nvim_create_namespace("IdleDungeonMenu")
 
+-- テーマ設定に応じてハイライトを直接指定またはリンクする。
+local function apply_highlight(group, spec, fallback_link, inherit)
+  local has_color = spec and (spec.fg or spec.bg or spec.sp or spec.ctermfg or spec.ctermbg)
+  local has_style = spec and (spec.bold or spec.italic or spec.underline or spec.undercurl or spec.reverse)
+  if has_color then
+    vim.api.nvim_set_hl(0, group, spec)
+    return
+  end
+  if inherit and fallback_link then
+    vim.api.nvim_set_hl(0, group, { link = fallback_link })
+    return
+  end
+  if has_style then
+    vim.api.nvim_set_hl(0, group, spec)
+    return
+  end
+  vim.api.nvim_set_hl(0, group, spec or {})
+end
+
 local function is_valid_window(win)
   return win and vim.api.nvim_win_is_valid(win)
 end
@@ -12,10 +31,18 @@ local function is_valid_buffer(buf)
   return buf and vim.api.nvim_buf_is_valid(buf)
 end
 
-local function ensure_highlights()
+local function ensure_highlights(theme)
   -- メニュー表示用のハイライトを定義して視認性を保つ。
-  vim.api.nvim_set_hl(0, "IdleDungeonMenuTitle", { link = "Title" })
-  vim.api.nvim_set_hl(0, "IdleDungeonMenuSelected", { link = "Visual" })
+  local safe = theme or {}
+  local inherit = safe.inherit ~= false
+  apply_highlight("IdleDungeonMenuTitle", { fg = safe.title or safe.accent, bold = true }, "Title", inherit)
+  apply_highlight("IdleDungeonMenuTabs", { fg = safe.accent, bold = true }, "Identifier", inherit)
+  apply_highlight("IdleDungeonMenuDivider", { fg = safe.divider or safe.border }, "WinSeparator", inherit)
+  apply_highlight("IdleDungeonMenuSelected", { fg = safe.selected_fg, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
+  apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "FloatBorder", inherit)
+  apply_highlight("IdleDungeonMenuNormal", { fg = safe.text, bg = safe.background }, "Normal", inherit)
+  apply_highlight("IdleDungeonMenuMuted", { fg = safe.muted }, "Comment", inherit)
+  apply_highlight("IdleDungeonMenuSection", { fg = safe.accent or safe.title, bold = true }, "Title", inherit)
 end
 
 local function calculate_center(height, width)
@@ -27,9 +54,9 @@ local function calculate_center(height, width)
   return row, col
 end
 
-local function open_window(height, width, border)
+local function open_window(height, width, border, theme)
   -- 新しいバッファと浮動ウィンドウを作成してメニューを表示する。
-  ensure_highlights()
+  ensure_highlights(theme)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
@@ -50,16 +77,20 @@ local function open_window(height, width, border)
   vim.api.nvim_set_option_value("wrap", false, { win = win })
   vim.api.nvim_set_option_value("cursorline", true, { win = win })
   vim.api.nvim_set_option_value("cursorlineopt", "line", { win = win })
-  vim.api.nvim_set_option_value("winhl", "Normal:NormalFloat,FloatBorder:FloatBorder,CursorLine:IdleDungeonMenuSelected", { win = win })
+  vim.api.nvim_set_option_value(
+    "winhl",
+    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,CursorLine:IdleDungeonMenuSelected",
+    { win = win }
+  )
   return win, buf
 end
 
-local function ensure_window(win, buf, height, width, border)
+local function ensure_window(win, buf, height, width, border, theme)
   if is_valid_window(win) and is_valid_buffer(buf) then
     return win, buf
   end
   -- 既存の表示が無い場合は新規ウィンドウを作る。
-  return open_window(height, width, border)
+  return open_window(height, width, border, theme)
 end
 
 local function update_window(win, height, width)
@@ -75,19 +106,28 @@ local function set_lines(buf, lines)
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 end
 
-local function apply_highlights(buf, lines)
+local function apply_highlights(buf, highlights)
   -- ハイライトを更新して見出し行を強調する。
   vim.api.nvim_buf_clear_namespace(buf, namespace, 0, -1)
-  if type(lines) == "table" then
-    for _, line in ipairs(lines) do
-      if line then
-        vim.api.nvim_buf_add_highlight(buf, namespace, "IdleDungeonMenuTitle", line - 1, 0, -1)
+  if type(highlights) == "table" then
+    for _, item in ipairs(highlights) do
+      if type(item) == "number" then
+        vim.api.nvim_buf_add_highlight(buf, namespace, "IdleDungeonMenuTitle", item - 1, 0, -1)
+      elseif type(item) == "table" and item.line then
+        vim.api.nvim_buf_add_highlight(
+          buf,
+          namespace,
+          item.group or "IdleDungeonMenuTitle",
+          item.line - 1,
+          item.start_col or 0,
+          item.end_col or -1
+        )
       end
     end
     return
   end
-  if lines then
-    vim.api.nvim_buf_add_highlight(buf, namespace, "IdleDungeonMenuTitle", lines - 1, 0, -1)
+  if highlights then
+    vim.api.nvim_buf_add_highlight(buf, namespace, "IdleDungeonMenuTitle", highlights - 1, 0, -1)
   end
 end
 

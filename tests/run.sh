@@ -82,11 +82,24 @@ lua tests/test_menu_tabs_data.lua
 lua tests/test_dex.lua
 # スプライト表示の単体テストを確認する。
 lua tests/test_sprites.lua
-# 画像スプライト選択の単体テストを確認する。
-lua tests/test_image_sprite_picker.lua
+# 右下表示のクリック判定を確認する。
+lua tests/test_ui_click.lua
+# 進行トラックの単体テストを確認する。
+lua tests/test_track.lua
+# ステージの敵プール選択を確認する。
+lua tests/test_enemy_pool.lua
+# 階層内の敵配置の単体テストを確認する。
+lua tests/test_floor_enemies.lua
 # 階層進行の単体テストを確認する。
 lua tests/test_floor_progress.lua
 # リセット処理の単体テストを確認する。
 lua tests/test_reset.lua
+# 画像スプライトの単体テストは廃止したため実行しない。
+# ステージ解放の単体テストを確認する。
+lua tests/test_stage_unlock.lua
+# 属性相性の単体テストを確認する。
+lua tests/test_element_chart.lua
+# 文字列切り詰めのUTF-8対応を確認する。
+lua tests/test_util_clamp.lua
 
 echo "OK: ドキュメントとLuaテストを確認しました。"

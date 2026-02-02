@@ -8,6 +8,7 @@ local inventory = require("idle_dungeon.game.inventory")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
 local player = require("idle_dungeon.game.player")
+local stage_unlock = require("idle_dungeon.game.stage_unlock")
 local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
 
@@ -44,18 +45,31 @@ end
 local function open_stage_menu(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local entries = config.stages or {}
+  local initial_state = get_state()
+  local unlocks = (initial_state.unlocks or {}).stages or {}
+  local first_stage = (config.stages or {})[1]
   -- 開始ダンジョンを選択するためのメニューを表示する。
   menu_view.select(entries, {
     prompt = i18n.t("prompt_stage", lang),
     format_item = function(item)
-      return string.format("%s", item.name)
+      local unlocked = stage_unlock.is_unlocked(unlocks, item.id)
+        or item.id == (initial_state.progress or {}).stage_id
+        or (first_stage and item.id == first_stage.id)
+      local label = unlocked and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
+      return string.format("%s [%s]", item.name, label)
     end,
   }, function(choice)
     if not choice then
       return
     end
-    local state = get_state()
-    local progress = util.merge_tables(state.progress, {
+    local current = get_state()
+    local current_unlocks = (current.unlocks or {}).stages or {}
+    local is_current = choice.id == (current.progress or {}).stage_id
+    local is_first = first_stage and choice.id == first_stage.id
+    if not (stage_unlock.is_unlocked(current_unlocks, choice.id) or is_current or is_first) then
+      return
+    end
+    local progress = util.merge_tables(current.progress, {
       stage_id = choice.id,
       stage_name = choice.name,
       distance = choice.start,
@@ -66,7 +80,7 @@ local function open_stage_menu(get_state, set_state, config)
     })
     -- 開始階層の遭遇状態を再計算して反映する。
     local refreshed = floor_state.refresh(progress, config)
-    set_state(util.merge_tables(state, { progress = refreshed }))
+    set_state(util.merge_tables(current, { progress = refreshed }))
   end, config)
 end
 

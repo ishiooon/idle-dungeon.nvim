@@ -19,6 +19,76 @@ local ui_state = {
   config = {},
   on_close = nil,
 }
+
+-- タブ内の表示行を整形し、セクションごとの見た目を揃える。
+local function format_tab_item(tab, item, config)
+  local format_item = tab and tab.format_item or nil
+  local label = format_item and format_item(item) or (item and item.label) or tostring(item or "")
+  if label == "" then
+    return ""
+  end
+  if item and item.id == "art" then
+    return label
+  end
+  if item and item.id == "spacer" then
+    return ""
+  end
+  if item and item.id == "header" then
+    return (config.section_prefix or "") .. label
+  end
+  if item and item.id == "empty" then
+    return (config.empty_prefix or "") .. label
+  end
+  return (config.item_prefix or "") .. label
+end
+
+-- タブ内の項目を表示用のラベル配列へ変換する。
+local function build_tab_labels(tab, config)
+  local labels = {}
+  for _, item in ipairs((tab and tab.items) or {}) do
+    table.insert(labels, format_tab_item(tab, item, config))
+  end
+  return labels
+end
+
+-- セクション見出しなどに対応するハイライト行を集計する。
+local function collect_item_highlights(tab, built, header_lines)
+  local specs = {}
+  local items = (tab and tab.items) or {}
+  local offset = built.offset or 0
+  local count = built.items_count or 0
+  for index = 1, count do
+    local item = items[offset + index]
+    if item and item.id == "header" then
+      table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuSection" })
+    elseif item and item.id == "empty" then
+      table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuMuted" })
+    elseif item and item.id == "art" then
+      table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuTitle" })
+    end
+  end
+  return specs
+end
+
+-- 表示領域に合わせてコンテンツ行数を埋める。
+local function pad_content_lines(lines, height)
+  local padded = {}
+  for _, line in ipairs(lines or {}) do
+    table.insert(padded, line)
+  end
+  while #padded < math.max(height or 0, 0) do
+    table.insert(padded, "")
+  end
+  if height and #padded > height then
+    local trimmed = {}
+    for index = 1, height do
+      trimmed[index] = padded[index]
+    end
+    return trimmed
+  end
+  return padded
+end
+
 local function close()
   local callback = ui_state.on_close
   ui_state.on_close = nil
@@ -31,32 +101,61 @@ end
 local function render()
   local tab = ui_state.tabs[ui_state.active]
   if not tab then return end
-  local config = menu_view_util.menu_config(ui_state.config); local labels = layout.build_labels(tab.items, tab.format_item)
-  local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active); local title = (ui_state.opts or {}).title or ""
-  local header_count = (title ~= "" and 1 or 0) + (config.tabs_position == "bottom" and 1 or 2); local footer_count = config.tabs_position == "bottom" and 2 or 0
-  local max_height = math.max(config.max_height, header_count + footer_count + 1); local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 4)
-  local height_limit = math.min(max_height, screen_height); local visible = math.max(height_limit - header_count - footer_count, 1)
-  ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels); ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
-  local max_width = math.max(math.min(config.width, vim.o.columns - 4), 24); local built = layout.build_lines("", labels, {
+  local config = menu_view_util.menu_config(ui_state.config)
+  local labels = build_tab_labels(tab, config)
+  local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active, config.tabs_style)
+  local title = (ui_state.opts or {}).title or ""
+  local header_count = (title ~= "" and 1 or 0) + (config.tabs_position == "bottom" and 1 or 2)
+  local footer_count = config.tabs_position == "bottom" and 2 or 0
+  local visible = math.max((config.height or config.max_height) - header_count - footer_count, 1)
+  ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels)
+  ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
+  local max_width = math.max(config.width or 0, 24)
+  local built = layout.build_lines("", labels, {
     padding = config.padding,
     offset = ui_state.offset,
     max_items = visible,
     max_width = max_width,
   })
   local sections = menu_view_util.build_tabs_sections(ui_state.opts, config, tabs_line, built, max_width)
+  local content_lines = pad_content_lines(built.lines, visible)
   local lines = {}
-  for _, line in ipairs(sections.header_lines) do table.insert(lines, line) end
-  for _, line in ipairs(built.lines) do table.insert(lines, line) end
-  for _, line in ipairs(sections.footer_lines) do table.insert(lines, line) end
-  local height = math.max(#lines, 1)
-  -- タブ付きの中央メニュー表示を更新する。
-  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, sections.width, config.border)
-  window.update_window(win, height, sections.width)
+  for _, line in ipairs(sections.header_lines) do
+    table.insert(lines, line)
+  end
+  for _, line in ipairs(content_lines) do
+    table.insert(lines, line)
+  end
+  for _, line in ipairs(sections.footer_lines) do
+    table.insert(lines, line)
+  end
+  local height = math.max(config.height or #lines, 1)
+  -- タブ付きの中央メニュー表示を固定サイズで更新する。
+  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, config.width, config.border, config.theme)
+  window.update_window(win, height, config.width)
   window.set_lines(buf, lines)
-  local highlight_lines = {}; if title ~= "" then highlight_lines[1] = 1 end
-  local tabs_line_index = config.tabs_position == "bottom" and (#sections.header_lines + #built.lines + #sections.footer_lines) or (title ~= "" and 2 or 1)
-  highlight_lines[#highlight_lines + 1] = tabs_line_index
-  window.apply_highlights(buf, highlight_lines)
+  local highlight_specs = {}
+  if title ~= "" then
+    highlight_specs[#highlight_specs + 1] = { line = 1, group = "IdleDungeonMenuTitle" }
+  end
+  local tabs_line_index = config.tabs_position == "bottom"
+    and (#sections.header_lines + #content_lines + #sections.footer_lines)
+    or (title ~= "" and 2 or 1)
+  highlight_specs[#highlight_specs + 1] = { line = tabs_line_index, group = "IdleDungeonMenuTabs" }
+  local divider_line_top = config.tabs_position == "bottom"
+    and #sections.header_lines
+    or (title ~= "" and 3 or 2)
+  if divider_line_top > 0 then
+    highlight_specs[#highlight_specs + 1] = { line = divider_line_top, group = "IdleDungeonMenuDivider" }
+  end
+  if config.tabs_position == "bottom" then
+    local divider_line_bottom = #sections.header_lines + #content_lines + 1
+    highlight_specs[#highlight_specs + 1] = { line = divider_line_bottom, group = "IdleDungeonMenuDivider" }
+  end
+  for _, spec in ipairs(collect_item_highlights(tab, built, #sections.header_lines)) do
+    table.insert(highlight_specs, spec)
+  end
+  window.apply_highlights(buf, highlight_specs)
   if ui_state.selected > 0 and #labels > 0 then
     vim.api.nvim_win_set_cursor(win, { math.max(#sections.header_lines + (ui_state.selected - built.offset), 1), 0 })
   end

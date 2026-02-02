@@ -19,6 +19,11 @@ local function find_stage(progress, config)
   return stage
 end
 
+-- ステージ名は短縮せずにそのまま返す。
+local function resolve_stage_name(stage, progress)
+  return (stage and stage.name) or (progress and progress.stage_name) or "stage"
+end
+
 -- ステージ内の階層進行を表示用の文字列に整形する。
 local function build_stage_progress_text(progress, stage, config)
   local floor_length = floor_progress.resolve_floor_length(config or {})
@@ -34,6 +39,26 @@ local function build_stage_progress_text(progress, stage, config)
   return string.format("%d", current_floor)
 end
 
+-- ステージ番号と階層進行をまとめた短いトークンを返す。
+local function build_stage_token(progress, stage, config)
+  local progress_text = build_stage_progress_text(progress, stage, config)
+  local stage_id = stage and stage.id or (progress and progress.stage_id) or nil
+  if stage_id then
+    return string.format("%d-%s", stage_id, progress_text)
+  end
+  return progress_text
+end
+
+-- 表示用のステージ名とトークンをまとめて返す。
+local function build_stage_parts(progress, config)
+  local stage = find_stage(progress or {}, config or {}) or {}
+  return {
+    stage = stage,
+    name = resolve_stage_name(stage, progress or {}),
+    token = build_stage_token(progress or {}, stage, config or {}),
+  }
+end
+
 local function build_stage_summary(progress, config)
   local stage = find_stage(progress, config) or {}
   local name = abbreviate_stage_name(stage.name or progress.stage_name or "stage")
@@ -44,5 +69,6 @@ end
 M.abbreviate_stage_name = abbreviate_stage_name
 M.build_stage_progress_text = build_stage_progress_text
 M.build_stage_summary = build_stage_summary
+M.build_stage_parts = build_stage_parts
 
 return M
