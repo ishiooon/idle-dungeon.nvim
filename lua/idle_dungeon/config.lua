@@ -33,12 +33,13 @@ end
 
 local function default_config()
   return {
-    tick_seconds = 1,
-    -- 進行テンポをさらに上げるため、1ティックで進む距離を増やす。
-    move_step = 5,
+    tick_seconds = 0.1,
+    move_step = 1,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。
     dialogue_seconds = 0,
+    -- ステージ開始時のアスキーアート表示は短時間で切り替える。
+    stage_intro_seconds = 1,
     -- 左から右までの歩幅を1階層として扱い、既定は短めに整える。
     floor_length = 32,
     -- 階層ごとの遭遇数を1〜5体で設定する。
@@ -74,6 +75,29 @@ local function default_config()
       { id = "edge_shield", target = "items", kind = "filetype_chars", filetype = "lua", value = 200 },
       { id = "focus_bracelet", target = "items", kind = "chars", value = 600 },
       { id = "wind_bird", target = "items", kind = "time_sec", value = 900 },
+      { id = "lua_sigil_blade", target = "items", kind = "filetype_chars", filetype = "lua", value = 400 },
+      { id = "vim_focus_ring", target = "items", kind = "filetype_chars", filetype = "vim", value = 300 },
+      { id = "c_forge_spear", target = "items", kind = "filetype_chars", filetype = "c", value = 350 },
+      { id = "cpp_heap_shield", target = "items", kind = "filetype_chars", filetype = "cpp", value = 450 },
+      { id = "python_coil_whip", target = "items", kind = "filetype_chars", filetype = "python", value = 400 },
+      { id = "js_spark_blade", target = "items", kind = "filetype_chars", filetype = "javascript", value = 450 },
+      { id = "ts_guard_mail", target = "items", kind = "filetype_chars", filetype = "typescript", value = 450 },
+      { id = "go_stride_band", target = "items", kind = "filetype_chars", filetype = "go", value = 350 },
+      { id = "rust_crust_armor", target = "items", kind = "filetype_chars", filetype = "rust", value = 450 },
+      { id = "java_forge_staff", target = "items", kind = "filetype_chars", filetype = "java", value = 450 },
+      { id = "kotlin_arc_amulet", target = "items", kind = "filetype_chars", filetype = "kotlin", value = 400 },
+      { id = "swift_wind_dagger", target = "items", kind = "filetype_chars", filetype = "swift", value = 400 },
+      { id = "ruby_bloom_ring", target = "items", kind = "filetype_chars", filetype = "ruby", value = 400 },
+      { id = "php_bastion_cloak", target = "items", kind = "filetype_chars", filetype = "php", value = 400 },
+      { id = "bash_echo_charm", target = "items", kind = "filetype_chars", filetype = "sh", value = 300 },
+      { id = "shell_tide_ring", target = "items", kind = "filetype_chars", filetype = "bash", value = 300 },
+      { id = "html_canvas_cloak", target = "items", kind = "filetype_chars", filetype = "html", value = 300 },
+      { id = "css_palette_charm", target = "items", kind = "filetype_chars", filetype = "css", value = 300 },
+      { id = "json_mirror_ring", target = "items", kind = "filetype_chars", filetype = "json", value = 350 },
+      { id = "yaml_scroll_robe", target = "items", kind = "filetype_chars", filetype = "yaml", value = 350 },
+      { id = "toml_anchor_band", target = "items", kind = "filetype_chars", filetype = "toml", value = 350 },
+      { id = "sql_depth_spear", target = "items", kind = "filetype_chars", filetype = "sql", value = 400 },
+      { id = "markdown_quill_pendant", target = "items", kind = "filetype_chars", filetype = "markdown", value = 300 },
     },
   }
 end

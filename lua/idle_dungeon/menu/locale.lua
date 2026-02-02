@@ -3,8 +3,10 @@
 local i18n = require("idle_dungeon.i18n")
 -- 階層進行の計算はgame/floor/progressに委譲する。
 local floor_progress = require("idle_dungeon.game.floor.progress")
+local time_format = require("idle_dungeon.ui.time_format")
 local render_stage = require("idle_dungeon.ui.render_stage")
 local stage_progress = require("idle_dungeon.game.stage_progress")
+local util = require("idle_dungeon.util")
 
 local M = {}
 
@@ -29,11 +31,55 @@ local function auto_start_label(auto_start, lang)
   return string.format("%s: %s", title, status)
 end
 
+-- 表示行数を見やすいラベルに整形する。
+local function display_lines_label(lines, lang)
+  local count = math.max(math.min(tonumber(lines) or 2, 2), 0)
+  local title = i18n.t("menu_action_display_lines", lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if count == 0 then
+    local suffix = is_ja and "非表示" or "Hidden"
+    return string.format("%s: %s", title, suffix)
+  end
+  local suffix = is_ja and string.format("%d行", count) or string.format("%d line%s", count, count == 1 and "" or "s")
+  return string.format("%s: %s", title, suffix)
+end
+
 -- トグル表示をボタン風の文言へ整形する。
 local function toggle_label(title, enabled, lang)
   local status_key = enabled and "status_on" or "status_off"
   local status = i18n.t(status_key, lang)
   return string.format("%s: [ %s ]", title, status)
+end
+
+-- 入力統計の表示行を組み立てる。
+local function build_metrics_lines(metrics, lang)
+  local result = {}
+  local safe_metrics = metrics or {}
+  table.insert(result, string.format("%s %d", i18n.t("label_chars", lang), safe_metrics.chars or 0))
+  table.insert(result, string.format("%s %d", i18n.t("label_saves", lang), safe_metrics.saves or 0))
+  table.insert(result, string.format("%s %s", i18n.t("label_time", lang), time_format.format_seconds(safe_metrics.time_sec or 0, lang)))
+  local filetypes = util.shallow_copy(safe_metrics.filetypes or {})
+  local entries = {}
+  for filetype, count in pairs(filetypes) do
+    if tonumber(count) and count > 0 then
+      table.insert(entries, { filetype = filetype, count = count })
+    end
+  end
+  table.sort(entries, function(a, b)
+    if a.count == b.count then
+      return (a.filetype or "") < (b.filetype or "")
+    end
+    return a.count > b.count
+  end)
+  if #entries > 0 then
+    local parts = {}
+    for index = 1, math.min(#entries, 5) do
+      local entry = entries[index]
+      table.insert(parts, string.format("%s:%d", entry.filetype, entry.count))
+    end
+    table.insert(result, string.format("%s %s", i18n.t("label_filetypes", lang), table.concat(parts, " / ")))
+  end
+  return result
 end
 
 -- メニュー下部の案内文を行配列で返す。
@@ -63,7 +109,7 @@ local function status_lines(state, lang, config)
   local floor_text = total_floors and string.format("%d/%d", floor_number, total_floors) or tostring(floor_number)
   local step_text = string.format("%d/%d", floor_step, floor_length)
   local auto_start_key = (state.ui and state.ui.auto_start ~= false) and "status_on" or "status_off"
-  return {
+  local lines = {
     string.format("%s %s", i18n.t("label_stage", lang), stage_name),
     string.format("%s %s", i18n.t("label_progress", lang), stage_progress_text),
     string.format("%s %s", i18n.t("label_floor", lang), floor_text),
@@ -78,11 +124,16 @@ local function status_lines(state, lang, config)
     string.format("%s %s", i18n.t("label_render", lang), state.ui and state.ui.render_mode or ""),
     string.format("%s %s", i18n.t("label_auto_start", lang), i18n.t(auto_start_key, lang)),
   }
+  for _, line in ipairs(build_metrics_lines(state.metrics or {}, lang)) do
+    table.insert(lines, line)
+  end
+  return lines
 end
 
 M.resolve_lang = resolve_lang
 M.slot_label = slot_label
 M.auto_start_label = auto_start_label
+M.display_lines_label = display_lines_label
 M.toggle_label = toggle_label
 M.menu_footer_hints = menu_footer_hints
 M.status_lines = status_lines

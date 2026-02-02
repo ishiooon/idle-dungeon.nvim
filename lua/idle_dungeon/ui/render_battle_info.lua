@@ -1,4 +1,5 @@
 -- このモジュールは戦闘時の情報行を純粋関数で整形する。
+local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
 local icon_module = require("idle_dungeon.ui.icon")
 
 local M = {}
@@ -76,11 +77,30 @@ local function build_battle_hp_text(actor, enemy, icons)
   return hero_text, enemy_text
 end
 
+-- 戦闘中の敵アイコンを定義済み情報から優先的に取得する。
+local function resolve_enemy_icon(enemy, icons)
+  local fallback = (enemy and enemy.is_boss) and (icons.boss or icons.enemy) or (icons.enemy or "Enemy")
+  if enemy and enemy.icon and enemy.icon ~= "" then
+    return enemy.icon
+  end
+  if enemy and enemy.id then
+    local entry = enemy_catalog.find_enemy(enemy.id)
+    if entry and entry.icon and entry.icon ~= "" then
+      return entry.icon
+    end
+  end
+  return fallback
+end
+
 -- 戦闘中のHP表示を1行にまとめる。
 local function build_battle_hp_line(actor, enemy, icons)
   local hero_hp, enemy_hp = build_battle_hp_text(actor, enemy, icons)
   local hero_label = icons.hero or "HERO"
-  local enemy_label = enemy.is_boss and "Boss" or "Enemy"
+  local enemy_label = resolve_enemy_icon(enemy, icons)
+  local guard_icon = icons.armor or ""
+  if guard_icon ~= "" then
+    return string.format("%s %s %s %s %s", hero_label, hero_hp, guard_icon, enemy_label, enemy_hp)
+  end
   return string.format("%s %s %s %s", hero_label, hero_hp, enemy_label, enemy_hp)
 end
 
@@ -90,10 +110,10 @@ local function build_battle_attack_line(last_turn, enemy, icons)
     return ""
   end
   local hero_label = icons.hero or "HERO"
-  local enemy_label = enemy.is_boss and "Boss" or "Enemy"
-  local hero_text = build_attack_text(last_turn.hero, icons.hero)
-  local enemy_icon = enemy.is_boss and (icons.boss or icons.enemy) or icons.enemy
-  local enemy_text = build_attack_text(last_turn.enemy, enemy_icon)
+  local enemy_label = resolve_enemy_icon(enemy, icons)
+  local weapon_icon = icons.weapon or ""
+  local hero_text = build_attack_text(last_turn.hero, weapon_icon)
+  local enemy_text = build_attack_text(last_turn.enemy, weapon_icon)
   return string.format("%s:%s | %s:%s", hero_label, hero_text, enemy_label, enemy_text)
 end
 
@@ -102,17 +122,16 @@ local function build_battle_info_line(state, config, lang)
   local enemy = state.combat and state.combat.enemy or {}
   local icons = icon_module.config(config)
   local last_turn = state.combat and state.combat.last_turn or nil
-  local time_sec = (state.metrics or {}).time_sec or 0
   local hp_line = build_battle_hp_line(state.actor or {}, enemy, icons)
   if not last_turn then
     return hp_line
   end
-  -- 2秒ごとにHPと攻撃ログを切り替えて情報量を抑える。
-  if math.floor(time_sec) % 2 == 0 then
-    return hp_line
-  end
   local attack_line = build_battle_attack_line(last_turn, enemy, icons)
-  return attack_line ~= "" and attack_line or hp_line
+  -- 攻撃ログは常に併記し、何が起きたか分かるようにする。
+  if attack_line ~= "" then
+    return string.format("%s | %s", hp_line, attack_line)
+  end
+  return hp_line
 end
 
 M.build_battle_info_line = build_battle_info_line

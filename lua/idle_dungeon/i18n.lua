@@ -17,6 +17,7 @@ local translations = {
   menu_action_character = { en = "Change Character", jp = "キャラクター変更" },
   menu_action_toggle_text = { en = "Toggle Text Mode", jp = "テキストモード切り替え" },
   menu_action_auto_start = { en = "Auto Start", jp = "自動開始" },
+  menu_action_display_lines = { en = "Display Lines", jp = "表示行数" },
   menu_action_language = { en = "Language", jp = "言語設定" },
   menu_action_status = { en = "Status", jp = "状態確認" },
   -- メニュー下部の案内文を定義する。
@@ -101,6 +102,10 @@ local translations = {
   label_def = { en = "DEF:", jp = "防御力:" },
   label_render = { en = "Render:", jp = "表示:" },
   label_auto_start = { en = "Auto Start:", jp = "自動開始:" },
+  label_chars = { en = "Typed:", jp = "入力文字数:" },
+  label_saves = { en = "Saves:", jp = "保存回数:" },
+  label_time = { en = "Active Time:", jp = "稼働時間:" },
+  label_filetypes = { en = "Filetypes:", jp = "入力内訳:" },
   notify_read_only = { en = "Idle Dungeon is running in another Neovim. Read-only mode is active.", jp = "Idle Dungeonは他のNeovimで稼働中のため閲覧専用です。" },
   language_en = { en = "English", jp = "English" },
   language_ja = { en = "日本語", jp = "日本語" },

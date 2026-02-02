@@ -48,12 +48,22 @@ local function start_battle(state, progress, enemy, enemy_spec)
   return state_dex.record_enemy(next_state, enemy.id or enemy.name, enemy.element)
 end
 
+-- ステージ開始のアスキーアートを表示する状態へ切り替える。
+local function start_stage_intro(state, progress, event_id, config)
+  local seconds = math.max(math.floor(config.stage_intro_seconds or 1), 0)
+  local next_ui = { mode = "stage_intro", event_id = event_id, stage_intro_remaining = seconds, battle_message = nil }
+  return util.merge_tables(state, { progress = progress, ui = util.merge_tables(state.ui, next_ui) })
+end
+
 -- 移動中の進行を計算して次状態へ進める。
 local function tick_move(state, config)
   local intro_state, intro_event_id = story.apply_stage_intro(state, state.progress)
   -- 進行中の階層状態を確実に生成してから移動距離を計算する。
   local base_progress = floor_state.refresh(intro_state.progress, config)
   local base_state = intro_state
+  if intro_event_id and (config.stage_intro_seconds or 0) > 0 then
+    return start_stage_intro(base_state, base_progress, intro_event_id, config)
+  end
   local move_step = config.move_step or 1
   local next_distance = base_progress.distance + move_step
   local floor_length = floor_progress.resolve_floor_length(config)
@@ -72,12 +82,12 @@ local function tick_move(state, config)
     local intro_state2, stage_intro_id = story.apply_stage_intro(base_state, refreshed)
     local next_unlocks = stage_unlock.unlock_next((base_state.unlocks or {}).stages, config.stages or {}, base_state.progress.stage_id)
     local merged_unlocks = util.merge_tables(intro_state2.unlocks or {}, { stages = next_unlocks })
-    local next_ui = { mode = "move", event_id = stage_intro_id, battle_message = nil }
-    return util.merge_tables(intro_state2, {
-      progress = refreshed,
-      unlocks = merged_unlocks,
-      ui = util.merge_tables(intro_state2.ui, next_ui),
-    })
+    if stage_intro_id and (config.stage_intro_seconds or 0) > 0 then
+      local staged = util.merge_tables(intro_state2, { unlocks = merged_unlocks })
+      return start_stage_intro(staged, refreshed, stage_intro_id, config)
+    end
+    local next_ui = { mode = "move", event_id = nil, battle_message = nil }
+    return util.merge_tables(intro_state2, { progress = refreshed, unlocks = merged_unlocks, ui = util.merge_tables(intro_state2.ui, next_ui) })
   end
   local refreshed = floor_state.refresh(progress, config)
   local event = rules.find_event_by_distance(next_distance, refreshed)
@@ -115,6 +125,17 @@ local function tick_move(state, config)
   })
 end
 
+-- ステージ開始演出の残り時間を減らす。
+local function tick_stage_intro(state, config)
+  local tick_seconds = config.tick_seconds or 1
+  local remaining = (state.ui.stage_intro_remaining or 0) - tick_seconds
+  if remaining <= 0 then
+    local next_ui = { mode = "move", stage_intro_remaining = 0, event_id = nil }
+    return util.merge_tables(state, { ui = util.merge_tables(state.ui, next_ui) })
+  end
+  return util.merge_tables(state, { ui = util.merge_tables(state.ui, { stage_intro_remaining = remaining }) })
+end
+
 -- 会話待機中の残り時間を減らす。
 local function tick_dialogue(state, config)
   local tick_seconds = config.tick_seconds or 1
@@ -130,6 +151,9 @@ end
 local function tick(state, config)
   if state.ui.mode == "move" then
     return tick_move(state, config)
+  end
+  if state.ui.mode == "stage_intro" then
+    return tick_stage_intro(state, config)
   end
   if state.ui.mode == "dialogue" then
     return tick_dialogue(state, config)

@@ -42,7 +42,7 @@ assert_true(enemy.position >= 2 and enemy.position <= 9, "敵の位置が階層�
 local floor_length = floor_progress.resolve_floor_length(config)
 -- 敵位置から実際の距離を復元し、移動量が大きくても遭遇できるかを確認する。
 local floor_start = floor_progress.floor_start_distance(refreshed.floor_index, floor_length)
-local enemy_distance = floor_start + math.max(enemy.position - 2, 0)
+local enemy_distance = floor_start + math.max(enemy.position - 1, 0)
 local distance_before = math.max(enemy_distance - 2, 0)
 local distance_after = enemy_distance + 1
 local progress_before = floor_state.refresh({

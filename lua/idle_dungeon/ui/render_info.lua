@@ -156,6 +156,16 @@ local function build_info_line(state, config)
     -- 移動中は位置と体力が分かる情報を優先する。
     return util.clamp_line(build_move_info_line(state, config), width)
   end
+  if state.ui.mode == "stage_intro" then
+    local event = render_event.find_event_by_id(state.ui.event_id)
+    local title = render_event.resolve_event_title(event, lang)
+    local message = render_event.resolve_event_message(event, lang)
+    local text = title ~= "" and title or message
+    if text == "" then
+      text = "Stage Intro"
+    end
+    return util.clamp_line(text, width)
+  end
   if state.ui.mode == "battle" then
     -- 戦闘中の情報表示は専用整形に委譲する。
     return util.clamp_line(render_battle.build_battle_info_line(state, config, lang), width)

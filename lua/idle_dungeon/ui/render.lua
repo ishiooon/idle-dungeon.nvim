@@ -48,6 +48,9 @@ end
 
 local function build_text_status(state, config)
   local mode = state.ui.mode
+  if mode == "stage_intro" then
+    return "[Stage Intro]"
+  end
   if mode == "battle" then
     local enemy = state.combat and state.combat.enemy or {}
     local label = enemy.is_boss and "boss" or "enemy"

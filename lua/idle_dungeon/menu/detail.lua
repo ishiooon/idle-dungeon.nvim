@@ -3,6 +3,7 @@
 local element = require("idle_dungeon.game.element")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
+local menu_unlock = require("idle_dungeon.menu.unlock")
 
 local M = {}
 
@@ -17,7 +18,7 @@ local function rarity_label(rarity, lang)
 end
 
 -- 装備の詳細情報を行配列で返す。
-local function build_item_detail(item, state, lang)
+local function build_item_detail(item, state, lang, config)
   if not item then
     return nil
   end
@@ -39,6 +40,10 @@ local function build_item_detail(item, state, lang)
   end
   if item.element then
     table.insert(lines, string.format("%s %s", element_label, element.label(item.element, lang)))
+  end
+  -- 解放条件は未解放・解放済みに関係なく表示して進行状況を確認できるようにする。
+  for _, line in ipairs(menu_unlock.build_unlock_section(item, state, config, lang)) do
+    table.insert(lines, line)
   end
   if item.hp and item.hp > 0 then
     table.insert(lines, string.format("%s %d", i18n.t("label_hp", lang), item.hp))

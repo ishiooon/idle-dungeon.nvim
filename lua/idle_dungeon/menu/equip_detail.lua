@@ -3,6 +3,7 @@
 local content = require("idle_dungeon.content")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
+local menu_unlock = require("idle_dungeon.menu.unlock")
 local player = require("idle_dungeon.game.player")
 local util = require("idle_dungeon.util")
 
@@ -22,7 +23,7 @@ local function resolve_actor(state, equipment)
 end
 
 -- 装備差分の詳細行を組み立てる。
-local function build_detail(item, state, lang)
+local function build_detail(item, state, lang, config)
   if not item or not state then
     return nil
   end
@@ -36,6 +37,10 @@ local function build_detail(item, state, lang)
   table.insert(lines, format_stat_line(i18n.t("label_hp", lang), current.max_hp, next_actor.max_hp))
   table.insert(lines, format_stat_line(i18n.t("label_atk", lang), current.atk, next_actor.atk))
   table.insert(lines, format_stat_line(i18n.t("label_def", lang), current.def, next_actor.def))
+  -- 解放条件も合わせて表示し、装備変更の判断材料にする。
+  for _, line in ipairs(menu_unlock.build_unlock_section(item, state, config, lang)) do
+    table.insert(lines, line)
+  end
   return { title = item.name or "", lines = lines }
 end
 

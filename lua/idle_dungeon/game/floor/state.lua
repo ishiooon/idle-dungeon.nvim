@@ -38,7 +38,7 @@ end
 
 -- 敵の位置から距離を計算する。
 local function resolve_enemy_distance(floor_start, enemy)
-  return floor_start + math.max((enemy.position or 0) - 2, 0)
+  return floor_start + math.max((enemy.position or 0) - 1, 0)
 end
 
 -- 移動範囲内の敵を検出し、最初に遭遇する敵を返す。
@@ -58,7 +58,7 @@ local function find_enemy_in_path(progress, floor_length, start_distance, end_di
   for _, enemy in ipairs(progress.floor_enemies or {}) do
     if not enemy.defeated then
       local enemy_distance = resolve_enemy_distance(floor_start, enemy)
-      if enemy_distance > base_distance and enemy_distance <= range_end then
+      if enemy_distance >= base_distance and enemy_distance <= range_end then
         if not closest_distance or enemy_distance < closest_distance then
           closest = enemy
           closest_distance = enemy_distance

@@ -4,8 +4,10 @@ local content = require("idle_dungeon.content")
 local i18n = require("idle_dungeon.i18n")
 local inventory = require("idle_dungeon.game.inventory")
 local menu_locale = require("idle_dungeon.menu.locale")
+local menu_unlock = require("idle_dungeon.menu.unlock")
 local state_dex = require("idle_dungeon.game.dex.state")
 local state_module = require("idle_dungeon.core.state")
+local icon_module = require("idle_dungeon.ui.icon")
 local util = require("idle_dungeon.util")
 
 local M = {}
@@ -13,85 +15,17 @@ local M = {}
 -- 購入メニューのカテゴリは装備スロット順で統一する。
 local PURCHASE_SLOTS = { "weapon", "armor", "accessory" }
 
--- 装備の解放条件を参照しやすい形に並べ替える。
-local function resolve_unlock_rules(config, item)
-  local rules = {}
-  local unlock_rules = (config or {}).unlock_rules or {}
-  for _, rule in ipairs(unlock_rules) do
-    if rule.target == "items" and rule.id == item.id then
-      table.insert(rules, rule)
-    end
-  end
-  return rules
-end
-
--- 稼働時間の表示を言語に合わせて短く整形する。
-local function format_time_seconds(seconds, lang)
-  local total = math.max(0, math.floor(seconds or 0))
-  local minutes = math.floor(total / 60)
-  local secs = total % 60
-  local hours = math.floor(minutes / 60)
-  local rem_minutes = minutes % 60
-  local is_ja = lang == "ja" or lang == "jp"
-  if hours > 0 then
-    if is_ja then
-      return string.format("%d時間%02d分", hours, rem_minutes)
-    end
-    return string.format("%dh %02dm", hours, rem_minutes)
-  end
-  if minutes > 0 then
-    if is_ja then
-      return string.format("%d分%02d秒", minutes, secs)
-    end
-    return string.format("%dm %02ds", minutes, secs)
-  end
-  if is_ja then
-    return string.format("%d秒", secs)
-  end
-  return string.format("%ds", secs)
-end
-
--- 解放条件の進行度を行配列へ整形して返す。
-local function build_unlock_lines(item, state, config, lang)
-  local rules = resolve_unlock_rules(config, item)
-  if #rules == 0 then
-    return { i18n.t("unlock_none", lang) }
-  end
-  local metrics = (state or {}).metrics or {}
-  local lines = {}
-  for _, rule in ipairs(rules) do
-    local required = rule.value or 0
-    if rule.kind == "chars" then
-      table.insert(lines, string.format("%s %d/%d", i18n.t("unlock_chars", lang), metrics.chars or 0, required))
-    elseif rule.kind == "saves" then
-      table.insert(lines, string.format("%s %d/%d", i18n.t("unlock_saves", lang), metrics.saves or 0, required))
-    elseif rule.kind == "time_sec" then
-      local current = format_time_seconds(metrics.time_sec or 0, lang)
-      local required_text = format_time_seconds(required, lang)
-      table.insert(lines, string.format("%s %s/%s", i18n.t("unlock_time", lang), current, required_text))
-    elseif rule.kind == "filetype_chars" then
-      local filetype = rule.filetype or ""
-      local count = ((metrics.filetypes or {})[filetype]) or 0
-      local label = string.format(i18n.t("unlock_filetype", lang), filetype)
-      table.insert(lines, string.format("%s %d/%d", label, count, required))
-    else
-      table.insert(lines, string.format("%s %d/%d", i18n.t("unlock_unknown", lang), 0, required))
-    end
-  end
-  return lines
-end
-
--- 未解放装備の詳細表示は条件を中心に構成する。
+-- 未解放装備の詳細表示は共通の解放条件表示で統一する。
 local function build_locked_detail(item, state, config, lang)
-  local lines = { i18n.t("unlock_title", lang) }
-  for _, line in ipairs(build_unlock_lines(item, state, config, lang)) do
-    table.insert(lines, line)
-  end
+  local lines = menu_unlock.build_unlock_section(item, state, config, lang)
   return { title = i18n.t("dex_unknown", lang), lines = lines }
 end
 
-local function format_item_label(item, owned, unlocked, gold, lang)
+local function format_item_label(item, owned, unlocked, gold, lang, icon)
   local name = unlocked and (item.name or "") or i18n.t("dex_unknown", lang)
+  if icon and icon ~= "" then
+    name = string.format("%s %s", icon, name)
+  end
   local status = unlocked and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
   local count = i18n.t("status_owned", lang) .. (owned or 0)
   local price_value = unlocked and (item.price or 0) or i18n.t("dex_unknown", lang)
@@ -162,12 +96,13 @@ local function build_purchase_detail(menu_detail, item, state, config, lang)
   if not is_item_unlocked(state, item) then
     return build_locked_detail(item, state, config, lang)
   end
-  return menu_detail.build_item_detail(item, state, lang)
+  return menu_detail.build_item_detail(item, state, lang, config)
 end
 
 local function open_purchase_menu(get_state, set_state, lang, config, on_close)
   local menu_detail = require("idle_dungeon.menu.detail")
   local menu_view = require("idle_dungeon.menu.view")
+  local icons = icon_module.config(config)
   local function open_categories()
     local categories = build_purchase_categories(lang)
     -- 購入カテゴリを選ぶメニューを表示する。
@@ -199,7 +134,8 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
           local owned = state.inventory[item.id] or 0
           local unlocked = is_item_unlocked(state, item)
           local gold = ((state.currency or {}).gold) or 0
-          return format_item_label(item, owned, unlocked, gold, lang)
+          local icon = icon_module.resolve_slot_icon(item.slot, icons)
+          return format_item_label(item, owned, unlocked, gold, lang, icon)
         end,
         detail_provider = function(item)
           return build_purchase_detail(menu_detail, item, get_state(), config, lang)
@@ -231,6 +167,7 @@ end
 local function open_sell_menu(get_state, set_state, lang, config)
   local menu_detail = require("idle_dungeon.menu.detail")
   local menu_view = require("idle_dungeon.menu.view")
+  local icons = icon_module.config(config)
   local choices = {}
   local state = get_state()
   for _, item in ipairs(content.items) do
@@ -246,10 +183,12 @@ local function open_sell_menu(get_state, set_state, lang, config)
     keep_open = true,
     format_item = function(item)
       local state = get_state()
-      return string.format("%s (%s%d)", item.name, i18n.t("status_owned", lang), state.inventory[item.id] or 0)
+      local icon = icon_module.resolve_slot_icon(item.slot, icons)
+      local name = icon ~= "" and string.format("%s %s", icon, item.name) or item.name
+      return string.format("%s (%s%d)", name, i18n.t("status_owned", lang), state.inventory[item.id] or 0)
     end,
     detail_provider = function(item)
-      return menu_detail.build_item_detail(item, get_state(), lang)
+      return menu_detail.build_item_detail(item, get_state(), lang, config)
     end,
   }, function(item)
     if not item then

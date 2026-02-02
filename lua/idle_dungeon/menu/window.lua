@@ -3,6 +3,8 @@
 local M = {}
 
 local namespace = vim.api.nvim_create_namespace("IdleDungeonMenu")
+local MAIN_ZINDEX = 50
+local DETAIL_ZINDEX = 60
 
 -- テーマ設定に応じてハイライトを直接指定またはリンクする。
 local function apply_highlight(group, spec, fallback_link, inherit)
@@ -73,6 +75,8 @@ local function open_window(height, width, border, theme)
     border = border,
     focusable = true,
     noautocmd = true,
+    -- 詳細表示より下に配置して重なり順を安定させる。
+    zindex = MAIN_ZINDEX,
   })
   vim.api.nvim_set_option_value("wrap", false, { win = win })
   vim.api.nvim_set_option_value("cursorline", true, { win = win })
@@ -104,6 +108,8 @@ local function open_window_at(row, col, height, width, border, theme, focusable)
     border = border,
     focusable = focusable == true,
     noautocmd = true,
+    -- 左右どちらに表示しても見えるよう前面に出す。
+    zindex = DETAIL_ZINDEX,
   })
   vim.api.nvim_set_option_value("wrap", false, { win = win })
   vim.api.nvim_set_option_value("cursorline", false, { win = win })
@@ -134,12 +140,26 @@ end
 local function update_window(win, height, width)
   local row, col = calculate_center(height, width)
   -- 画面サイズ変更に追従して中央位置を更新する。
-  vim.api.nvim_win_set_config(win, { relative = "editor", row = row, col = col, width = width, height = height })
+  vim.api.nvim_win_set_config(win, {
+    relative = "editor",
+    row = row,
+    col = col,
+    width = width,
+    height = height,
+    zindex = MAIN_ZINDEX,
+  })
 end
 
 local function update_window_at(win, row, col, height, width)
   -- 詳細ウィンドウは指定位置を保ったまま更新する。
-  vim.api.nvim_win_set_config(win, { relative = "editor", row = row, col = col, width = width, height = height })
+  vim.api.nvim_win_set_config(win, {
+    relative = "editor",
+    row = row,
+    col = col,
+    width = width,
+    height = height,
+    zindex = DETAIL_ZINDEX,
+  })
 end
 
 local function set_lines(buf, lines)

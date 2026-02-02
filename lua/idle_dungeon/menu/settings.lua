@@ -50,6 +50,22 @@ local function toggle_auto_start(get_state, set_state)
   set_state(next_state)
 end
 
+local function toggle_display_lines(get_state, set_state, config)
+  local state = get_state()
+  local current = (state.ui and state.ui.display_lines) or (config.ui or {}).height or 2
+  local next_lines = 2
+  if current >= 2 then
+    next_lines = 1
+  elseif current == 1 then
+    next_lines = 0
+  else
+    next_lines = 2
+  end
+  -- 表示行数を0〜2行で切り替えて保存する。
+  local next_state = state_module.set_display_lines(state, next_lines)
+  set_state(next_state)
+end
+
 local function build_reset_choices(lang)
   return {
     { id = "no", label = i18n.t("choice_no", lang) },
@@ -79,6 +95,7 @@ end
 M.open_language_menu = open_language_menu
 M.open_status_menu = open_status_menu
 M.toggle_auto_start = toggle_auto_start
+M.toggle_display_lines = toggle_display_lines
 M.open_reset_menu = open_reset_menu
 
 return M

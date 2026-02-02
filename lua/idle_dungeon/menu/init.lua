@@ -24,6 +24,10 @@ local function format_item_with_state(item, get_state, lang)
     local is_text = (state.ui and state.ui.render_mode) == "text"
     return menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang)
   end
+  if item.id == "display_lines" then
+    local lines = (state.ui and state.ui.display_lines) or 2
+    return menu_locale.display_lines_label(lines, lang)
+  end
   return i18n.t(item.key, lang)
 end
 local function handle_action_choice(action, get_state, set_state, config, lang)
@@ -60,6 +64,9 @@ local function handle_config_choice(action, get_state, set_state, config)
   end
   if action.id == "auto_start" then
     return settings.toggle_auto_start(get_state, set_state)
+  end
+  if action.id == "display_lines" then
+    return settings.toggle_display_lines(get_state, set_state, config)
   end
   if action.id == "language" then
     return settings.open_language_menu(get_state, set_state, config)
@@ -112,12 +119,8 @@ local function build_tabs(get_state, set_state, config)
       id = "dex",
       label = i18n.t("menu_tab_dex", lang),
       items = tabs_data.build_dex_items(state, config, lang),
-      layout = "grid",
       format_item = function(item)
         return item.label
-      end,
-      format_tile = function(item)
-        return item.tile_label or item.label
       end,
       on_choice = function(item)
         if not item or item.id ~= "dex_entry" then

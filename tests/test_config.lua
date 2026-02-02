@@ -54,8 +54,12 @@ assert_true(type(built.floor_encounters.max) == "number", "階層遭遇数の最
 assert_true(type(built.boss_every) == "number", "ボスの出現間隔が定義される")
 -- 会話待機の既定値は0秒で停止時間を発生させない。
 assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒である")
+assert_true(type(built.stage_intro_seconds) == "number", "ステージ導入の表示秒数が定義される")
 -- 表示用アイコンと進行トラックの設定が含まれることを確認する。
 assert_true(type(built.ui.icons) == "table", "表示用アイコンの設定が定義される")
+assert_true(type(built.ui.icons.weapon) == "string", "武器アイコンが定義される")
+assert_true(type(built.ui.icons.armor) == "string", "防具アイコンが定義される")
+assert_true(type(built.ui.icons.accessory) == "string", "装飾アイコンが定義される")
 assert_true(type(built.ui.track_fill) == "string", "進行トラックの埋め文字が定義される")
 assert_true(built.ui.icons_only == true, "表示はアイコン優先が既定である")
 assert_true(type(built.ui.sprites) == "table", "スプライト表示の設定が定義される")

@@ -15,7 +15,24 @@ local function config(config)
     -- ゴールドは別アイコンに置き換えて視認性を上げる。
     gold = icons.gold or "",
     exp = icons.exp or "",
+    -- 装備一覧で使うアイコンをまとめて定義する。
+    weapon = icons.weapon or "󰓥",
+    armor = icons.armor or "",
+    accessory = icons.accessory or "󰓒",
+    companion = icons.companion or "󰠳",
   }
+end
+
+-- 装備スロットごとのアイコンを取得する。
+local function resolve_slot_icon(slot, icons)
+  local safe_icons = icons or {}
+  local map = {
+    weapon = safe_icons.weapon or "",
+    armor = safe_icons.armor or "",
+    accessory = safe_icons.accessory or "",
+    companion = safe_icons.companion or "",
+  }
+  return map[slot or ""] or ""
 end
 
 local function icons_only(config)
@@ -54,5 +71,6 @@ M.config = config
 M.icons_only = icons_only
 M.build_frames = build_frames
 M.prefix = prefix
+M.resolve_slot_icon = resolve_slot_icon
 
 return M

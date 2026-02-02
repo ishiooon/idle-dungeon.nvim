@@ -98,11 +98,18 @@ local st4 = state.toggle_render_mode(st0)
 assert_equal(st4.ui.render_mode, "text", "テキストモードに切り替わる")
 local st5 = state.toggle_render_mode(st4)
 assert_equal(st5.ui.render_mode, "visual", "可視モードに戻る")
+local st_lines = state.set_display_lines(st0, 1)
+assert_equal(st_lines.ui.display_lines, 1, "表示行数が更新される")
+local st_lines2 = state.set_display_lines(st_lines, 2)
+assert_equal(st_lines2.ui.display_lines, 2, "表示行数が2行に戻る")
+local st_lines0 = state.set_display_lines(st_lines2, 0)
+assert_equal(st_lines0.ui.display_lines, 0, "表示行数が0行に切り替わる")
 
 local boss_config = {
   move_step = 1,
   encounter_every = 1,
   dialogue_seconds = 12,
+  stage_intro_seconds = 0,
   stage_name = "last-dungeon",
   enemy_names = { "a" },
   battle = { enemy_hp = 3, enemy_atk = 0, reward_exp = 1, reward_gold = 1 },

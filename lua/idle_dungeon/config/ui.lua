@@ -29,6 +29,10 @@ local function default_ui()
       -- ゴールドは別アイコンに置き換えて視認性を上げる。
       gold = "",
       exp = "",
+      -- 装備の種類を識別するためのアイコンを追加する。
+      weapon = "󰓥",
+      armor = "",
+      accessory = "󰓒",
     },
     -- 戦闘中に進行トラックへ表示する演出記号を定義する。
     battle_effects = { "*", "+", "x" },

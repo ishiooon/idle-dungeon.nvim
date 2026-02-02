@@ -39,6 +39,28 @@ local function resolve_event_title(event, lang)
   return event.title or ""
 end
 
+local function resolve_event_art(event, lang)
+  if not event then
+    return {}
+  end
+  local art = event.art
+  if type(art) == "table" then
+    if art[lang] then
+      return art[lang]
+    end
+    if art.en or art.ja then
+      return art[lang] or art.en or art.ja or {}
+    end
+    if #art > 0 then
+      return art
+    end
+  end
+  if type(art) == "string" and art ~= "" then
+    return { art }
+  end
+  return {}
+end
+
 local function find_next_event_distance(progress, config)
   local candidates = {}
   for _, event in ipairs(content.events) do
@@ -65,6 +87,7 @@ end
 M.find_event_by_id = find_event_by_id
 M.resolve_event_message = resolve_event_message
 M.resolve_event_title = resolve_event_title
+M.resolve_event_art = resolve_event_art
 M.find_next_event_distance = find_next_event_distance
 
 return M

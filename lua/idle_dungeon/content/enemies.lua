@@ -23,6 +23,40 @@ local function apply_gold_defaults(enemies)
   return enemies
 end
 
+-- ドロップ配列へ重複なく追加する。
+local function append_unique(list, extras)
+  local result = {}
+  local seen = {}
+  for _, value in ipairs(list or {}) do
+    if not seen[value] then
+      table.insert(result, value)
+      seen[value] = true
+    end
+  end
+  for _, value in ipairs(extras or {}) do
+    if not seen[value] then
+      table.insert(result, value)
+      seen[value] = true
+    end
+  end
+  return result
+end
+
+-- 敵ごとの追加ドロップをまとめて適用する。
+local function apply_drop_overrides(enemies, overrides)
+  for _, enemy in ipairs(enemies or {}) do
+    local extra = overrides[enemy.id]
+    if extra then
+      local drops = enemy.drops or {}
+      drops.common = append_unique(drops.common or {}, extra.common)
+      drops.rare = append_unique(drops.rare or {}, extra.rare)
+      drops.pet = append_unique(drops.pet or {}, extra.pet)
+      enemy.drops = drops
+    end
+  end
+  return enemies
+end
+
 -- 戦利品候補は敵定義に直接持たせ、図鑑とドロップ抽選に一貫して使う。
 -- 図鑑表示に限らず、出現判定・戦闘・UI表示で使う敵情報を定義する。
 -- ステータスや出現条件もここに集約して管理する。
@@ -1472,6 +1506,34 @@ local enemies = {
   },
 }
 
-M.enemies = apply_gold_defaults(enemies)
+-- ファイルタイプ解放装備を関連する敵に紐付けて追加する。
+local drop_overrides = {
+  dust_slime = { rare = { "lua_sigil_blade" } },
+  vim_mantis = { rare = { "vim_focus_ring" } },
+  c_sentinel = { rare = { "c_forge_spear" } },
+  cpp_colossus = { rare = { "cpp_heap_shield" } },
+  python_serpent = { rare = { "python_coil_whip" } },
+  node_phantom = { rare = { "js_spark_blade", "ts_guard_mail" } },
+  go_gopher = { rare = { "go_stride_band" } },
+  rust_crab = { rare = { "rust_crust_armor" } },
+  java_ifrit = { rare = { "java_forge_staff" } },
+  kotlin_fox = { rare = { "kotlin_arc_amulet" } },
+  swift_raptor = { rare = { "swift_wind_dagger" } },
+  ruby_scarab = { rare = { "ruby_bloom_ring" } },
+  php_elephant = { rare = { "php_bastion_cloak" } },
+  bash_hound = { rare = { "bash_echo_charm", "shell_tide_ring" } },
+  docker_whale = { rare = { "html_canvas_cloak", "css_palette_charm", "yaml_scroll_robe" } },
+  mysql_dolphin = { rare = { "sql_depth_spear", "json_mirror_ring" } },
+  postgres_colossus = { rare = { "toml_anchor_band" } },
+  gnu_bison = { rare = { "markdown_quill_pendant" } },
+}
+
+local function finalize_enemies(entries)
+  apply_gold_defaults(entries)
+  apply_drop_overrides(entries, drop_overrides)
+  return entries
+end
+
+M.enemies = finalize_enemies(enemies)
 
 return M

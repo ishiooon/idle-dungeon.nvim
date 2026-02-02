@@ -9,6 +9,7 @@ local equip_detail = require("idle_dungeon.menu.equip_detail")
 local menu_detail = require("idle_dungeon.menu.detail")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
+local icon_module = require("idle_dungeon.ui.icon")
 local player = require("idle_dungeon.game.player")
 local render_stage = require("idle_dungeon.ui.render_stage")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
@@ -16,6 +17,16 @@ local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
+
+-- 装備名の先頭にスロットアイコンを付けて識別しやすくする。
+local function format_item_label(item, config)
+  local icons = icon_module.config(config)
+  local icon = icon_module.resolve_slot_icon(item.slot, icons)
+  if icon == "" then
+    return item.name
+  end
+  return string.format("%s %s", icon, item.name)
+end
 
 -- 設定系の操作は別モジュールへ委譲する。
 local function apply_equipment(state, slot, item_id)
@@ -118,10 +129,12 @@ local function open_equip_menu(get_state, set_state, config, on_close)
         -- 装備確定後もメニューを閉じずに連続で選択できるようにする。
         keep_open = true,
         format_item = function(item)
-          return item.name
+          return format_item_label(item, config)
         end,
         detail_provider = function(item)
-          return equip_detail.build_detail(item, get_state(), lang) or menu_detail.build_item_detail(item, get_state(), lang)
+          -- 装備差分と解放条件をまとめて表示する。
+          return equip_detail.build_detail(item, get_state(), lang, config)
+            or menu_detail.build_item_detail(item, get_state(), lang, config)
         end,
       }, function(item)
         if not item then

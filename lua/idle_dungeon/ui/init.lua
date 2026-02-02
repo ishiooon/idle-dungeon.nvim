@@ -3,11 +3,14 @@
 local click = require("idle_dungeon.ui.click")
 local render = require("idle_dungeon.ui.render")
 local sprite_highlight = require("idle_dungeon.ui.sprite_highlight")
+local stage_intro = require("idle_dungeon.ui.stage_intro")
 
 local M = {}
 
 local ui_state = { buf = nil, win = nil, on_click = nil, prev_win = nil }
 local highlight_ns = vim.api.nvim_create_namespace("IdleDungeonSprites")
+-- 関数の参照順序を安定させるため、先に宣言しておく。
+local close
 
 local function is_valid_window(win)
   return win and vim.api.nvim_win_is_valid(win)
@@ -86,10 +89,22 @@ local function render_ui(state, config)
     -- 直前の作業ウィンドウを記録してクリック後の復帰に使う。
     ui_state.prev_win = current_win
   end
+  if state.ui and state.ui.mode == "stage_intro" then
+    -- ステージ開始時のアスキーアートを中央に表示する。
+    stage_intro.render(state, config)
+  else
+    stage_intro.close()
+  end
   local max_height = math.min((config.ui or {}).max_height or 2, 2)
-  local preferred_height = (config.ui or {}).height or max_height
+  -- 表示行数は状態側の設定を優先し、未設定なら既定設定を参照する。
+  local preferred_height = (state.ui and state.ui.display_lines) or (config.ui or {}).height or max_height
   -- 表示行数は設定の希望値を優先し、最大2行までに制限する。
   local height_limit = math.min(preferred_height, max_height)
+  if height_limit <= 0 then
+    -- 表示なし設定の場合はウィンドウを閉じて終了する。
+    close()
+    return
+  end
   local lines = clamp_lines(render.build_lines(state, config), height_limit)
   -- 表示行数は最大2行までに制限する。
   local height = math.max(math.min(#lines, height_limit), 1)
@@ -106,7 +121,7 @@ local function render_ui(state, config)
   sprite_highlight.apply(buf, highlight_ns, highlights, config)
 end
 
-local function close()
+close = function()
   if is_valid_window(ui_state.win) then
     -- 表示を終了するためにウィンドウを閉じる。
     vim.api.nvim_win_close(ui_state.win, true)

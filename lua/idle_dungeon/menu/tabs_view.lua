@@ -268,9 +268,35 @@ local function collect_item_highlights(tab, built, header_lines)
       table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuMuted" })
     elseif item and item.id == "art" then
       table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuTitle" })
+    elseif item and item.highlight_key then
+      table.insert(specs, {
+        line = header_lines + index,
+        group = "IdleDungeonMenuElement_" .. item.highlight_key,
+        palette_key = item.highlight_key,
+      })
     end
   end
   return specs
+end
+
+local function palette_config(config)
+  return ((config or {}).ui or {}).sprite_palette or {}
+end
+
+local function apply_element_highlights(config, highlight_specs)
+  local palette = palette_config(config)
+  local seen = {}
+  for _, spec in ipairs(highlight_specs or {}) do
+    local key = spec.palette_key
+    if key and not seen[key] then
+      local colors = palette[key] or {}
+      if colors.fg or colors.bg then
+        -- 依存する配色を反映するためハイライトグループを更新する。
+        vim.api.nvim_set_hl(0, "IdleDungeonMenuElement_" .. key, { fg = colors.fg, bg = colors.bg, bold = true })
+      end
+      seen[key] = true
+    end
+  end
 end
 
 -- 表示領域に合わせてコンテンツ行数を埋める。
@@ -395,6 +421,7 @@ render = function()
       table.insert(highlight_specs, spec)
     end
   end
+  apply_element_highlights(ui_state.config, highlight_specs)
   window.apply_highlights(buf, highlight_specs)
   if is_grid_tab(tab) then
     local selected_cell = resolve_grid_selected_cell()

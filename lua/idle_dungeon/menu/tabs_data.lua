@@ -21,6 +21,7 @@ local function build_config_items()
   return {
     { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
     { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
+    { id = "display_lines", key = "menu_action_display_lines", keep_open = true, kind = "toggle" },
     -- 設定系は閉じずに選択できるようkeep_openで維持する。
     { id = "language", key = "menu_action_language", keep_open = true },
     { id = "reset", key = "menu_action_reset", keep_open = true },
@@ -77,19 +78,23 @@ local function append_section(items, title, lines, empty_label)
 end
 
 -- 図鑑のタイル表示に使う1行テキストを組み立てる。
-local function build_tile_label(entry, kind, lang)
-  local name = entry.name or ""
-  local icon = entry.icon or ""
-  local base = icon ~= "" and (icon .. " " .. name) or name
-  local element_label = entry.element_label
+local function build_tile_label(entry, kind, lang, unknown_label)
+  local is_known = entry and entry.known ~= false
+  local base_name = entry and entry.name or ""
+  if not is_known then
+    base_name = unknown_label
+  end
+  local icon = (entry and entry.icon) or ""
+  local base = icon ~= "" and (icon .. " " .. base_name) or base_name
+  local element_label = entry and entry.element_label or nil
+  if not is_known then
+    element_label = unknown_label
+  end
   if element_label and element_label ~= "" then
     base = string.format("%s [%s]", base, element_label)
   end
-  local count = tonumber(entry.count) or 0
-  if kind == "enemy" then
-    return string.format("%s x%d", base, count)
-  end
-  return string.format("%s x%d", base, count)
+  local count_text = is_known and tostring(tonumber(entry and entry.count) or 0) or unknown_label
+  return string.format("%s x%s", base, count_text)
 end
 
 -- レアリティの表示名を整形する。
@@ -104,7 +109,7 @@ local function rarity_label(rarity, lang)
 end
 
 -- 図鑑の詳細表示用に行を組み立てる。
-local function build_detail_lines(entry, kind, lang)
+local function build_detail_lines(entry, kind, lang, unknown_label)
   local lines = {}
   local name_label = i18n.t("dex_detail_name", lang)
   local type_label = i18n.t("dex_detail_type", lang)
@@ -113,7 +118,19 @@ local function build_detail_lines(entry, kind, lang)
   local flavor_label = i18n.t("dex_detail_flavor", lang)
   local drops_label = i18n.t("dex_label_drops", lang)
   local type_value = kind == "enemy" and i18n.t("dex_detail_kind_enemy", lang) or i18n.t("dex_detail_kind_item", lang)
+  local is_known = entry and entry.known ~= false
   table.insert(lines, string.format("%s %s", type_label, type_value))
+  if not is_known then
+    table.insert(lines, string.format("%s %s", name_label, unknown_label))
+    table.insert(lines, string.format("%s %s", count_label, unknown_label))
+    if kind == "item" then
+      table.insert(lines, string.format("%s %s", i18n.t("dex_detail_slot", lang), unknown_label))
+      table.insert(lines, string.format("%s %s", i18n.t("dex_detail_rarity", lang), unknown_label))
+    else
+      table.insert(lines, string.format("%s %s", drops_label, unknown_label))
+    end
+    return lines
+  end
   table.insert(lines, string.format("%s %s", name_label, entry.name or ""))
   table.insert(lines, string.format("%s %d", count_label, tonumber(entry.count) or 0))
   if entry.element_label and entry.element_label ~= "" then
@@ -149,18 +166,21 @@ local function build_dex_items(state, config, lang)
   local items = {}
   local enemy_entries = dex_catalog.build_enemy_entries(state, lang)
   local item_entries = dex_catalog.build_item_entries(state, lang)
+  local unknown_label = i18n.t("dex_unknown", lang)
   table.insert(items, { id = "header", label = i18n.t("dex_title_enemies", lang) })
   if #enemy_entries == 0 then
     table.insert(items, { id = "empty", label = i18n.t("dex_empty_enemies", lang) })
   else
     for _, entry in ipairs(enemy_entries) do
+      local element_key = entry.known and ("element_" .. (entry.element_id or "normal")) or nil
       table.insert(items, {
         id = "dex_entry",
         kind = "enemy",
-        label = build_tile_label(entry, "enemy", lang),
-        tile_label = build_tile_label(entry, "enemy", lang),
-        detail_title = entry.name,
-        detail_lines = build_detail_lines(entry, "enemy", lang),
+        label = build_tile_label(entry, "enemy", lang, unknown_label),
+        tile_label = build_tile_label(entry, "enemy", lang, unknown_label),
+        detail_title = entry.known and entry.name or unknown_label,
+        detail_lines = build_detail_lines(entry, "enemy", lang, unknown_label),
+        highlight_key = element_key,
         keep_open = true,
       })
     end
@@ -173,10 +193,10 @@ local function build_dex_items(state, config, lang)
       table.insert(items, {
         id = "dex_entry",
         kind = "item",
-        label = build_tile_label(entry, "item", lang),
-        tile_label = build_tile_label(entry, "item", lang),
-        detail_title = entry.name,
-        detail_lines = build_detail_lines(entry, "item", lang),
+        label = build_tile_label(entry, "item", lang, unknown_label),
+        tile_label = build_tile_label(entry, "item", lang, unknown_label),
+        detail_title = entry.known and entry.name or unknown_label,
+        detail_lines = build_detail_lines(entry, "item", lang, unknown_label),
         keep_open = true,
       })
     end

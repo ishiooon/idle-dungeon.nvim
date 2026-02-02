@@ -88,6 +88,8 @@ lua tests/test_sprites.lua
 lua tests/test_ui_click.lua
 # 進行トラックの単体テストを確認する。
 lua tests/test_track.lua
+# メニューの入力統計表示を確認する。
+lua tests/test_menu_metrics.lua
 # ステージの敵プール選択を確認する。
 lua tests/test_enemy_pool.lua
 # 敵データの件数と必須項目を確認する。
@@ -109,6 +111,8 @@ lua tests/test_stage_unlock.lua
 lua tests/test_sprite_highlight.lua
 # 装備変更の詳細表示を確認する。
 lua tests/test_equip_detail.lua
+# 装備詳細の解放条件表示を確認する。
+lua tests/test_menu_detail_unlock.lua
 # ステージのボス設定が有効であることを確認する。
 lua tests/test_boss_config.lua
 # メニューのヒント文言とトグル表記を確認する。

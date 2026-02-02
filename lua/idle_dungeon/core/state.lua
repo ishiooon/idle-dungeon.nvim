@@ -41,8 +41,11 @@ local function new_state(config)
       render_mode = (config.ui or {}).render_mode or "visual",
       auto_start = (config.ui or {}).auto_start ~= false,
       language = (config.ui or {}).language or "en",
+      -- 右下表示の行数は設定値を初期値として保持する。
+      display_lines = (config.ui or {}).height or 2,
       event_id = nil,
       battle_message = nil,
+      stage_intro_remaining = 0,
     },
     metrics = metrics.new_metrics(),
     unlocks = {
@@ -76,6 +79,10 @@ local function set_language(state, language)
 end
 local function set_auto_start(state, auto_start)
   return helpers.update_section(state, "ui", { auto_start = auto_start })
+end
+local function set_display_lines(state, lines)
+  local next_lines = math.max(math.min(tonumber(lines) or 2, 2), 0)
+  return helpers.update_section(state, "ui", { display_lines = next_lines })
 end
 local function set_ui_mode(state, mode, updates)
   return helpers.update_section(helpers.update_section(state, "ui", { mode = mode }), "ui", updates or {})
@@ -127,6 +134,7 @@ M.set_render_mode = set_render_mode
 M.toggle_render_mode = toggle_render_mode
 M.set_language = set_language
 M.set_auto_start = set_auto_start
+M.set_display_lines = set_display_lines
 M.set_ui_mode = set_ui_mode
 M.with_metrics = with_metrics
 M.with_unlocks = with_unlocks
