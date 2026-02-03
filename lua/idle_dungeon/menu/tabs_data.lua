@@ -31,7 +31,8 @@ end
 -- クレジット表示用のアスキーアートを定義する。
 local function build_credits_art()
   return {
-    "=== IDEL DUNGEON ===",
+    -- 作品名の表記は IdleDungeon に統一する。
+    "=== IdleDungeon ===",
     " ___ ____  _____ _       ____  _   _ _   _  ____  _   _ ",
     "|_ _|  _ \\| ____| |     |  _ \\| | | | \\ | |/ ___|| | | |",
     " | || | | |  _| | |     | | | | | | |  \\| | |  _ | | | |",
@@ -190,6 +191,7 @@ local function build_dex_items(state, config, lang)
         detail_title = entry.known and entry.name or unknown_label,
         detail_lines = build_detail_lines(entry, "enemy", lang, unknown_label),
         highlight_key = element_key,
+        highlight_icon = entry.icon or "",
         keep_open = true,
       })
     end

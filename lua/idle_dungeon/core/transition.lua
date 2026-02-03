@@ -48,7 +48,8 @@ local function start_battle(state, progress, enemy, enemy_spec)
     ui = util.merge_tables(state.ui, next_ui),
   })
   -- 戦闘開始時は前回の戦闘状態を持ち越さないように初期化する。
-  next_state.combat = { enemy = enemy, source = enemy_spec, last_turn = nil, turn = "hero", turn_wait = 0 }
+  -- 先制判定は戦闘遷移側で速度比較して決定する。
+  next_state.combat = { enemy = enemy, source = enemy_spec, last_turn = nil, turn = nil, turn_wait = 0 }
   return state_dex.record_enemy(next_state, enemy.id or enemy.name, enemy.element)
 end
 

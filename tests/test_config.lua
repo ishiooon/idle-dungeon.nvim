@@ -52,6 +52,8 @@ assert_true(type(built.floor_encounters) == "table", "階層遭遇数の設定�
 assert_true(type(built.floor_encounters.min) == "number", "階層遭遇数の最小値が定義される")
 assert_true(type(built.floor_encounters.max) == "number", "階層遭遇数の最大値が定義される")
 assert_true(type(built.boss_every) == "number", "ボスの出現間隔が定義される")
+assert_true(type(built.battle) == "table", "戦闘設定が定義される")
+assert_true(built.battle.reward_exp == 6, "経験値の既定値が引き上げられている")
 -- 会話待機の既定値は0秒で停止時間を発生させない。
 assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒である")
 assert_true(type(built.stage_intro_seconds) == "number", "ステージ導入の表示秒数が定義される")

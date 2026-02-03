@@ -66,6 +66,28 @@ assert_equal(ahead_distance, encounter_distance, "遭遇距離が間合い補正
 local defeated = floor_state.mark_enemy_defeated(refreshed, enemy)
 assert_equal(defeated.floor_enemies[1].defeated, true, "敵の撃破状態が記録される")
 
+-- 最初の敵は必ず指定のスライムになることを確認する。
+local first_enemy_config = {
+  floor_length = 10,
+  floor_encounters = { min = 3, max = 3 },
+  enemy_names = { "tux_penguin" },
+  elements = { "normal" },
+  battle = { encounter_gap = 2 },
+  stages = {
+    { id = 1, name = "StageOne", start = 0, floors = 1 },
+  },
+}
+local first_progress = {
+  distance = 0,
+  stage_start = 0,
+  stage_id = 1,
+  boss_every = 10,
+  rng_seed = 3,
+}
+local first_refreshed = floor_state.refresh(first_progress, first_enemy_config)
+assert_equal(#first_refreshed.floor_enemies, 3, "最初の階層でも敵が複数生成される")
+assert_equal(first_refreshed.floor_enemies[1].id, "dust_slime", "最初の敵はルアスライムになる")
+
 -- ステージ最終フロアでもボスが出現することを確認する。
 local last_stage_config = {
   floor_length = 5,

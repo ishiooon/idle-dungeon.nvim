@@ -63,9 +63,9 @@ assert_true(type(gold_seed_none) == "number", "ゴールド無しでも乱数シ
 -- 希少ドロップの抑制が反映されているかを明示的に検証する。
 local default_config = config_module.build({})
 local default_rates = (default_config.battle or {}).drop_rates or {}
-assert_equal(default_rates.common, 5, "通常ドロップ率の既定値が低めである")
+assert_equal(default_rates.common, 3, "通常ドロップ率の既定値が低めである")
 assert_equal(default_rates.rare, 1, "レアドロップ率の既定値がかなり低めである")
-assert_equal(default_rates.pet, 0, "ペットドロップ率の既定値がさらに低めである")
+assert_equal(default_rates.pet, 1, "ペットドロップ率の既定値がさらに低めである")
 assert_equal(default_rates.boss_bonus, 1, "ボス補正の既定値が低めである")
 
 print("OK")

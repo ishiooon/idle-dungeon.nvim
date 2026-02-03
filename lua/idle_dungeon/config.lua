@@ -101,12 +101,14 @@ local function default_config()
       growth_hp = 2,
       growth_atk = 1,
       growth_def = 0.5,
+      -- 速度の成長は攻撃間隔を短くする方向で作用させる。
+      growth_speed = 0.05,
       -- ボスは成長レベルを倍率で上げて強さを際立たせる。
       growth_boss_multiplier = 1.5,
       -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
       hero_speed = 2,
       enemy_speed = 2,
-      reward_exp = 2,
+      reward_exp = 6,
       reward_gold = 2,
       -- エンカウントは敵の2マス手前で開始する。
       encounter_gap = 2,
@@ -114,7 +116,7 @@ local function default_config()
       outcome_wait = 0,
       -- 戦利品のドロップ率はさらに低めに調整して希少性を強める。
       -- レアとペットはほぼ出ない前提で数値を設定する。
-      drop_rates = { common = 5, rare = 1, pet = 0, boss_bonus = 1 },
+      drop_rates = { common = 3, rare = 1, pet = 1, boss_bonus = 1 },
     },
     storage = {
       -- ユーザー共通の保存を前提とするため、短い同期間隔を既定にする。

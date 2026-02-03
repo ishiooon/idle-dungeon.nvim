@@ -94,9 +94,11 @@ local function build_enemy(distance, config, enemy_spec)
   local growth_hp = battle.growth_hp or 2
   local growth_atk = battle.growth_atk or 1
   local growth_def = battle.growth_def or 0.5
+  local growth_speed = math.max(tonumber(battle.growth_speed) or 0, 0)
   local scaled_hp = base_hp + math.max(0, math.floor(growth * growth_hp))
   local scaled_atk = base_atk + math.max(0, math.floor(growth * growth_atk))
   local scaled_def = base_def + math.max(0, math.floor(growth * growth_def))
+  local scaled_speed = base_speed - math.max(0, math.floor(math.max(growth - 1, 0) * growth_speed))
   return {
     id = enemy_id,
     name = resolve_enemy_name(enemy_id),
@@ -107,7 +109,7 @@ local function build_enemy(distance, config, enemy_spec)
     atk = scaled_atk,
     def = scaled_def,
     accuracy = stats.accuracy,
-    speed = math.max(tonumber(base_speed) or 1, 1),
+    speed = math.max(tonumber(scaled_speed) or 1, 1),
     is_boss = is_boss,
     level = growth,
     -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。

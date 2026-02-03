@@ -4,6 +4,39 @@ local rng = require("idle_dungeon.rng")
 
 local M = {}
 
+-- 最初の階層だけは固定の敵を最初に配置する。
+local function should_force_first_enemy(progress, config)
+  local safe_progress = progress or {}
+  local distance = safe_progress.distance or 0
+  local stage_start = safe_progress.stage_start or 0
+  if distance ~= stage_start then
+    return false
+  end
+  local stages = (config or {}).stages or {}
+  if #stages == 0 then
+    return true
+  end
+  local first_stage = stages[1]
+  if not first_stage or first_stage.id == nil then
+    return true
+  end
+  return safe_progress.stage_id == first_stage.id
+end
+
+-- 最初の敵を差し替える場合は属性が定義内にあるか確認する。
+local function normalize_first_enemy_element(element_id, enemy_data)
+  local list = (enemy_data and enemy_data.elements) or {}
+  if #list == 0 then
+    return element_id or "normal"
+  end
+  for _, value in ipairs(list) do
+    if value == element_id then
+      return element_id
+    end
+  end
+  return list[1]
+end
+
 local function resolve_encounter_range(config, floor_length)
   local floor_encounters = config.floor_encounters or {}
   if floor_encounters.enabled == false then
@@ -82,6 +115,20 @@ local function build_floor_enemies(progress, config, floor_length)
   table.sort(enemies, function(a, b)
     return a.position < b.position
   end)
+  if total > 0 and should_force_first_enemy(progress, config) then
+    local first = enemies[1]
+    local forced = enemy_catalog.find_enemy("dust_slime")
+    if first and forced then
+      local element_id = normalize_first_enemy_element(first.element, forced)
+      -- 先頭の敵のみIDを差し替えて最初の遭遇を固定する。
+      enemies[1] = {
+        id = forced.id or "dust_slime",
+        element = element_id,
+        position = first.position,
+        defeated = first.defeated,
+      }
+    end
+  end
   return enemies, next_seed
 end
 

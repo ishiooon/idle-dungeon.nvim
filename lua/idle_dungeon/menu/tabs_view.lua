@@ -254,8 +254,24 @@ local function build_tab_labels(tab, config)
   return labels
 end
 
+-- アイコンだけを強調するための範囲を計算する。
+local function resolve_icon_highlight_range(item, config)
+  if not item then
+    return nil
+  end
+  local icon = item.highlight_icon or ""
+  if icon == "" then
+    return nil
+  end
+  local padding = math.max((config or {}).padding or 0, 0)
+  local prefix = (config or {}).item_prefix or ""
+  local start_col = padding + #prefix
+  local end_col = start_col + #icon
+  return { start_col = start_col, end_col = end_col }
+end
+
 -- セクション見出しなどに対応するハイライト行を集計する。
-local function collect_item_highlights(tab, built, header_lines)
+local function collect_item_highlights(tab, built, header_lines, config)
   local specs = {}
   local items = (tab and tab.items) or {}
   local offset = built.offset or 0
@@ -269,11 +285,16 @@ local function collect_item_highlights(tab, built, header_lines)
     elseif item and item.id == "art" then
       table.insert(specs, { line = header_lines + index, group = "IdleDungeonMenuTitle" })
     elseif item and item.highlight_key then
-      table.insert(specs, {
-        line = header_lines + index,
-        group = "IdleDungeonMenuElement_" .. item.highlight_key,
-        palette_key = item.highlight_key,
-      })
+      local range = resolve_icon_highlight_range(item, config)
+      if range then
+        table.insert(specs, {
+          line = header_lines + index,
+          group = "IdleDungeonMenuElement_" .. item.highlight_key,
+          palette_key = item.highlight_key,
+          start_col = range.start_col,
+          end_col = range.end_col,
+        })
+      end
     end
   end
   return specs
@@ -417,7 +438,7 @@ render = function()
       table.insert(highlight_specs, spec)
     end
   else
-    for _, spec in ipairs(collect_item_highlights(tab, built, #sections.header_lines)) do
+    for _, spec in ipairs(collect_item_highlights(tab, built, #sections.header_lines, config)) do
       table.insert(highlight_specs, spec)
     end
   end

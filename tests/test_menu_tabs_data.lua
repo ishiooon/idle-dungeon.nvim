@@ -18,6 +18,7 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 local menu_data = require("idle_dungeon.menu.tabs_data")
 local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
+local dex = require("idle_dungeon.game.dex")
 
 local config = {
   stage_name = "dungeon1-1",
@@ -73,6 +74,22 @@ assert_true(found_display_lines, "表示行数の項目が含まれる")
 
 local credits_items = menu_data.build_credits_items("en")
 assert_true(#credits_items > 0, "クレジットタブの項目が生成される")
-assert_match(credits_items[1].label or "", "IDEL", "クレジットのアスキーアートが含まれる")
+-- クレジットの表記は IdleDungeon に統一する。
+assert_match(credits_items[1].label or "", "IdleDungeon", "クレジットのアスキーアートが含まれる")
+
+-- 図鑑のアイコン色付けはアイコン部分だけに適用するため情報を保持する。
+local dex_state = util.merge_tables(state, {
+  dex = dex.record_enemy(dex.new_dex(), "dust_slime", "normal", 10),
+})
+local dex_items = menu_data.build_dex_items(dex_state, config, "en")
+local highlighted = nil
+for _, item in ipairs(dex_items) do
+  if item.id == "dex_entry" and item.highlight_key then
+    highlighted = item
+    break
+  end
+end
+assert_true(highlighted ~= nil, "図鑑の敵エントリが見つかる")
+assert_match(highlighted.highlight_icon or "", "%S", "図鑑の敵アイコンが保持される")
 
 print("OK")

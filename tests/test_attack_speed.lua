@@ -38,23 +38,24 @@ local base_state = {
   progress = { rng_seed = 1 },
   ui = { mode = "battle" },
   combat = {
-    enemy = { hp = 10, max_hp = 10, atk = 1, def = 0, accuracy = 100, speed = 1 },
-    turn = "hero",
+    enemy = { hp = 10, max_hp = 10, atk = 1, def = 0, accuracy = 100, speed = 3 },
+    turn = nil,
     turn_wait = 0,
     last_turn = nil,
   },
 }
 
 local st1 = battle_flow.tick_battle(base_state, config)
-assert_equal(st1.combat.last_turn.attacker, "hero", "最初の攻撃は勇者が行う")
-assert_equal(st1.actor.hp, 10, "勇者のターンでは勇者のHPは減らない")
-assert_true((st1.combat.enemy.hp or 10) < 10, "勇者の攻撃で敵HPが減る")
+assert_equal(st1.combat.last_turn.attacker, "enemy", "速度が高い敵が先に攻撃する")
+assert_true((st1.actor.hp or 10) < 10, "敵の攻撃で勇者HPが減る")
+assert_equal(st1.combat.enemy.hp, 10, "敵のターンでは敵のHPは減らない")
 
-local st2 = battle_flow.tick_battle(util.merge_tables(st1, { metrics = { time_sec = 1 } }), config)
-assert_equal(st2.combat.last_turn.attacker, "hero", "攻撃演出中は勇者の攻撃情報を保持する")
-
-local st3 = battle_flow.tick_battle(util.merge_tables(st2, { metrics = { time_sec = 2 } }), config)
-assert_equal(st3.combat.last_turn.attacker, "enemy", "次の攻撃は敵が行う")
-assert_true((st3.actor.hp or 10) < (st1.actor.hp or 10), "敵の攻撃で勇者HPが減る")
+local fast_hero_state = util.merge_tables(base_state, {
+  actor = { hp = 10, max_hp = 10, atk = 1, def = 0, speed = 3 },
+  combat = { enemy = { hp = 10, max_hp = 10, atk = 1, def = 0, accuracy = 100, speed = 1 }, turn = nil, turn_wait = 0, last_turn = nil },
+})
+local st2 = battle_flow.tick_battle(fast_hero_state, config)
+assert_equal(st2.combat.last_turn.attacker, "hero", "速度が高い勇者が先に攻撃する")
+assert_true((st2.combat.enemy.hp or 10) < 10, "勇者の攻撃で敵HPが減る")
 
 print("OK")

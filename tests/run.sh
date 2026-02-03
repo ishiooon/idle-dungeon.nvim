@@ -119,6 +119,8 @@ lua tests/test_reset.lua
 # 画像スプライトの単体テストは廃止したため実行しない。
 # ステージ解放の単体テストを確認する。
 lua tests/test_stage_unlock.lua
+# ステージ導入文のストーリー定義を確認する。
+lua tests/test_stage_intro_story.lua
 # スプライトの色割当ルールを確認する。
 lua tests/test_sprite_highlight.lua
 # 装備変更の詳細表示を確認する。

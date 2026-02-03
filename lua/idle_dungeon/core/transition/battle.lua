@@ -117,6 +117,18 @@ local function resolve_enemy_speed(enemy, config)
   return resolve_speed(enemy.speed, battle_config.enemy_speed or 2)
 end
 
+-- 速度が高い側を先制として扱い、同速なら勇者を優先する。
+local function resolve_initial_turn(combat, hero_speed, enemy_speed)
+  local current = combat and combat.turn or nil
+  if current == "hero" or current == "enemy" then
+    return current
+  end
+  if (enemy_speed or 1) > (hero_speed or 1) then
+    return "enemy"
+  end
+  return "hero"
+end
+
 -- 攻撃ターンの記録をまとめて作成する。
 local function resolve_tick_seconds(state, config)
   local boost = state and state.ui and state.ui.speed_boost or nil
@@ -167,7 +179,6 @@ local function tick_battle(state, config)
       return util.merge_tables(state, { ui = util.merge_tables(state.ui, next_ui), progress = util.merge_tables(state.progress, { rng_seed = seed }) })
     end
   end
-  local turn = combat.turn or "hero"
   local wait = combat.turn_wait or 0
   if wait > 0 then
     local next_combat = util.merge_tables(combat, { turn_wait = wait - 1 })
@@ -175,6 +186,7 @@ local function tick_battle(state, config)
   end
   local hero_speed = resolve_actor_speed(state, config)
   local enemy_speed = resolve_enemy_speed(enemy, config)
+  local turn = resolve_initial_turn(combat, hero_speed, enemy_speed)
   local tick_seconds = resolve_tick_seconds(state, config)
   local attack_effect_frames = resolve_attack_frames(battle_config, tick_seconds)
   local attack_step_frames = resolve_attack_step_frames(battle_config, tick_seconds)

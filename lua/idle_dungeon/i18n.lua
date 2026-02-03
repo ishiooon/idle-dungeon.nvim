@@ -41,7 +41,8 @@ local translations = {
   -- 状態詳細の見出しを定義する。
   menu_status_title = { en = "Current Status", jp = "現在の状態(詳細)" },
   credits_title = { en = "Credits", jp = "クレジット" },
-  credits_line_created = { en = "Created by the Idle Dungeon team", jp = "Idle Dungeon 開発チーム" },
+  -- クレジット内の表記は IdleDungeon に統一する。
+  credits_line_created = { en = "Created by the IdleDungeon team", jp = "IdleDungeon 開発チーム" },
   credits_line_ui = { en = "UI concept: gisketch/triforce.nvim", jp = "UI参考: gisketch/triforce.nvim" },
   -- 画像スプライトの参照表記は廃止した。
   credits_line_thanks = { en = "Thanks for playing!", jp = "遊んでくれてありがとう！" },
