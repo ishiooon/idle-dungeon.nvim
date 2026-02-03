@@ -14,7 +14,8 @@ local state_module = require("idle_dungeon.core.state")
 
 local config = {
   unlock_rules = {
-    { id = "typing_blade", target = "items", kind = "chars", value = 200 },
+    -- 装備定義の解放条件に合わせて大きめの値を使う。
+    { id = "typing_blade", target = "items", kind = "chars", value = 4000 },
   },
   ui = { language = "en" },
 }

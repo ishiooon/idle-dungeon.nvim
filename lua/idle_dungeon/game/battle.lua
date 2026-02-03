@@ -35,15 +35,55 @@ local function resolve_enemy_element(enemy_spec)
   return "normal"
 end
 
+-- 距離から現在のステージとインデックスを解決する。
+local function resolve_stage_context(distance, config)
+  local stages = (config or {}).stages or {}
+  local floor_length = floor_progress.resolve_floor_length(config or {})
+  if #stages == 0 then
+    return nil, 1, floor_length
+  end
+  local cursor = tonumber(distance) or 0
+  local fallback = stages[#stages]
+  local fallback_index = #stages
+  for index, stage in ipairs(stages) do
+    local start = stage.start or 0
+    local length = floor_progress.stage_length_steps(stage, floor_length)
+    local finish = length and (start + length) or nil
+    if stage.infinite then
+      finish = nil
+    end
+    if cursor >= start and (not finish or cursor < finish) then
+      return stage, index, floor_length
+    end
+  end
+  return fallback, fallback_index, floor_length
+end
+
+-- 敵の成長レベルを計算する。
+local function resolve_growth_level(distance, config, is_boss)
+  local stage, stage_index, floor_length = resolve_stage_context(distance, config)
+  local battle_config = (config or {}).battle or {}
+  local base = battle_config.growth_base or 1
+  local floor_growth = battle_config.growth_floor or 2
+  local stage_growth = battle_config.growth_stage or 12
+  local stage_start = stage and stage.start or 0
+  local stage_floor = floor_progress.floor_index((distance or 0) - stage_start, floor_length)
+  local level = base + math.max(stage_floor, 0) * floor_growth + math.max((stage_index or 1) - 1, 0) * stage_growth
+  local boss_multiplier = battle_config.growth_boss_multiplier or 1.5
+  if is_boss then
+    level = math.floor(level * boss_multiplier + 0.5)
+  end
+  return math.max(level, 1)
+end
+
 -- 敵のステータスを距離と設定から構築する。
 local function build_enemy(distance, config, enemy_spec)
   local names = (config or {}).enemy_names or { "enemy" }
   local enemy_id = resolve_enemy_id(distance or 0, names, enemy_spec)
   local enemy_data = enemy_catalog.find_enemy(enemy_id) or {}
-  -- 階層数を基準に敵の成長を計算する。
-  local floor_length = floor_progress.resolve_floor_length(config or {})
-  local floor_index = floor_progress.floor_index(distance or 0, floor_length)
-  local growth = floor_index
+  local is_boss = enemy_spec and enemy_spec.is_boss or false
+  -- ステージとフロアの進行度で成長を計算する。
+  local growth = resolve_growth_level(distance or 0, config, is_boss)
   local battle = config.battle or { enemy_hp = 5, enemy_atk = 1 }
   local stats = enemy_data.stats or {}
   local base_hp = stats.hp or battle.enemy_hp
@@ -51,18 +91,25 @@ local function build_enemy(distance, config, enemy_spec)
   local base_def = stats.def or 0
   -- 敵の攻撃速度は定義値を優先し、無い場合は既定値を使う。
   local base_speed = stats.speed or battle.enemy_speed or 2
+  local growth_hp = battle.growth_hp or 2
+  local growth_atk = battle.growth_atk or 1
+  local growth_def = battle.growth_def or 0.5
+  local scaled_hp = base_hp + math.max(0, math.floor(growth * growth_hp))
+  local scaled_atk = base_atk + math.max(0, math.floor(growth * growth_atk))
+  local scaled_def = base_def + math.max(0, math.floor(growth * growth_def))
   return {
     id = enemy_id,
     name = resolve_enemy_name(enemy_id),
     element = resolve_enemy_element(enemy_spec),
-    hp = base_hp + growth,
+    hp = scaled_hp,
     -- 最大体力を保持して表示に使う。
-    max_hp = base_hp + growth,
-    atk = base_atk + math.floor(growth / 2),
-    def = base_def + math.floor(growth / 3),
+    max_hp = scaled_hp,
+    atk = scaled_atk,
+    def = scaled_def,
     accuracy = stats.accuracy,
     speed = math.max(tonumber(base_speed) or 1, 1),
-    is_boss = enemy_spec and enemy_spec.is_boss or false,
+    is_boss = is_boss,
+    level = growth,
     -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。
     drops = enemy_data.drops,
   }

@@ -20,8 +20,6 @@ local function default_ui()
     track_fill = ".",
     -- 表示に使うアイコンは専用モジュールの既定値を採用する。
     icons = icon_module.default_icons(),
-    -- 戦闘中に進行トラックへ表示する演出記号を定義する。
-    battle_effects = { "*", "+", "x" },
     -- 表示はアイコンを優先し、文字スプライトは補助扱いにする。
     icons_only = true,
     -- スプライトの色味をキャラクターや敵ごとに定義する。

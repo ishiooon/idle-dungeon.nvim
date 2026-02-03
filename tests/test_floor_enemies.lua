@@ -66,4 +66,26 @@ assert_equal(ahead_distance, encounter_distance, "遭遇距離が間合い補正
 local defeated = floor_state.mark_enemy_defeated(refreshed, enemy)
 assert_equal(defeated.floor_enemies[1].defeated, true, "敵の撃破状態が記録される")
 
+-- ステージ最終フロアでもボスが出現することを確認する。
+local last_stage_config = {
+  floor_length = 5,
+  floor_encounters = { min = 0, max = 0 },
+  enemy_names = { "dust_slime" },
+  elements = { "normal" },
+  battle = { encounter_gap = 2 },
+  stages = {
+    { id = 1, name = "StageOne", start = 0, floors = 3, boss_every = 10 },
+  },
+}
+local last_progress = {
+  distance = 10,
+  stage_start = 0,
+  stage_id = 1,
+  stage_name = "StageOne",
+  boss_every = 10,
+  rng_seed = 1,
+}
+local last_refreshed = floor_state.refresh(last_progress, last_stage_config)
+assert_equal(last_refreshed.floor_boss_pending, true, "最終フロアではボスが出現する")
+
 print("OK")

@@ -53,10 +53,11 @@ assert_true(#rules >= expected, "装備定義の解放条件が設定に反映�
 
 local typing = find_rule(rules, "typing_blade", "chars")
 assert_true(typing ~= nil, "入力文字数で解放される装備が登録される")
-assert_equal(typing.value, 200, "入力文字数の解放条件が一致する")
+-- 解放条件の値は装備定義のスケールに合わせて検証する。
+assert_equal(typing.value, 4000, "入力文字数の解放条件が一致する")
 
 local lua_rule = find_rule(rules, "lua_sigil_blade", "filetype_chars", "lua")
 assert_true(lua_rule ~= nil, "ファイル種別の解放条件が登録される")
-assert_equal(lua_rule.value, 400, "ファイル種別の解放条件が一致する")
+assert_equal(lua_rule.value, 8000, "ファイル種別の解放条件が一致する")
 
 print("OK")

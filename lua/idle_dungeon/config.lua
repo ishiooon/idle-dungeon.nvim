@@ -93,6 +93,16 @@ local function default_config()
     battle = {
       enemy_hp = 6,
       enemy_atk = 1,
+      -- 成長計算はステージとフロアの進行度を基準にする。
+      growth_base = 1,
+      growth_floor = 2,
+      growth_stage = 12,
+      -- 成長レベルに応じて体力・攻撃・防御を上乗せする。
+      growth_hp = 2,
+      growth_atk = 1,
+      growth_def = 0.5,
+      -- ボスは成長レベルを倍率で上げて強さを際立たせる。
+      growth_boss_multiplier = 1.5,
       -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
       hero_speed = 2,
       enemy_speed = 2,

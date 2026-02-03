@@ -127,7 +127,7 @@ M.hidden_events = {
     id = "hidden_clockwork_breeze",
     title = { en = "Clockwork Breeze", ja = "歯車の風" },
     message = { en = "A rhythmic wind pushes you forward.", ja = "規則的な風が背中を押す。" },
-    effect = { kind = "speed", tick_seconds = 0.5, duration_ticks = 6 },
+    effect = { kind = "speed", tick_seconds = 0.1, duration_ticks = 6 },
     appear = { min = 1, max = 8 },
     weight = 2,
   },

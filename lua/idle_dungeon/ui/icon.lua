@@ -5,7 +5,7 @@ local M = {}
 -- 既定のアイコン定義を1か所で管理する。
 local function default_icons()
   return {
-    hero = "",
+    hero = "",
     enemy = "",
     boss = "",
     separator = ">",

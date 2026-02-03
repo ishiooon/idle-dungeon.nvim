@@ -3,9 +3,25 @@
 local enemies = require("idle_dungeon.game.floor.enemies")
 local events = require("idle_dungeon.game.floor.events")
 local floor_progress = require("idle_dungeon.game.floor.progress")
+local stage_progress = require("idle_dungeon.game.stage_progress")
 local util = require("idle_dungeon.util")
 
 local M = {}
+
+-- ステージ内の階層番号を1始まりで返す。
+local function resolve_stage_floor_number(progress, floor_length)
+  local distance = floor_progress.stage_floor_distance(progress, floor_length)
+  return math.max((distance or 0) + 1, 1)
+end
+
+-- ステージ全体の階層数を取得する。
+local function resolve_stage_total_floors(progress, config, floor_length)
+  local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
+  if not stage then
+    return nil
+  end
+  return floor_progress.stage_total_floors(stage, floor_length)
+end
 
 local function build_floor_state(progress, config, floor_index)
   local floor_length = floor_progress.resolve_floor_length(config)
@@ -17,9 +33,18 @@ local function build_floor_state(progress, config, floor_index)
       used[enemy.position] = true
     end
   end
-  local floor_number = floor_index + 1
+  local stage_floor_number = resolve_stage_floor_number(progress, floor_length)
   local boss_every = progress.boss_every or config.boss_every or 0
-  local boss_pending = boss_every > 0 and floor_number % boss_every == 0
+  local total_floors = resolve_stage_total_floors(progress, config, floor_length)
+  local is_last_floor = total_floors and stage_floor_number >= total_floors or false
+  -- ボス出現は間隔と最終フロアのどちらでも有効にする。
+  local boss_pending = false
+  if boss_every > 0 and stage_floor_number % boss_every == 0 then
+    boss_pending = true
+  end
+  if is_last_floor then
+    boss_pending = true
+  end
   local next_progress = util.merge_tables(progress, { rng_seed = next_seed })
   local floor_event, final_seed = events.build_floor_event(next_progress, config, floor_length, used, boss_pending)
   local stored_event = floor_event or false
