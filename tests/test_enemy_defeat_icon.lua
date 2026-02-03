@@ -45,15 +45,16 @@ local config = {
   ui = { icons = { hero = "H", enemy = "E", boss = "B", hp = "", defeat = "T" }, width = 40, track_length = 12 },
   battle = { encounter_gap = 0 },
 }
+local enemy_icon = (enemy_catalog.find_enemy("dust_slime") or {}).icon or "E"
 local line_hp = render_battle.build_battle_info_line(state, config, "en")
-assert_match(line_hp, "T", "敵HPが0のとき敗北アイコンが表示される")
-assert_not_match(line_hp, "", "敵HPが0のとき元の敵アイコンは表示されない")
+-- 情報行は墓標ではなく元の敵アイコンを使う。
+assert_not_match(line_hp, "T", "敵HPが0でも情報行は墓標を表示しない")
+assert_match(line_hp, enemy_icon, "敵HPが0でも情報行は敵アイコンを表示する")
 
 local lines = render.build_lines(state, config)
 local line_track = lines[1] or ""
 local tomb_count = 0
 local enemy_count = 0
-local enemy_icon = (enemy_catalog.find_enemy("dust_slime") or {}).icon or "E"
 for _, char in ipairs(util.split_utf8(line_track)) do
   if char == "T" then
     tomb_count = tomb_count + 1

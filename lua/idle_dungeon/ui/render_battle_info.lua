@@ -22,12 +22,9 @@ local function build_battle_hp_text(actor, enemy, icons)
 end
 
 -- 戦闘中の敵アイコンを定義済み情報から優先的に取得する。
+-- 情報行は墓標にせず、元の敵アイコンを維持する。
 local function resolve_enemy_icon(enemy, icons)
   local fallback = (enemy and enemy.is_boss) and (icons.boss or icons.enemy) or (icons.enemy or "Enemy")
-  if enemy and (enemy.hp or 1) <= 0 then
-    -- 敵撃破時は墓標アイコンを優先して表示する。
-    return icons.defeat or fallback
-  end
   if enemy and enemy.icon and enemy.icon ~= "" then
     return enemy.icon
   end
