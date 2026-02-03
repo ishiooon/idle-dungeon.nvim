@@ -23,6 +23,19 @@ local function apply_gold_defaults(enemies)
   return enemies
 end
 
+-- 攻撃速度が未定義の場合は既定値で補完する。
+local function apply_speed_defaults(enemies, default_speed)
+  local speed_value = math.max(tonumber(default_speed) or 2, 1)
+  for _, enemy in ipairs(enemies or {}) do
+    local stats = enemy.stats or {}
+    if stats.speed == nil then
+      stats.speed = speed_value
+    end
+    enemy.stats = stats
+  end
+  return enemies
+end
+
 -- ドロップ配列へ重複なく追加する。
 local function append_unique(list, extras)
   local result = {}
@@ -63,11 +76,12 @@ end
 -- アイコンとキャラクターの一致感を最優先して構成する。
 local enemies = {
   {
+    -- ステージ1の序盤戦は手応えを出すため、基礎敵のHPを引き上げている。
     id = "dust_slime",
     name_en = "Lua Slime",
     name_ja = "ルアスライム",
     icon = "",
-    stats = { hp = 4, atk = 1, def = 0, accuracy = 88 },
+    stats = { hp = 6, atk = 1, def = 0, accuracy = 88 },
     elements = { "normal", "grass" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -85,7 +99,7 @@ local enemies = {
     name_en = "Tux Penguin",
     name_ja = "タックスペンギン",
     icon = "",
-    stats = { hp = 5, atk = 2, def = 1, accuracy = 90 },
+    stats = { hp = 6, atk = 2, def = 0, accuracy = 90 },
     elements = { "water", "light" },
     appear = { min = 1, max = 3 },
     drops = {
@@ -103,7 +117,7 @@ local enemies = {
     name_en = "Vim Mantis",
     name_ja = "ヴィムマンティス",
     icon = "",
-    stats = { hp = 5, atk = 2, def = 1, accuracy = 91 },
+    stats = { hp = 6, atk = 2, def = 0, accuracy = 91 },
     elements = { "grass", "light" },
     appear = { min = 1, max = 4 },
     drops = {
@@ -465,7 +479,7 @@ local enemies = {
     name_en = "Ember Penguin",
     name_ja = "熾火ペンギン",
     icon = "",
-    stats = { hp = 5, atk = 3, def = 1, accuracy = 89 },
+    stats = { hp = 7, atk = 3, def = 1, accuracy = 89 },
     elements = { "fire" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -483,7 +497,7 @@ local enemies = {
     name_en = "Tide Penguin",
     name_ja = "潮ペンギン",
     icon = "",
-    stats = { hp = 6, atk = 2, def = 2, accuracy = 89 },
+    stats = { hp = 7, atk = 2, def = 1, accuracy = 89 },
     elements = { "water" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -501,7 +515,7 @@ local enemies = {
     name_en = "Moss Penguin",
     name_ja = "苔ペンギン",
     icon = "",
-    stats = { hp = 5, atk = 2, def = 2, accuracy = 90 },
+    stats = { hp = 7, atk = 2, def = 1, accuracy = 90 },
     elements = { "grass" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -519,7 +533,7 @@ local enemies = {
     name_en = "Lumen Penguin",
     name_ja = "輝光ペンギン",
     icon = "",
-    stats = { hp = 5, atk = 2, def = 1, accuracy = 92 },
+    stats = { hp = 7, atk = 2, def = 1, accuracy = 92 },
     elements = { "light" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -537,7 +551,7 @@ local enemies = {
     name_en = "Umbral Penguin",
     name_ja = "影ペンギン",
     icon = "",
-    stats = { hp = 5, atk = 3, def = 1, accuracy = 88 },
+    stats = { hp = 7, atk = 3, def = 1, accuracy = 88 },
     elements = { "dark" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -555,7 +569,7 @@ local enemies = {
     name_en = "Blaze Mantis",
     name_ja = "炎走マンティス",
     icon = "",
-    stats = { hp = 5, atk = 4, def = 1, accuracy = 91 },
+    stats = { hp = 7, atk = 4, def = 1, accuracy = 91 },
     elements = { "fire" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -573,7 +587,7 @@ local enemies = {
     name_en = "Mist Mantis",
     name_ja = "霧マンティス",
     icon = "",
-    stats = { hp = 6, atk = 3, def = 2, accuracy = 91 },
+    stats = { hp = 7, atk = 3, def = 1, accuracy = 91 },
     elements = { "water" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -591,7 +605,7 @@ local enemies = {
     name_en = "Verdant Mantis",
     name_ja = "緑陰マンティス",
     icon = "",
-    stats = { hp = 5, atk = 3, def = 2, accuracy = 92 },
+    stats = { hp = 7, atk = 3, def = 1, accuracy = 92 },
     elements = { "grass" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -609,7 +623,7 @@ local enemies = {
     name_en = "Radiant Mantis",
     name_ja = "陽光マンティス",
     icon = "",
-    stats = { hp = 5, atk = 3, def = 1, accuracy = 94 },
+    stats = { hp = 7, atk = 3, def = 1, accuracy = 94 },
     elements = { "light" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -627,7 +641,7 @@ local enemies = {
     name_en = "Gloom Mantis",
     name_ja = "暗澹マンティス",
     icon = "",
-    stats = { hp = 5, atk = 4, def = 1, accuracy = 90 },
+    stats = { hp = 7, atk = 4, def = 1, accuracy = 90 },
     elements = { "dark" },
     appear = { min = 1, max = 2 },
     drops = {
@@ -1529,6 +1543,8 @@ local drop_overrides = {
 }
 
 local function finalize_enemies(entries)
+  -- 攻撃速度の既定値を付与して交互ターンの間隔を整える。
+  apply_speed_defaults(entries, 2)
   apply_gold_defaults(entries)
   apply_drop_overrides(entries, drop_overrides)
   return entries

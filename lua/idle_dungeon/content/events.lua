@@ -166,7 +166,6 @@ M.hidden_events = {
   {
     id = "hidden_whisper_note",
     title = { en = "Whisper Note", ja = "ささやきのメモ" },
-    -- 目に見えないイベントでも状況が伝わる短文に整える。
     message = {
       en = "A folded note says: keep a steady cadence and the path will open.",
       ja = "折りたたまれたメモに「歩調を整えれば道はひらける」と書かれていた。",

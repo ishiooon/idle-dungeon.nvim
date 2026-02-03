@@ -16,27 +16,33 @@ local function new_actor(character)
     base_hp = base.hp,
     base_atk = base.atk,
     base_def = base.def,
+    -- 攻撃速度は1以上の整数で管理し、数値が大きいほど行動間隔が長い。
+    base_speed = base.speed or 2,
     max_hp = base.hp,
     hp = base.hp,
     atk = base.atk,
     def = base.def,
+    speed = base.speed or 2,
     dialogue_ratio = character.dialogue_ratio or 1.0,
   }
 end
 
 local function apply_equipment(actor, equipment, items)
-  local bonus_hp, bonus_atk, bonus_def = 0, 0, 0
+  local bonus_hp, bonus_atk, bonus_def, bonus_speed = 0, 0, 0, 0
   for _, item in pairs(items or {}) do
     if equipment[item.slot] == item.id then
       bonus_hp = bonus_hp + (item.hp or 0)
       bonus_atk = bonus_atk + (item.atk or 0)
       bonus_def = bonus_def + (item.def or 0)
+      bonus_speed = bonus_speed + (item.speed or 0)
     end
   end
   local next_actor = util.merge_tables(actor, {})
   next_actor.max_hp = next_actor.base_hp + bonus_hp
   next_actor.atk = next_actor.base_atk + bonus_atk
   next_actor.def = next_actor.base_def + bonus_def
+  -- 装備で速度補正がある場合も1以上を保つ。
+  next_actor.speed = math.max((next_actor.base_speed or 1) + bonus_speed, 1)
   if next_actor.hp > next_actor.max_hp then
     next_actor.hp = next_actor.max_hp
   end

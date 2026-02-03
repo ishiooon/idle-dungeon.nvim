@@ -70,8 +70,7 @@ local function build_move_info_variants(state, lang, icons)
   local exp_label = format_icon_value(icons.exp or "", string.format("%d/%d", actor.exp or 0, actor.next_level or 0))
   local gold_label = format_icon_value(icons.gold or "", string.format("%d", currency.gold or 0))
   return {
-    string.format("%s %s", hp_label, exp_label),
-    string.format("%s %s", hp_label, gold_label),
+    string.format("%s %s %s", hp_label, exp_label, gold_label),
   }
 end
 
@@ -86,22 +85,16 @@ local function build_move_info_line(state, config)
   local parts = render_stage.build_stage_parts(state.progress or {}, config or {}, lang)
   local icons = icon_module.config(config)
   local variants = build_move_info_variants(state, lang, icons)
-  local time_sec = (state.metrics or {}).time_sec or 0
-  local index = (#variants > 0) and ((math.floor(time_sec / 2) % #variants) + 1) or 1
-  local info_text = variants[index] or ""
+  local info_text = variants[1] or ""
   local token = parts.token or ""
-  local width = (config.ui or {}).width or 36
-  local bracket_prefix = "["
-  local bracket_suffix = "]" .. token
-  local fixed_width = util.display_width(bracket_prefix)
-    + util.display_width(bracket_suffix)
-    + util.display_width(info_text)
-    + 1
-  local name_width = math.max(width - fixed_width, 1)
-  -- 長いステージ名は自動でスクロールする。
-  local name = build_scrolling_text(parts.name or "stage", name_width, time_sec)
-  local label = string.format("%s%s%s", bracket_prefix, name, bracket_suffix)
-  return string.format("%s %s", label, info_text)
+  if token == "" then
+    return info_text
+  end
+  if info_text == "" then
+    return token
+  end
+  -- 移動時はダンジョン名を表示せず、階層トークンだけを出す。
+  return string.format("%s %s", token, info_text)
 end
 
 
@@ -161,9 +154,12 @@ end
 -- 報酬表示の短文を生成する。
 local function build_reward_info_line(state, config, lang)
   local reward = config.battle or {}
+  local icons = icon_module.config(config)
   local bonus_gold = (state.combat and state.combat.pending_gold) or 0
   local reward_gold = (reward.reward_gold or 0) + bonus_gold
-  local base = string.format("+%dexp +%dg", reward.reward_exp or 0, reward_gold)
+  local exp_label = format_icon_value(icons.exp or "", string.format("+%d", reward.reward_exp or 0))
+  local gold_label = format_icon_value(icons.gold or "", string.format("+%d", reward_gold))
+  local base = string.format("%s %s", exp_label, gold_label)
   local drop = state.combat and state.combat.pending_drop or nil
   if not drop or not drop.id then
     return base
@@ -180,7 +176,21 @@ local function build_reward_info_line(state, config, lang)
   if name == "" then
     name = drop.id
   end
-  return string.format("%s Drop:%s", base, name)
+  local drop_label = format_icon_value(icons.drop or icons.reward or "", name)
+  return string.format("%s %s", base, drop_label)
+end
+
+-- 敗北表示は勇者アイコンと墓標を並べて分かりやすく示す。
+local function build_defeat_info_line(icons)
+  local hero_icon = icons.hero or ""
+  local defeat_icon = icons.defeat or ""
+  local combined = defeat_icon
+  if hero_icon ~= "" and defeat_icon ~= "" then
+    combined = string.format("%s %s", hero_icon, defeat_icon)
+  elseif hero_icon ~= "" then
+    combined = hero_icon
+  end
+  return format_icon_value(combined, "Defeated")
 end
 
 -- 画面下段の情報行をモードに応じて切り替える。
@@ -212,10 +222,13 @@ local function build_info_line(state, config)
     return util.clamp_line(build_choice_info_line(state, lang), width)
   end
   if state.ui.mode == "reward" then
-    return util.clamp_line(build_reward_info_line(state, config, lang), width)
+    local icons = icon_module.config(config)
+    local reward_line = build_reward_info_line(state, config, lang)
+    return util.clamp_line(format_icon_value(icons.reward or "", reward_line), width)
   end
   if state.ui.mode == "defeat" then
-    return util.clamp_line("Defeated", width)
+    local icons = icon_module.config(config)
+    return util.clamp_line(build_defeat_info_line(icons), width)
   end
   return util.clamp_line(build_status_line(state, config), width)
 end
@@ -260,7 +273,7 @@ local function build_text_status(state, config)
     return string.format("[Choice %s]%s", label, ro_label)
   end
   if mode == "reward" then
-    return string.format("[Reward %s]%s", build_reward_info_line(config), ro_label)
+    return string.format("[Reward %s]%s", build_reward_info_line(state, config, lang), ro_label)
   end
   if mode == "defeat" then
     return "[Defeated -> restart]" .. ro_label

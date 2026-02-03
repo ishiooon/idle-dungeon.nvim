@@ -22,6 +22,7 @@ local config = {
   floor_encounters = { min = 1, max = 1 },
   enemy_names = { "dust_slime" },
   elements = { "normal" },
+  battle = { encounter_gap = 2 },
 }
 
 local progress = {
@@ -37,14 +38,15 @@ assert_true(type(refreshed.floor_enemies) == "table", "階層内の敵配置が�
 assert_equal(#refreshed.floor_enemies, 1, "敵の数が設定範囲内で生成される")
 
 local enemy = refreshed.floor_enemies[1]
-assert_true(enemy.position >= 2 and enemy.position <= 9, "敵の位置が階層の範囲内に収まる")
+assert_true(enemy.position >= 4 and enemy.position <= 9, "敵の位置が階層の範囲内に収まる")
 
 local floor_length = floor_progress.resolve_floor_length(config)
 -- 敵位置から実際の距離を復元し、移動量が大きくても遭遇できるかを確認する。
 local floor_start = floor_progress.floor_start_distance(refreshed.floor_index, floor_length)
 local enemy_distance = floor_start + math.max(enemy.position - 1, 0)
-local distance_before = math.max(enemy_distance - 2, 0)
-local distance_after = enemy_distance + 1
+local encounter_distance = math.max(enemy_distance - 3, 0)
+local distance_before = math.max(encounter_distance - 1, 0)
+local distance_after = encounter_distance + 1
 local progress_before = floor_state.refresh({
   distance = distance_before,
   stage_start = 0,
@@ -55,10 +57,11 @@ local progress_before = floor_state.refresh({
   floor_encounters_total = refreshed.floor_encounters_total,
   floor_encounters_remaining = refreshed.floor_encounters_remaining,
   floor_boss_pending = refreshed.floor_boss_pending,
+  floor_event = refreshed.floor_event,
 }, config)
-local ahead, ahead_distance = floor_state.find_enemy_in_path(progress_before, floor_length, distance_before, distance_after)
+local ahead, ahead_distance = floor_state.find_enemy_in_path(progress_before, floor_length, distance_before, distance_after, config.battle.encounter_gap)
 assert_true(ahead ~= nil, "移動量が大きくても敵の遭遇が検出できる")
-assert_equal(ahead_distance, enemy_distance, "遭遇距離が敵位置と一致する")
+assert_equal(ahead_distance, encounter_distance, "遭遇距離が間合い補正後の位置と一致する")
 
 local defeated = floor_state.mark_enemy_defeated(refreshed, enemy)
 assert_equal(defeated.floor_enemies[1].defeated, true, "敵の撃破状態が記録される")

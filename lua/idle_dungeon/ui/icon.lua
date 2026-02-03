@@ -2,25 +2,46 @@
 
 local M = {}
 
-local function config(config)
-  local icons = ((config or {}).ui or {}).icons or {}
+-- 既定のアイコン定義を1か所で管理する。
+local function default_icons()
   return {
-    hero = icons.hero or "",
-    enemy = icons.enemy or "",
-    boss = icons.boss or icons.enemy or "",
-    separator = icons.separator or ">",
+    hero = "",
+    enemy = "",
+    boss = "",
+    separator = ">",
     -- 右下の情報行で使うアイコンをまとめて定義する。
     -- HPはハートアイコンを既定に戻す。
-    hp = icons.hp or "",
+    hp = "",
     -- ゴールドは別アイコンに置き換えて視認性を上げる。
-    gold = icons.gold or "",
-    exp = icons.exp or "",
+    gold = "",
+    exp = "",
+    -- 報酬や敗北の結果表示に使うアイコンをまとめる。
+    reward = "",
+    -- 敗北表示は墓標のアイコンを既定にする。
+    defeat = "󰥓",
+    drop = "󰆧",
     -- 装備一覧で使うアイコンをまとめて定義する。
-    weapon = icons.weapon or "󰓥",
-    armor = icons.armor or "",
-    accessory = icons.accessory or "󰓒",
-    companion = icons.companion or "󰠳",
+    weapon = "󰓥",
+    armor = "",
+    accessory = "󰓒",
+    companion = "󰠳",
   }
+end
+
+-- 既定と上書き設定を統合して返す。
+local function merge_icons(override)
+  local base = default_icons()
+  for key, value in pairs(override or {}) do
+    if value ~= nil then
+      base[key] = value
+    end
+  end
+  return base
+end
+
+local function config(config)
+  local icons = ((config or {}).ui or {}).icons or {}
+  return merge_icons(icons)
 end
 
 -- 装備スロットごとのアイコンを取得する。
@@ -72,5 +93,6 @@ M.icons_only = icons_only
 M.build_frames = build_frames
 M.prefix = prefix
 M.resolve_slot_icon = resolve_slot_icon
+M.default_icons = default_icons
 
 return M

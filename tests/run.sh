@@ -94,8 +94,14 @@ lua tests/test_menu_metrics.lua
 lua tests/test_metrics_delta.lua
 # ステージの敵プール選択を確認する。
 lua tests/test_enemy_pool.lua
+# ステージ1の敵と初期装備のバランス基準を確認する。
+lua tests/test_stage1_balance.lua
 # 敵データの件数と必須項目を確認する。
 lua tests/test_enemy_content.lua
+# 攻撃速度と交互ターンの単体テストを確認する。
+lua tests/test_attack_speed.lua
+# 攻撃演出の時刻が速度上昇に追従することを確認する。
+lua tests/test_attack_frame_timing.lua
 # キャラクター定義の不要情報が含まれないことを確認する。
 lua tests/test_character_content.lua
 # 装備データの件数とドロップ紐付けを確認する。
@@ -129,6 +135,12 @@ lua tests/test_loot.lua
 lua tests/test_battle_info.lua
 # 戦闘中の進行トラック演出を確認する。
 lua tests/test_battle_track_effect.lua
+# 戦闘結果の表示待機を確認する。
+lua tests/test_battle_outcome_wait.lua
+# 敗北時のアイコン表示を確認する。
+lua tests/test_defeat_icon.lua
+# 敵敗北時のアイコン表示を確認する。
+lua tests/test_enemy_defeat_icon.lua
 # 図鑑の未発見表示を確認する。
 lua tests/test_dex_unknown.lua
 # 属性相性の単体テストを確認する。

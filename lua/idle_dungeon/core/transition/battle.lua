@@ -31,60 +31,220 @@ local function build_attack_result(seed, atk, def, accuracy, attacker, element_i
   return enriched, next_seed
 end
 
+-- 攻撃速度は1以上の整数として扱い、無効値は既定値に丸める。
+local function resolve_speed(value, fallback)
+  local speed = tonumber(value)
+  if not speed or speed < 1 then
+    speed = tonumber(fallback) or 1
+  end
+  return math.max(speed, 1)
+end
+
+-- 攻撃間隔の待機秒数を計算する。
+local function resolve_turn_wait(speed)
+  return math.max((tonumber(speed) or 1) - 1, 0)
+end
+
+-- 撃破や敗北の演出を最低1ティックは維持する。
+local function resolve_outcome_wait(battle_config, tick_seconds)
+  local base = tonumber((battle_config or {}).outcome_wait) or 0
+  local seconds = tonumber((battle_config or {}).outcome_seconds) or 0.4
+  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+  local derived = math.ceil(seconds / tick)
+  return math.max(base, derived, 1)
+end
+
+-- 攻撃演出の継続フレーム数を計算する。
+local function resolve_attack_frames(battle_config, tick_seconds)
+  local seconds = tonumber((battle_config or {}).attack_seconds) or 0.6
+  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+  local frames = math.ceil(seconds / tick)
+  return math.max(frames, 2)
+end
+
+-- 攻撃時の前進演出フレーム数を計算する。
+local function resolve_attack_step_frames(battle_config, tick_seconds)
+  local seconds = tonumber((battle_config or {}).attack_step_seconds) or 0.2
+  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+  local frames = math.ceil(seconds / tick)
+  return math.max(frames, 1)
+end
+
+-- 旧形式の攻撃フレームを新しい形式へ補正する。
+local function normalize_attack_state(combat)
+  local legacy = combat and combat.attack_frame or nil
+  if legacy == nil or (combat.attack_effect ~= nil or combat.attack_step ~= nil) then
+    return combat
+  end
+  local effect = math.max(tonumber(legacy) or 0, 0)
+  local step = math.max(effect - 1, 0)
+  return util.merge_tables(combat, { attack_effect = effect, attack_step = step })
+end
+
+-- 攻撃演出の残り回数を減らし、終了時に攻撃情報も消す。
+local function decay_attack_frame(combat)
+  local effect = tonumber((combat or {}).attack_effect or 0) or 0
+  local step = tonumber((combat or {}).attack_step or 0) or 0
+  if effect <= 0 then
+    return combat
+  end
+  local next_effect = effect - 1
+  local next_step = step
+  if step > 0 then
+    next_step = step - 1
+  end
+  local updates = {
+    attack_effect = math.max(next_effect, 0),
+    attack_step = math.max(next_step, 0),
+  }
+  if next_effect <= 0 then
+    -- 演出が終わったら攻撃情報も掃除して次の演出に備える。
+    updates.last_turn = nil
+  end
+  return util.merge_tables(combat, updates)
+end
+
+-- 勇者の攻撃速度を取得する。
+local function resolve_actor_speed(state, config)
+  local battle_config = config.battle or {}
+  local actor = state.actor or {}
+  return resolve_speed(actor.speed or actor.base_speed, battle_config.hero_speed or 2)
+end
+
+-- 敵の攻撃速度を取得する。
+local function resolve_enemy_speed(enemy, config)
+  local battle_config = config.battle or {}
+  return resolve_speed(enemy.speed, battle_config.enemy_speed or 2)
+end
+
+-- 攻撃ターンの記録をまとめて作成する。
+local function resolve_tick_seconds(state, config)
+  local boost = state and state.ui and state.ui.speed_boost or nil
+  if boost and boost.remaining_ticks and boost.remaining_ticks > 0 and boost.tick_seconds then
+    return boost.tick_seconds
+  end
+  return (config and config.tick_seconds) or 1
+end
+
+local function build_last_turn(attacker, result, state, config)
+  local base_time = (state.metrics or {}).time_sec or 0
+  -- 速度上昇中のティック秒数も反映して演出タイミングを合わせる。
+  local tick = resolve_tick_seconds(state, config)
+  -- 描画時点の時刻と合わせるため、次のティック時刻を記録する。
+  local time_sec = base_time + tick
+  return { attacker = attacker, result = result, time_sec = time_sec }
+end
+
 -- 戦闘の命中判定と体力更新を行う。
 local function tick_battle(state, config)
-  local enemy = state.combat.enemy
+  local combat = normalize_attack_state(state.combat or {})
+  -- 攻撃演出が残っている場合は戦闘進行を一時停止する。
+  if combat.attack_effect and combat.attack_effect > 0 then
+    local decayed = decay_attack_frame(combat)
+    if (decayed.attack_effect or 0) > 0 then
+      return util.merge_tables(state, { combat = decayed })
+    end
+    combat = decayed
+  end
+  local enemy = combat.enemy
   local battle_config = config.battle or {}
   local hero_element = resolve_weapon_element(state, content.items)
   local enemy_element = enemy.element or "normal"
   local seed = state.progress.rng_seed or 1
-  local hero_result
-  hero_result, seed = build_attack_result(seed, state.actor.atk, enemy.def or 0, battle_config.accuracy or 90, "hero", hero_element, enemy_element, config)
-  local next_enemy_hp = enemy.hp - hero_result.damage
-  local enemy_result = {
-    hit = false,
-    damage = 0,
-    blocked = false,
-    attacker = "enemy",
-    element = enemy_element,
-    effectiveness = "neutral",
-    element_multiplier = 1.0,
-  }
-  local next_actor_hp = state.actor.hp
-  if next_enemy_hp > 0 then
-    local enemy_accuracy = enemy.accuracy or battle_config.enemy_accuracy or 85
-    enemy_result, seed = build_attack_result(seed, enemy.atk, state.actor.def, enemy_accuracy, "enemy", enemy_element, hero_element, config)
-    next_actor_hp = state.actor.hp - enemy_result.damage
+  local outcome = combat.outcome
+  local outcome_wait = combat.outcome_wait or 0
+  if outcome then
+    if outcome_wait > 0 then
+      local next_combat = util.merge_tables(combat, { outcome_wait = outcome_wait - 1 })
+      return util.merge_tables(state, { combat = next_combat })
+    end
+    if outcome == "reward" then
+      local next_ui = { mode = "reward" }
+      return util.merge_tables(state, { ui = util.merge_tables(state.ui, next_ui), progress = util.merge_tables(state.progress, { rng_seed = seed }) })
+    end
+    if outcome == "defeat" then
+      local next_ui = { mode = "defeat" }
+      return util.merge_tables(state, { ui = util.merge_tables(state.ui, next_ui), progress = util.merge_tables(state.progress, { rng_seed = seed }) })
+    end
   end
-  local next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
-  local next_enemy = util.merge_tables(enemy, { hp = math.max(0, next_enemy_hp), element = enemy_element })
-  local next_combat = util.merge_tables(state.combat or {}, { enemy = next_enemy, last_turn = { hero = hero_result, enemy = enemy_result } })
+  local turn = combat.turn or "hero"
+  local wait = combat.turn_wait or 0
+  if wait > 0 then
+    local next_combat = util.merge_tables(combat, { turn_wait = wait - 1 })
+    return util.merge_tables(state, { combat = next_combat })
+  end
+  local hero_speed = resolve_actor_speed(state, config)
+  local enemy_speed = resolve_enemy_speed(enemy, config)
+  local tick_seconds = resolve_tick_seconds(state, config)
+  local attack_effect_frames = resolve_attack_frames(battle_config, tick_seconds)
+  local attack_step_frames = resolve_attack_step_frames(battle_config, tick_seconds)
+  local next_actor = state.actor
+  local next_enemy = enemy
+  local last_turn
+  local next_turn = turn
+  local next_wait = 0
   local next_progress = util.merge_tables(state.progress, { rng_seed = seed })
-  if next_enemy_hp <= 0 then
-    -- 撃破時に戦利品の抽選を行い、報酬画面で表示できるように保持する。
-    local drop
-    drop, seed = loot.roll_drop(seed, config, content.items, enemy)
-    local gold_bonus
-    gold_bonus, seed = loot.roll_gold(seed, enemy)
+  if turn == "hero" then
+    local hero_result
+    hero_result, seed = build_attack_result(seed, state.actor.atk, enemy.def or 0, battle_config.accuracy or 90, "hero", hero_element, enemy_element, config)
+    local next_enemy_hp = enemy.hp - hero_result.damage
+    next_enemy = util.merge_tables(enemy, { hp = math.max(0, next_enemy_hp), element = enemy_element })
+    last_turn = build_last_turn("hero", hero_result, state, config)
+    next_turn = "enemy"
+    next_wait = resolve_turn_wait(enemy_speed)
     next_progress = util.merge_tables(state.progress, { rng_seed = seed })
-    next_combat = util.merge_tables(next_combat, { pending_drop = drop, pending_gold = gold_bonus })
-    local next_ui = { mode = "reward" }
-    return util.merge_tables(state, {
-      actor = next_actor,
-      combat = next_combat,
-      progress = next_progress,
-      ui = util.merge_tables(state.ui, next_ui),
-    })
+    if next_enemy_hp <= 0 then
+      -- 撃破時に戦利品の抽選を行い、報酬画面で表示できるように保持する。
+      local drop
+      drop, seed = loot.roll_drop(seed, config, content.items, enemy)
+      local gold_bonus
+      gold_bonus, seed = loot.roll_gold(seed, enemy)
+      next_progress = util.merge_tables(state.progress, { rng_seed = seed })
+      local next_combat = util.merge_tables(combat, {
+        enemy = next_enemy,
+        pending_drop = drop,
+        pending_gold = gold_bonus,
+        last_turn = last_turn,
+        -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
+        attack_effect = attack_effect_frames,
+        attack_step = attack_step_frames,
+        outcome = "reward",
+        outcome_wait = resolve_outcome_wait(battle_config, tick_seconds),
+      })
+      return util.merge_tables(state, { combat = next_combat, progress = next_progress })
+    end
+  else
+    local enemy_accuracy = enemy.accuracy or battle_config.enemy_accuracy or 85
+    local enemy_result
+    enemy_result, seed = build_attack_result(seed, enemy.atk, state.actor.def, enemy_accuracy, "enemy", enemy_element, hero_element, config)
+    local next_actor_hp = state.actor.hp - enemy_result.damage
+    next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
+    last_turn = build_last_turn("enemy", enemy_result, state, config)
+    next_turn = "hero"
+    next_wait = resolve_turn_wait(hero_speed)
+    next_progress = util.merge_tables(state.progress, { rng_seed = seed })
+    if next_actor_hp <= 0 then
+      local next_combat = util.merge_tables(combat, {
+        enemy = next_enemy,
+        last_turn = last_turn,
+        -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
+        attack_effect = attack_effect_frames,
+        attack_step = attack_step_frames,
+        outcome = "defeat",
+        outcome_wait = resolve_outcome_wait(battle_config, tick_seconds),
+      })
+      return util.merge_tables(state, { actor = next_actor, combat = next_combat, progress = next_progress })
+    end
   end
-  if next_actor_hp <= 0 then
-    local next_ui = { mode = "defeat" }
-    return util.merge_tables(state, {
-      actor = next_actor,
-      combat = next_combat,
-      progress = next_progress,
-      ui = util.merge_tables(state.ui, next_ui),
-    })
-  end
+  local next_combat = util.merge_tables(combat, {
+    enemy = next_enemy,
+    last_turn = last_turn,
+    -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
+    attack_effect = attack_effect_frames,
+    attack_step = attack_step_frames,
+    turn = next_turn,
+    turn_wait = next_wait,
+  })
   return util.merge_tables(state, { actor = next_actor, combat = next_combat, progress = next_progress })
 end
 

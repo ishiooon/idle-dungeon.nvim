@@ -49,6 +49,8 @@ local function build_enemy(distance, config, enemy_spec)
   local base_hp = stats.hp or battle.enemy_hp
   local base_atk = stats.atk or battle.enemy_atk
   local base_def = stats.def or 0
+  -- 敵の攻撃速度は定義値を優先し、無い場合は既定値を使う。
+  local base_speed = stats.speed or battle.enemy_speed or 2
   return {
     id = enemy_id,
     name = resolve_enemy_name(enemy_id),
@@ -59,6 +61,7 @@ local function build_enemy(distance, config, enemy_spec)
     atk = base_atk + math.floor(growth / 2),
     def = base_def + math.floor(growth / 3),
     accuracy = stats.accuracy,
+    speed = math.max(tonumber(base_speed) or 1, 1),
     is_boss = enemy_spec and enemy_spec.is_boss or false,
     -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。
     drops = enemy_data.drops,

@@ -23,9 +23,11 @@ local function resolve_encounter_range(config, floor_length)
   return min_value, max_value
 end
 
-local function resolve_position_range(floor_length)
+local function resolve_position_range(config, floor_length)
   local max_pos = math.max(floor_length - 1, 1)
-  local min_pos = math.min(3, max_pos)
+  local encounter_gap = math.max(((config.battle or {}).encounter_gap) or 2, 0)
+  -- 戦闘開始時に2マスの間合いが確保できるよう初期配置を調整する。
+  local min_pos = math.min(encounter_gap + 2, max_pos)
   if max_pos < min_pos then
     return max_pos, max_pos
   end
@@ -61,7 +63,7 @@ local function build_floor_enemies(progress, config, floor_length)
   local total, next_seed = rng.next_int(seed, min_value, max_value)
   local enemies = {}
   local used = {}
-  local min_pos, max_pos = resolve_position_range(floor_length)
+  local min_pos, max_pos = resolve_position_range(config, floor_length)
   for _ = 1, total do
     local pos
     pos, next_seed = pick_unique_position(next_seed, used, min_pos, max_pos)

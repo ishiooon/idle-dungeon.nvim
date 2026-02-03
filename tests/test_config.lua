@@ -60,6 +60,7 @@ assert_true(type(built.ui.icons) == "table", "表示用アイコンの設定が�
 assert_true(type(built.ui.icons.weapon) == "string", "武器アイコンが定義される")
 assert_true(type(built.ui.icons.armor) == "string", "防具アイコンが定義される")
 assert_true(type(built.ui.icons.accessory) == "string", "装飾アイコンが定義される")
+assert_true(built.ui.icons.defeat == "󰥓", "敗北アイコンは墓標になっている")
 assert_true(type(built.ui.track_fill) == "string", "進行トラックの埋め文字が定義される")
 assert_true(built.ui.icons_only == true, "表示はアイコン優先が既定である")
 assert_true(type(built.ui.sprites) == "table", "スプライト表示の設定が定義される")

@@ -1,5 +1,6 @@
 -- このモジュールはUIの既定設定を提供する。
 local menu_theme = require("idle_dungeon.menu.theme")
+local icon_module = require("idle_dungeon.ui.icon")
 
 local M = {}
 
@@ -17,23 +18,8 @@ local function default_ui()
     languages = { "en", "ja" },
     -- 進行トラックの埋め文字を指定する。
     track_fill = ".",
-    -- 表示に使うアイコンを定義する。
-    icons = {
-      hero = "",
-      enemy = "",
-      boss = "",
-      separator = ">",
-      -- 右下の情報表示に使うアイコンを追加する。
-      -- HPはハートアイコンに戻し、数値と重ならないように余白を付けて使う。
-      hp = "",
-      -- ゴールドは別アイコンに置き換えて視認性を上げる。
-      gold = "",
-      exp = "",
-      -- 装備の種類を識別するためのアイコンを追加する。
-      weapon = "󰓥",
-      armor = "",
-      accessory = "󰓒",
-    },
+    -- 表示に使うアイコンは専用モジュールの既定値を採用する。
+    icons = icon_module.default_icons(),
     -- 戦闘中に進行トラックへ表示する演出記号を定義する。
     battle_effects = { "*", "+", "x" },
     -- 表示はアイコンを優先し、文字スプライトは補助扱いにする。

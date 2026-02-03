@@ -46,8 +46,9 @@ local function start_battle(state, progress, enemy, enemy_spec)
   local next_state = util.merge_tables(state, {
     progress = progress,
     ui = util.merge_tables(state.ui, next_ui),
-    combat = { enemy = enemy, source = enemy_spec, last_turn = nil },
   })
+  -- 戦闘開始時は前回の戦闘状態を持ち越さないように初期化する。
+  next_state.combat = { enemy = enemy, source = enemy_spec, last_turn = nil, turn = "hero", turn_wait = 0 }
   return state_dex.record_enemy(next_state, enemy.id or enemy.name, enemy.element)
 end
 
@@ -71,7 +72,8 @@ local function tick_move(state, config)
   local next_distance = base_progress.distance + move_step
   local floor_length = floor_progress.resolve_floor_length(config)
   local event_spec, event_distance = floor_state.find_event_in_path(base_progress, floor_length, base_progress.distance, next_distance)
-  local enemy_spec, enemy_distance = floor_state.find_enemy_in_path(base_progress, floor_length, base_progress.distance, next_distance)
+  local encounter_gap = math.max(((config.battle or {}).encounter_gap) or 2, 0)
+  local enemy_spec, enemy_distance = floor_state.find_enemy_in_path(base_progress, floor_length, base_progress.distance, next_distance, encounter_gap)
   if event_spec and (not enemy_distance or event_distance <= enemy_distance) then
     local event_data = event_catalog.find_event(event_spec.id)
     local progress_for_event = util.merge_tables(base_progress, { distance = event_distance or base_progress.distance })
@@ -126,16 +128,22 @@ local function tick_move(state, config)
   if rules.should_start_boss(refreshed, config) then
     -- ボス階層では通常遭遇に優先してボス戦を開始する。
     local boss_spec = resolve_boss_spec(refreshed, config)
+    local encounter_gap = math.max(((config.battle or {}).encounter_gap) or 2, 0)
+    -- ボス戦も間合い分だけ手前で開始する。
+    local boss_distance = math.max((refreshed.distance or next_distance) - (encounter_gap + 1), base_progress.distance)
     local enemy = battle.build_enemy(next_distance, config, boss_spec)
-    local boss_progress = floor_state.clear_boss_pending(refreshed)
+    local boss_progress = util.merge_tables(floor_state.clear_boss_pending(refreshed), { distance = boss_distance })
     return start_battle(base_state, boss_progress, enemy, boss_spec)
   end
   local floor_enabled = (config.floor_encounters or {}).enabled ~= false
   if not floor_enabled then
     local encounter_every = config.encounter_every or 0
     if encounter_every > 0 and next_distance > 0 and next_distance % encounter_every == 0 then
+      local encounter_gap = math.max(((config.battle or {}).encounter_gap) or 2, 0)
+      -- 一定距離遭遇でも間合い分の手前から戦闘開始する。
+      local encounter_distance = math.max(next_distance - (encounter_gap + 1), base_progress.distance)
       local enemy = battle.build_enemy(next_distance, config)
-      return start_battle(base_state, refreshed, enemy, nil)
+      return start_battle(base_state, util.merge_tables(refreshed, { distance = encounter_distance }), enemy, nil)
     end
   end
   local final_event_id = intro_event_id

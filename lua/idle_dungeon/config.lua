@@ -66,13 +66,13 @@ end
 
 local function default_config()
   return {
-    tick_seconds = 1,
+    tick_seconds = 0.5,
     move_step = 1,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。
     dialogue_seconds = 0,
     -- ステージ開始時のアスキーアート表示は短時間で切り替える。
-    stage_intro_seconds = 1,
+    stage_intro_seconds = 1.5,
     -- 隠しイベントのメッセージ表示は数ティックだけ継続させる。
     event_message_ticks = 3,
     -- 選択イベントの自動決定までの待機秒数を設定する。
@@ -93,8 +93,15 @@ local function default_config()
     battle = {
       enemy_hp = 6,
       enemy_atk = 1,
+      -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
+      hero_speed = 2,
+      enemy_speed = 2,
       reward_exp = 2,
       reward_gold = 2,
+      -- エンカウントは敵の2マス手前で開始する。
+      encounter_gap = 2,
+      -- 撃破や敗北時の表示は次の更新まで戦闘表示を維持する。
+      outcome_wait = 0,
       -- 戦利品のドロップ率はさらに低めに調整して希少性を強める。
       -- レアとペットはほぼ出ない前提で数値を設定する。
       drop_rates = { common = 5, rare = 1, pet = 0, boss_bonus = 1 },

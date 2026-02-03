@@ -82,10 +82,22 @@ local function clamp_line(text, width)
   return table.concat(sliced, "")
 end
 
+-- 小数の誤差を許容して近さを判定する。
+local function is_close(value_a, value_b, epsilon)
+  local a = tonumber(value_a) or 0
+  local b = tonumber(value_b) or 0
+  local tol = tonumber(epsilon) or 0
+  if tol <= 0 then
+    return a == b
+  end
+  return math.abs(a - b) <= tol
+end
+
 M.shallow_copy = shallow_copy
 M.merge_tables = merge_tables
 M.clamp_line = clamp_line
 M.split_utf8 = split_utf8
 M.display_width = display_width
+M.is_close = is_close
 
 return M

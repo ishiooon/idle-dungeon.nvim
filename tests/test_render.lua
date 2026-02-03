@@ -54,8 +54,9 @@ assert_not_match(lines_visual[1], "o_o", "可視モードにペットの文字�
 assert_true(#lines_visual == 2, "可視モードは2行表示が既定である")
 assert_true(#lines_visual <= 2, "表示行数は最大2行に収まる")
 assert_match(lines_visual[2], "", "可視モードに体力アイコンが表示される")
--- 情報量を抑えるため、経験値かゴールドのどちらかを切り替えで表示する。
-assert_true(lines_visual[2]:match("") or lines_visual[2]:match(""), "経験値かゴールドのどちらかが表示される")
+assert_not_match(lines_visual[2], "%[", "移動時の情報行にダンジョン名の括弧表示が含まれない")
+assert_match(lines_visual[2], "", "経験値が表示される")
+assert_match(lines_visual[2], "", "ゴールドが表示される")
 
 local st1 = state.set_render_mode(st0, "text")
 local lines_text = render.build_lines(st1, config)

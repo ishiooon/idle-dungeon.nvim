@@ -24,18 +24,49 @@ local function build_cells(track_length, fill_char)
   return cells
 end
 
+-- 表示幅を考慮してスプライトの占有セル数を計算する。
+local function sprite_width(sprite)
+  local parts = split_text(sprite)
+  local width = 0
+  for _, part in ipairs(parts) do
+    width = width + util.display_width(part)
+  end
+  return math.max(width, 0)
+end
+
+-- 表示幅に合わせてスプライトをセルへ配置する。
 local function place_sprite(cells, position, sprite)
   local parts = split_text(sprite)
   if #parts == 0 then
     return 0
   end
-  for index, part in ipairs(parts) do
-    local target = position + index - 1
-    if target >= 1 and target <= #cells then
-      cells[target] = part
+  local cursor = position
+  local used = 0
+  for _, part in ipairs(parts) do
+    local width = util.display_width(part)
+    if width <= 0 then
+      width = 1
     end
+    if cursor < 1 then
+      cursor = 1
+    end
+    if cursor + width - 1 > #cells then
+      break
+    end
+    cells[cursor] = part
+    used = used + width
+    if width > 1 then
+      -- 全角アイコンの占有列を空白で埋めてずれを防ぐ。
+      for offset = 2, width do
+        local target = cursor + offset - 1
+        if target >= 1 and target <= #cells then
+          cells[target] = " "
+        end
+      end
+    end
+    cursor = cursor + width
   end
-  return #parts
+  return used
 end
 
 local function build_offsets(cells)
@@ -60,7 +91,7 @@ local function build_track(distance, length, hero_sprite, filler, enemies)
       table.insert(enemy_positions, { position = enemy.position, width = width, enemy = enemy })
     end
   end
-  local hero_width = math.max(#split_text(safe_sprite), 1)
+  local hero_width = math.max(sprite_width(safe_sprite), 1)
   local base_position = calculate_position(distance or 0, track_length, hero_width)
   local hero_position = base_position + 1
   place_sprite(cells, hero_position, safe_sprite)
