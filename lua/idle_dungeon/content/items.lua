@@ -1,11 +1,60 @@
 -- このモジュールは装備定義を提供する。
 
+local util = require("idle_dungeon.util")
+
 local M = {}
+
+-- 解放条件は装備定義側で一元管理し、設定側と重複しないようにする。
+local unlock_rules = {
+  typing_blade = { kind = "chars", value = 200 },
+  save_hammer = { kind = "saves", value = 10 },
+  repeat_cloak = { kind = "time_sec", value = 1800 },
+  edge_shield = { kind = "filetype_chars", filetype = "lua", value = 200 },
+  focus_bracelet = { kind = "chars", value = 600 },
+  wind_bird = { kind = "time_sec", value = 900 },
+  lua_sigil_blade = { kind = "filetype_chars", filetype = "lua", value = 400 },
+  vim_focus_ring = { kind = "filetype_chars", filetype = "vim", value = 300 },
+  c_forge_spear = { kind = "filetype_chars", filetype = "c", value = 350 },
+  cpp_heap_shield = { kind = "filetype_chars", filetype = "cpp", value = 450 },
+  python_coil_whip = { kind = "filetype_chars", filetype = "python", value = 400 },
+  js_spark_blade = { kind = "filetype_chars", filetype = "javascript", value = 450 },
+  ts_guard_mail = { kind = "filetype_chars", filetype = "typescript", value = 450 },
+  go_stride_band = { kind = "filetype_chars", filetype = "go", value = 350 },
+  rust_crust_armor = { kind = "filetype_chars", filetype = "rust", value = 450 },
+  java_forge_staff = { kind = "filetype_chars", filetype = "java", value = 450 },
+  kotlin_arc_amulet = { kind = "filetype_chars", filetype = "kotlin", value = 400 },
+  swift_wind_dagger = { kind = "filetype_chars", filetype = "swift", value = 400 },
+  ruby_bloom_ring = { kind = "filetype_chars", filetype = "ruby", value = 400 },
+  php_bastion_cloak = { kind = "filetype_chars", filetype = "php", value = 400 },
+  bash_echo_charm = { kind = "filetype_chars", filetype = "sh", value = 300 },
+  shell_tide_ring = { kind = "filetype_chars", filetype = "bash", value = 300 },
+  html_canvas_cloak = { kind = "filetype_chars", filetype = "html", value = 300 },
+  css_palette_charm = { kind = "filetype_chars", filetype = "css", value = 300 },
+  json_mirror_ring = { kind = "filetype_chars", filetype = "json", value = 350 },
+  yaml_scroll_robe = { kind = "filetype_chars", filetype = "yaml", value = 350 },
+  toml_anchor_band = { kind = "filetype_chars", filetype = "toml", value = 350 },
+  sql_depth_spear = { kind = "filetype_chars", filetype = "sql", value = 400 },
+  markdown_quill_pendant = { kind = "filetype_chars", filetype = "markdown", value = 300 },
+}
+
+-- 解放条件の定義を装備データへ反映して返す。
+local function apply_unlock_rules(items, unlocks)
+  local result = {}
+  for _, item in ipairs(items or {}) do
+    local unlock = unlocks[item.id]
+    if unlock then
+      table.insert(result, util.merge_tables(item, { unlock = unlock }))
+    else
+      table.insert(result, item)
+    end
+  end
+  return result
+end
 
 -- 図鑑表示に使う英語名とフレーバーテキストも定義する。
 -- 武器の属性タイプはelementで定義する。
 -- rarityは戦利品の希少度を示し、common/rare/petを使う。
-M.items = {
+local base_items = {
   { id = "wood_sword", name = "木の剣", name_en = "Wooden Sword", slot = "weapon", atk = 2, element = "grass", price = 5, rarity = "common", flavor = { en = "A starter blade that smells faintly of forest rain.", ja = "森の雨の匂いが残る初心者向けの木剣。" } },
   { id = "round_shield", name = "丸盾", name_en = "Round Shield", slot = "weapon", def = 2, element = "normal", price = 6, rarity = "common", flavor = { en = "A sturdy circle that never looks away from danger.", ja = "危険から目を逸らさない堅実な円盾。" } },
   -- 上位装備は価格と性能を引き上げ、明確な成長幅を作る。
@@ -99,5 +148,8 @@ M.items = {
   { id = "wind_bird", name = "風の小鳥", name_en = "Wind Bird", slot = "companion", atk = 2, price = 18, rarity = "pet", flavor = { en = "It circles ahead to bring back the smell of battle.", ja = "戦いの匂いを先に運んでくる小鳥。" } },
   { id = "tiny_familiar", name = "小さな使い魔", name_en = "Tiny Familiar", slot = "companion", hp = 1, def = 1, price = 20, rarity = "pet", flavor = { en = "A whisper-sized helper that remembers every shortcut.", ja = "ささやきほど小さく、近道を覚えている使い魔。" } },
 }
+
+-- 解放条件を統合した装備定義を公開する。
+M.items = apply_unlock_rules(base_items, unlock_rules)
 
 return M

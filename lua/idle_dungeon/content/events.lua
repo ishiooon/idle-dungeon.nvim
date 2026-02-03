@@ -112,4 +112,117 @@ M.events = {
   },
 }
 
+-- 隠しイベントの一覧を定義する。
+-- 数フロアに一度だけ出現し、目視できない効果として扱う。
+M.hidden_events = {
+  {
+    id = "hidden_oasis",
+    title = { en = "Oasis Sip", ja = "オアシスの一口" },
+    message = { en = "You find a hidden spring and recover your breath.", ja = "隠れた泉で喉を潤し、息を整える。" },
+    effect = { kind = "heal", amount = 4 },
+    appear = { min = 1, max = 4 },
+    weight = 3,
+  },
+  {
+    id = "hidden_clockwork_breeze",
+    title = { en = "Clockwork Breeze", ja = "歯車の風" },
+    message = { en = "A rhythmic wind pushes you forward.", ja = "規則的な風が背中を押す。" },
+    effect = { kind = "speed", tick_seconds = 0.5, duration_ticks = 6 },
+    appear = { min = 1, max = 8 },
+    weight = 2,
+  },
+  {
+    id = "hidden_shadow_spike",
+    title = { en = "Shadow Spike", ja = "影の棘" },
+    message = { en = "A hidden spike grazes you in the dark.", ja = "闇の棘がかすめ、痛みが走る。" },
+    effect = { kind = "damage", amount = 3 },
+    appear = { min = 2, max = 8 },
+    weight = 3,
+  },
+  {
+    id = "hidden_lost_satchel",
+    title = { en = "Lost Satchel", ja = "忘れられた小袋" },
+    message = { en = "You recover a traveler’s satchel with gear inside.", ja = "旅人の小袋を見つけ、装備が入っていた。" },
+    effect = { kind = "item", item_id = "swift_ring" },
+    appear = { min = 1, max = 6 },
+    weight = 2,
+  },
+  {
+    id = "hidden_silver_cache",
+    title = { en = "Silver Cache", ja = "銀の隠し箱" },
+    message = { en = "A silver cache opens with a soft click.", ja = "銀の隠し箱が静かに開く。" },
+    effect = { kind = "item", item_id = "record_ring" },
+    appear = { min = 2, max = 8 },
+    weight = 2,
+  },
+  {
+    id = "hidden_pet_crossing",
+    title = { en = "Curious Companion", ja = "好奇心の相棒" },
+    message = { en = "A small companion decides to follow you.", ja = "小さな相棒があなたについてくる。" },
+    effect = { kind = "pet", item_id = "wind_bird" },
+    appear = { min = 3, max = 8 },
+    weight = 1,
+  },
+  {
+    id = "hidden_whisper_note",
+    title = { en = "Whisper Note", ja = "ささやきのメモ" },
+    -- 目に見えないイベントでも状況が伝わる短文に整える。
+    message = {
+      en = "A folded note says: keep a steady cadence and the path will open.",
+      ja = "折りたたまれたメモに「歩調を整えれば道はひらける」と書かれていた。",
+    },
+    effect = { kind = "flavor" },
+    appear = { min = 1, max = 8 },
+    weight = 4,
+  },
+  -- 選択式の宝箱イベントを追加する。
+  {
+    id = "hidden_sealed_chest",
+    title = { en = "Sealed Chest", ja = "封印された宝箱" },
+    message = { en = "A sealed chest waits. Open it?", ja = "封印された宝箱がある。開けますか？" },
+    choice_seconds = 10,
+    choices = {
+      {
+        id = "open",
+        label = { en = "Open", ja = "開ける" },
+        results = {
+          {
+            id = "chest_good",
+            weight = 3,
+            message = { en = "A warm glow restores you and a trinket slips into your hand.", ja = "温かな光が体を癒やし、装身具が手に滑り込む。" },
+            effects = {
+              { kind = "heal", amount = 4 },
+              { kind = "item", item_id = "record_ring" },
+            },
+          },
+          {
+            id = "chest_bad",
+            weight = 2,
+            message = { en = "A trap snaps shut and the metal bites back.", ja = "罠が弾け、金属の牙が襲いかかる。" },
+            effect = { kind = "damage", amount = 4 },
+          },
+          {
+            id = "chest_neutral",
+            weight = 2,
+            message = { en = "Dust and old air spill out. Nothing else.", ja = "埃と古い空気が溢れ出す。中身は空だった。" },
+          },
+        },
+      },
+      {
+        id = "leave",
+        label = { en = "Leave", ja = "立ち去る" },
+        results = {
+          {
+            id = "chest_leave",
+            weight = 1,
+            message = { en = "You leave the chest untouched and move on.", ja = "触れずに通り過ぎる。" },
+          },
+        },
+      },
+    },
+    appear = { min = 2, max = 8 },
+    weight = 2,
+  },
+}
+
 return M

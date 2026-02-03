@@ -4,6 +4,7 @@ local render_battle = require("idle_dungeon.ui.render_battle_info")
 local render_event = require("idle_dungeon.ui.render_event")
 local render_stage = require("idle_dungeon.ui.render_stage")
 local icon_module = require("idle_dungeon.ui.icon")
+local i18n = require("idle_dungeon.i18n")
 local util = require("idle_dungeon.util")
 
 local M = {}
@@ -76,6 +77,12 @@ end
 
 local function build_move_info_line(state, config)
   local lang = resolve_language(state, config)
+  if state.ui and state.ui.event_message_remaining and state.ui.event_message_remaining > 0 then
+    local message = state.ui.event_message or ""
+    if message ~= "" then
+      return message
+    end
+  end
   local parts = render_stage.build_stage_parts(state.progress or {}, config or {}, lang)
   local icons = icon_module.config(config)
   local variants = build_move_info_variants(state, lang, icons)
@@ -110,6 +117,34 @@ local function build_dialogue_info_line(state, lang)
     return title
   end
   return "Story"
+end
+
+-- 選択肢のラベルを表示言語に合わせて解決する。
+local function resolve_choice_label(choice, lang, fallback_key)
+  if choice and type(choice.label) == "table" then
+    return choice.label[lang] or choice.label.en or choice.label.ja or i18n.t(fallback_key, lang)
+  end
+  if choice and type(choice.label) == "string" and choice.label ~= "" then
+    return choice.label
+  end
+  return i18n.t(fallback_key, lang)
+end
+
+-- 選択イベント用の情報行を組み立てる。
+local function build_choice_info_line(state, lang)
+  local event = render_event.find_event_by_id(state.ui.event_id)
+  local message = render_event.resolve_event_message(event, lang)
+  local title = render_event.resolve_event_title(event, lang)
+  local base = message ~= "" and message or title
+  if base == "" then
+    base = "Choice"
+  end
+  local choices = event and event.choices or {}
+  local choice_1 = resolve_choice_label(choices[1], lang, "choice_yes")
+  local choice_2 = resolve_choice_label(choices[2], lang, "choice_no")
+  local remaining = math.max(math.floor(state.ui.choice_remaining or 0), 0)
+  local auto_label = i18n.t("choice_auto", lang)
+  return string.format("%s 1:%s 2:%s %s%d", base, choice_1, choice_2, auto_label, remaining)
 end
 
 -- 報酬表示の短文を生成する。
@@ -173,6 +208,9 @@ local function build_info_line(state, config)
   if state.ui.mode == "dialogue" then
     return util.clamp_line(build_dialogue_info_line(state, lang), width)
   end
+  if state.ui.mode == "choice" then
+    return util.clamp_line(build_choice_info_line(state, lang), width)
+  end
   if state.ui.mode == "reward" then
     return util.clamp_line(build_reward_info_line(state, config, lang), width)
   end
@@ -213,6 +251,13 @@ local function build_text_status(state, config)
     local event = render_event.find_event_by_id(state.ui.event_id)
     local title = render_event.resolve_event_title(event, lang)
     return string.format("[Story %s]%s", title ~= "" and title or summary, ro_label)
+  end
+  if mode == "choice" then
+    local lang = resolve_language(state, config)
+    local event = render_event.find_event_by_id(state.ui.event_id)
+    local title = render_event.resolve_event_title(event, lang)
+    local label = title ~= "" and title or summary
+    return string.format("[Choice %s]%s", label, ro_label)
   end
   if mode == "reward" then
     return string.format("[Reward %s]%s", build_reward_info_line(config), ro_label)

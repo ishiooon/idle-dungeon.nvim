@@ -16,6 +16,12 @@ local function find_event_by_id(event_id)
       return event
     end
   end
+  -- 隠しイベントも表示対象として検索する。
+  for _, event in ipairs(content.hidden_events or {}) do
+    if event.id == event_id then
+      return event
+    end
+  end
   return nil
 end
 

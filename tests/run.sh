@@ -90,6 +90,8 @@ lua tests/test_ui_click.lua
 lua tests/test_track.lua
 # メニューの入力統計表示を確認する。
 lua tests/test_menu_metrics.lua
+# 入力差分の加算処理を確認する。
+lua tests/test_metrics_delta.lua
 # ステージの敵プール選択を確認する。
 lua tests/test_enemy_pool.lua
 # 敵データの件数と必須項目を確認する。
@@ -98,6 +100,10 @@ lua tests/test_enemy_content.lua
 lua tests/test_character_content.lua
 # 装備データの件数とドロップ紐付けを確認する。
 lua tests/test_item_content.lua
+# 装備解放条件が定義から生成されることを確認する。
+lua tests/test_item_unlock_rules.lua
+# 入力統計の除外設定を確認する。
+lua tests/test_input_ignore.lua
 # 階層内の敵配置の単体テストを確認する。
 lua tests/test_floor_enemies.lua
 # 階層進行の単体テストを確認する。
@@ -127,6 +133,10 @@ lua tests/test_battle_track_effect.lua
 lua tests/test_dex_unknown.lua
 # 属性相性の単体テストを確認する。
 lua tests/test_element_chart.lua
+# イベント効果の単体テストを確認する。
+lua tests/test_event_effects.lua
+# 選択イベントの単体テストを確認する。
+lua tests/test_choice_event.lua
 # 文字列切り詰めのUTF-8対応を確認する。
 lua tests/test_util_clamp.lua
 

@@ -17,6 +17,7 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local menu_data = require("idle_dungeon.menu.tabs_data")
 local state_module = require("idle_dungeon.core.state")
+local util = require("idle_dungeon.util")
 
 local config = {
   stage_name = "dungeon1-1",
@@ -27,9 +28,26 @@ local config = {
 }
 
 local state = state_module.new_state(config)
+state = util.merge_tables(state, {
+  metrics = {
+    chars = 120,
+    saves = 2,
+    time_sec = 60,
+    filetypes = { lua = 100, python = 20 },
+  },
+})
 local status_items = menu_data.build_status_items(state, config, "en")
 assert_true(#status_items > 0, "状態タブの項目が生成される")
 assert_match(status_items[1].label or "", "Stage:", "英語の状態表示が含まれる")
+local found_metrics = false
+for _, item in ipairs(status_items) do
+  if item.id == "metrics_detail" then
+    found_metrics = true
+    local joined = table.concat(item.detail_lines or {}, " ")
+    assert_match(joined, "lua", "入力統計の詳細にファイル種別が含まれる")
+  end
+end
+assert_true(found_metrics, "入力統計の詳細項目が含まれる")
 
 local action_items = menu_data.build_action_items()
 assert_true(#action_items >= 5, "操作タブの項目が生成される")

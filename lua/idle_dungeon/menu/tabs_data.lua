@@ -46,6 +46,15 @@ local function build_status_items(state, config, lang)
   for _, line in ipairs(menu_locale.status_lines(state, lang, config)) do
     table.insert(items, { id = "info", label = line })
   end
+  -- 入力統計の詳細は別の詳細表示で確認できるようにする。
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, {
+    id = "metrics_detail",
+    label = i18n.t("menu_status_metrics", lang),
+    detail_title = i18n.t("metrics_detail_title", lang),
+    detail_lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang),
+    keep_open = true,
+  })
   return items
 end
 

@@ -19,6 +19,15 @@ local function add_chars(metrics, count, filetype)
   return next_metrics
 end
 
+-- 差分が正のときのみ入力文字数を加算して返す。
+local function add_chars_delta(metrics, previous_total, next_total, filetype)
+  local delta = (next_total or 0) - (previous_total or 0)
+  if delta <= 0 then
+    return util.merge_tables(metrics, {})
+  end
+  return add_chars(metrics, delta, filetype)
+end
+
 local function add_lines(metrics, count)
   local next_metrics = util.merge_tables(metrics, {})
   next_metrics.lines = (next_metrics.lines or 0) + count
@@ -39,6 +48,7 @@ end
 
 M.new_metrics = new_metrics
 M.add_chars = add_chars
+M.add_chars_delta = add_chars_delta
 M.add_lines = add_lines
 M.add_save = add_save
 M.add_time = add_time

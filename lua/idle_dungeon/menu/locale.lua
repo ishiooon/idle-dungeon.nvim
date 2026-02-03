@@ -82,6 +82,38 @@ local function build_metrics_lines(metrics, lang)
   return result
 end
 
+-- 入力統計の詳細表示用に行をまとめる。
+local function build_metrics_detail_lines(metrics, lang)
+  local safe_metrics = metrics or {}
+  local lines = {
+    string.format("%s %d", i18n.t("label_chars", lang), safe_metrics.chars or 0),
+    string.format("%s %d", i18n.t("label_saves", lang), safe_metrics.saves or 0),
+    string.format("%s %s", i18n.t("label_time", lang), time_format.format_seconds(safe_metrics.time_sec or 0, lang)),
+  }
+  local filetypes = util.shallow_copy(safe_metrics.filetypes or {})
+  local entries = {}
+  for filetype, count in pairs(filetypes) do
+    if tonumber(count) and count > 0 then
+      table.insert(entries, { filetype = filetype, count = count })
+    end
+  end
+  table.sort(entries, function(a, b)
+    if a.count == b.count then
+      return (a.filetype or "") < (b.filetype or "")
+    end
+    return a.count > b.count
+  end)
+  if #entries == 0 then
+    table.insert(lines, i18n.t("metrics_detail_empty", lang))
+    return lines
+  end
+  table.insert(lines, i18n.t("label_filetypes", lang))
+  for _, entry in ipairs(entries) do
+    table.insert(lines, string.format("  %s: %d", entry.filetype, entry.count))
+  end
+  return lines
+end
+
 -- メニュー下部の案内文を行配列で返す。
 local function menu_footer_hints(lang)
   return {
@@ -137,5 +169,6 @@ M.display_lines_label = display_lines_label
 M.toggle_label = toggle_label
 M.menu_footer_hints = menu_footer_hints
 M.status_lines = status_lines
+M.build_metrics_detail_lines = build_metrics_detail_lines
 
 return M

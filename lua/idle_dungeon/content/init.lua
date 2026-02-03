@@ -11,6 +11,7 @@ local M = {
   enemies = enemies.enemies,
   items = items.items,
   events = events.events,
+  hidden_events = events.hidden_events,
   stage_intros = stage_intros.intros,
 }
 

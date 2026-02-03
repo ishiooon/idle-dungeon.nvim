@@ -20,6 +20,7 @@ local translations = {
   menu_action_display_lines = { en = "Display Lines", jp = "表示行数" },
   menu_action_language = { en = "Language", jp = "言語設定" },
   menu_action_status = { en = "Status", jp = "状態確認" },
+  menu_status_metrics = { en = "Input Metrics (Detail)", jp = "入力統計(詳細)" },
   -- メニュー下部の案内文を定義する。
   menu_hint_tabs = { en = "Tabs: Click / <- -> / Tab", jp = "タブ: クリック / <- -> / Tab" },
   menu_hint_toggle = { en = "Toggle: Enter switches", jp = "切り替え: Enterで変更" },
@@ -67,6 +68,8 @@ local translations = {
   prompt_reset_confirm = { en = "Reset all data?", jp = "全データを初期化しますか" },
   choice_yes = { en = "Yes", jp = "はい" },
   choice_no = { en = "No", jp = "いいえ" },
+  -- 選択イベントの自動決定表示を定義する。
+  choice_auto = { en = "Auto:", jp = "自動:" },
   slot_weapon = { en = "Weapon", jp = "武器" },
   slot_armor = { en = "Armor", jp = "防具" },
   slot_accessory = { en = "Accessory", jp = "装身具" },
@@ -106,6 +109,8 @@ local translations = {
   label_saves = { en = "Saves:", jp = "保存回数:" },
   label_time = { en = "Active Time:", jp = "稼働時間:" },
   label_filetypes = { en = "Filetypes:", jp = "入力内訳:" },
+  metrics_detail_title = { en = "Input Metrics", jp = "入力統計" },
+  metrics_detail_empty = { en = "No filetype data yet.", jp = "ファイル種別の入力はまだありません。" },
   notify_read_only = { en = "Idle Dungeon is running in another Neovim. Read-only mode is active.", jp = "Idle Dungeonは他のNeovimで稼働中のため閲覧専用です。" },
   language_en = { en = "English", jp = "English" },
   language_ja = { en = "日本語", jp = "日本語" },

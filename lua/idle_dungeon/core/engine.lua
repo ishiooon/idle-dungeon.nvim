@@ -5,6 +5,8 @@ local input = require("idle_dungeon.core.input")
 local loop = require("idle_dungeon.core.loop")
 local menu = require("idle_dungeon.menu")
 local metrics = require("idle_dungeon.game.metrics")
+local event_catalog = require("idle_dungeon.game.event_catalog")
+local event_choice = require("idle_dungeon.game.event_choice")
 local render_state = require("idle_dungeon.ui.render_state")
 local session = require("idle_dungeon.core.session")
 local state_module = require("idle_dungeon.core.state")
@@ -13,7 +15,32 @@ local unlock = require("idle_dungeon.game.unlock")
 local i18n = require("idle_dungeon.i18n")
 local M = {}
 local current_config = nil
-local apply_unlocks, handle_metrics, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current
+local current_tick_seconds = nil
+local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current
+
+-- 速度上昇などによる実効ティック秒を解決する。
+local function resolve_tick_seconds(state, config)
+  local boost = state and state.ui and state.ui.speed_boost or nil
+  if boost and boost.remaining_ticks and boost.remaining_ticks > 0 and boost.tick_seconds then
+    return boost.tick_seconds
+  end
+  return config.tick_seconds
+end
+
+-- ティック間隔が変わった場合はタイマーを更新する。
+local function update_tick_timer(state)
+  local desired = resolve_tick_seconds(state, current_config)
+  if current_tick_seconds == nil then
+    current_tick_seconds = desired
+    return
+  end
+  if desired == current_tick_seconds then
+    return
+  end
+  loop.stop_tick()
+  loop.start_tick(desired, tick)
+  current_tick_seconds = desired
+end
 local function configure(user_config)
   current_config = config_module.build(user_config)
   session.set_config(current_config)
@@ -44,6 +71,7 @@ local function stop()
   -- タイマーや入力監視を停止し、ロックを解放する。
   loop.stop_all()
   input.stop()
+  current_tick_seconds = nil
   if session.is_owner() then
     session.release_owner()
   end
@@ -73,10 +101,12 @@ tick = function()
   if not state then return end
   -- 進行を更新し、描画を反映する。
   local next_state = state_module.tick(state, current_config)
-  local next_metrics = metrics.add_time(next_state.metrics, current_config.tick_seconds)
+  local elapsed = current_tick_seconds or current_config.tick_seconds
+  local next_metrics = metrics.add_time(next_state.metrics, elapsed)
   next_state = state_module.with_metrics(next_state, next_metrics)
   next_state = apply_unlocks(next_state)
   session.set_state(next_state)
+  update_tick_timer(next_state)
   render_current(next_state)
 end
 sync_tick = function()
@@ -95,8 +125,11 @@ end
 start_owner_mode = function()
   -- 所有権を持つ場合のタイマーと入力監視を開始する。
   loop.stop_sync()
-  input.start(handle_metrics)
-  loop.start_tick(current_config.tick_seconds, tick)
+  input.start(handle_metrics, handle_choice, current_config)
+  local state = session.get_state()
+  local desired = resolve_tick_seconds(state, current_config)
+  loop.start_tick(desired, tick)
+  current_tick_seconds = desired
   loop.start_save(current_config.storage.autosave_seconds, function()
     local state = session.get_state()
     if state then
@@ -108,6 +141,7 @@ start_follower_mode = function()
   loop.stop_tick()
   loop.stop_save()
   input.stop()
+  current_tick_seconds = nil
   loop.start_sync(current_config.storage.sync_seconds, sync_tick)
 end
 apply_unlocks = function(state)
@@ -122,6 +156,23 @@ handle_metrics = function(update_fn)
   local next_metrics = update_fn(state.metrics)
   local next_state = state_module.with_metrics(state, next_metrics)
   session.set_state(apply_unlocks(next_state))
+end
+handle_choice = function(choice_index)
+  if not session.is_owner() then
+    return
+  end
+  local state = session.get_state()
+  if not state or not state.ui or state.ui.mode ~= "choice" then
+    return
+  end
+  local event = event_catalog.find_event(state.ui.event_id)
+  if not event_choice.is_choice_event(event) then
+    local next_state = state_module.set_ui_mode(state, "move", { event_id = nil, choice_remaining = 0 })
+    return set_state_and_render(next_state)
+  end
+  -- 選択結果を反映し、保存と描画を更新する。
+  local next_state = event_choice.apply_choice_event(state, event, current_config, choice_index)
+  set_state_and_render(next_state)
 end
 set_state_and_render = function(next_state)
   session.set_state(session.save_state(next_state))

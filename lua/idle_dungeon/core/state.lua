@@ -46,6 +46,11 @@ local function new_state(config)
       event_id = nil,
       battle_message = nil,
       stage_intro_remaining = 0,
+      event_message = nil,
+      event_message_remaining = 0,
+      -- 選択イベントの残り秒数を保持する。
+      choice_remaining = 0,
+      speed_boost = nil,
     },
     metrics = metrics.new_metrics(),
     unlocks = {
@@ -105,8 +110,37 @@ end
 local function with_actor(state, next_actor)
   return util.merge_tables(state, { actor = next_actor })
 end
+
+-- 一時的なUI効果の残り時間を進める。
+local function apply_ui_timers(state)
+  local ui = state.ui or {}
+  local updated = {}
+  local changed = false
+  if ui.event_message_remaining and ui.event_message_remaining > 0 then
+    local next_remaining = ui.event_message_remaining - 1
+    updated.event_message_remaining = math.max(next_remaining, 0)
+    if next_remaining <= 0 then
+      updated.event_message = nil
+    end
+    changed = true
+  end
+  if ui.speed_boost and ui.speed_boost.remaining_ticks and ui.speed_boost.remaining_ticks > 0 then
+    local next_ticks = ui.speed_boost.remaining_ticks - 1
+    if next_ticks <= 0 then
+      updated.speed_boost = nil
+    else
+      updated.speed_boost = util.merge_tables(ui.speed_boost, { remaining_ticks = next_ticks })
+    end
+    changed = true
+  end
+  if not changed then
+    return state
+  end
+  return util.merge_tables(state, { ui = util.merge_tables(ui, updated) })
+end
 local function tick(state, config)
-  return transition.tick(state, config)
+  local next_state = transition.tick(state, config)
+  return apply_ui_timers(next_state)
 end
 local function change_character(state, character_id)
   local character = helpers.find_character(character_id)

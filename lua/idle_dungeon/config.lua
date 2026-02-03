@@ -19,6 +19,39 @@ local function build_enemy_names()
   return names
 end
 
+-- 装備定義の解放条件を設定用のルールへ変換する。
+local function build_unlock_rules(items, extra_rules)
+  local rules = {}
+  local seen = {}
+  local function push(rule)
+    if not rule or not rule.id or not rule.kind then
+      return
+    end
+    local key = string.format("%s:%s:%s", rule.id, rule.kind, rule.filetype or "")
+    if seen[key] then
+      return
+    end
+    seen[key] = true
+    table.insert(rules, rule)
+  end
+  for _, item in ipairs(items or {}) do
+    local unlock = item.unlock
+    if type(unlock) == "table" and unlock.kind then
+      push(util.merge_tables(unlock, { id = item.id, target = "items" }))
+    elseif type(unlock) == "table" then
+      for _, entry in ipairs(unlock) do
+        if type(entry) == "table" and entry.kind then
+          push(util.merge_tables(entry, { id = item.id, target = "items" }))
+        end
+      end
+    end
+  end
+  for _, rule in ipairs(extra_rules or {}) do
+    push(rule)
+  end
+  return rules
+end
+
 local function build_event_distances()
   local distances = {}
   for _, event in ipairs(content.events) do
@@ -33,17 +66,23 @@ end
 
 local function default_config()
   return {
-    tick_seconds = 0.1,
+    tick_seconds = 1,
     move_step = 1,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。
     dialogue_seconds = 0,
     -- ステージ開始時のアスキーアート表示は短時間で切り替える。
     stage_intro_seconds = 1,
+    -- 隠しイベントのメッセージ表示は数ティックだけ継続させる。
+    event_message_ticks = 3,
+    -- 選択イベントの自動決定までの待機秒数を設定する。
+    choice_seconds = 10,
     -- 左から右までの歩幅を1階層として扱い、既定は短めに整える。
     floor_length = 32,
     -- 階層ごとの遭遇数を1〜5体で設定する。
     floor_encounters = { min = 1, max = 5 },
+    -- 隠しイベントは数フロアに一度だけ発生させる。
+    floor_events = { enabled = true, chance = 35, min_floor = 2 },
     -- ボスは10階層ごとに出現する。
     boss_every = 10,
     stage_name = { en = "Glacier Command", ja = "初手の氷回廊" },
@@ -68,36 +107,22 @@ local function default_config()
     },
     event_distances = build_event_distances(),
     ui = ui_defaults.default_ui(),
-    unlock_rules = {
-      { id = "typing_blade", target = "items", kind = "chars", value = 200 },
-      { id = "save_hammer", target = "items", kind = "saves", value = 10 },
-      { id = "repeat_cloak", target = "items", kind = "time_sec", value = 1800 },
-      { id = "edge_shield", target = "items", kind = "filetype_chars", filetype = "lua", value = 200 },
-      { id = "focus_bracelet", target = "items", kind = "chars", value = 600 },
-      { id = "wind_bird", target = "items", kind = "time_sec", value = 900 },
-      { id = "lua_sigil_blade", target = "items", kind = "filetype_chars", filetype = "lua", value = 400 },
-      { id = "vim_focus_ring", target = "items", kind = "filetype_chars", filetype = "vim", value = 300 },
-      { id = "c_forge_spear", target = "items", kind = "filetype_chars", filetype = "c", value = 350 },
-      { id = "cpp_heap_shield", target = "items", kind = "filetype_chars", filetype = "cpp", value = 450 },
-      { id = "python_coil_whip", target = "items", kind = "filetype_chars", filetype = "python", value = 400 },
-      { id = "js_spark_blade", target = "items", kind = "filetype_chars", filetype = "javascript", value = 450 },
-      { id = "ts_guard_mail", target = "items", kind = "filetype_chars", filetype = "typescript", value = 450 },
-      { id = "go_stride_band", target = "items", kind = "filetype_chars", filetype = "go", value = 350 },
-      { id = "rust_crust_armor", target = "items", kind = "filetype_chars", filetype = "rust", value = 450 },
-      { id = "java_forge_staff", target = "items", kind = "filetype_chars", filetype = "java", value = 450 },
-      { id = "kotlin_arc_amulet", target = "items", kind = "filetype_chars", filetype = "kotlin", value = 400 },
-      { id = "swift_wind_dagger", target = "items", kind = "filetype_chars", filetype = "swift", value = 400 },
-      { id = "ruby_bloom_ring", target = "items", kind = "filetype_chars", filetype = "ruby", value = 400 },
-      { id = "php_bastion_cloak", target = "items", kind = "filetype_chars", filetype = "php", value = 400 },
-      { id = "bash_echo_charm", target = "items", kind = "filetype_chars", filetype = "sh", value = 300 },
-      { id = "shell_tide_ring", target = "items", kind = "filetype_chars", filetype = "bash", value = 300 },
-      { id = "html_canvas_cloak", target = "items", kind = "filetype_chars", filetype = "html", value = 300 },
-      { id = "css_palette_charm", target = "items", kind = "filetype_chars", filetype = "css", value = 300 },
-      { id = "json_mirror_ring", target = "items", kind = "filetype_chars", filetype = "json", value = 350 },
-      { id = "yaml_scroll_robe", target = "items", kind = "filetype_chars", filetype = "yaml", value = 350 },
-      { id = "toml_anchor_band", target = "items", kind = "filetype_chars", filetype = "toml", value = 350 },
-      { id = "sql_depth_spear", target = "items", kind = "filetype_chars", filetype = "sql", value = 400 },
-      { id = "markdown_quill_pendant", target = "items", kind = "filetype_chars", filetype = "markdown", value = 300 },
+    -- 解放条件は装備定義から生成する。
+    unlock_rules = build_unlock_rules(content.items or {}, nil),
+    -- 入力統計で除外するファイル種別を定義する。
+    input = {
+      ignored_filetypes = {
+        "alpha",
+        "dashboard",
+        "lazy",
+        "mason",
+        "NvimTree",
+        "neo-tree",
+        "neo-tree-popup",
+        "neo-tree-preview",
+        "netrw",
+        "oil",
+      },
     },
   }
 end
@@ -131,6 +156,14 @@ local function build(user_config)
     merged.floor_length = user_config.floor_length
   else
     merged.floor_length = (merged.ui or {}).track_length or merged.floor_length or 18
+  end
+  -- 解放条件は装備定義を優先し、追加分だけを統合する。
+  merged.unlock_rules = build_unlock_rules(content.items or {}, (user_config or {}).unlock_rules)
+  -- 入力統計の除外ファイル種別は配列を丸ごと置き換える。
+  if user_config and user_config.input and user_config.input.ignored_filetypes then
+    merged.input = util.merge_tables(merged.input or {}, {
+      ignored_filetypes = user_config.input.ignored_filetypes,
+    })
   end
   if not merged.event_distances or #merged.event_distances == 0 then
     merged.event_distances = build_event_distances()

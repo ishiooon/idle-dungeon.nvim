@@ -4,6 +4,9 @@ local battle = require("idle_dungeon.game.battle")
 -- 戦闘中の遷移は専用モジュールに委譲して整理する。
 local battle_flow = require("idle_dungeon.core.transition.battle")
 local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
+local event_catalog = require("idle_dungeon.game.event_catalog")
+local event_choice = require("idle_dungeon.game.event_choice")
+local event_effects = require("idle_dungeon.game.event_effects")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local floor_state = require("idle_dungeon.game.floor.state")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
@@ -67,7 +70,24 @@ local function tick_move(state, config)
   local move_step = config.move_step or 1
   local next_distance = base_progress.distance + move_step
   local floor_length = floor_progress.resolve_floor_length(config)
+  local event_spec, event_distance = floor_state.find_event_in_path(base_progress, floor_length, base_progress.distance, next_distance)
   local enemy_spec, enemy_distance = floor_state.find_enemy_in_path(base_progress, floor_length, base_progress.distance, next_distance)
+  if event_spec and (not enemy_distance or event_distance <= enemy_distance) then
+    local event_data = event_catalog.find_event(event_spec.id)
+    local progress_for_event = util.merge_tables(base_progress, { distance = event_distance or base_progress.distance })
+    if event_choice.is_choice_event(event_data) then
+      -- 選択イベントは移動を停止して選択待ちへ遷移する。
+      local next_state = event_choice.start_choice(base_state, event_data, config)
+      return util.merge_tables(next_state, { progress = progress_for_event })
+    end
+    local applied_state, next_seed = event_effects.apply_event(base_state, event_data, config, base_progress.rng_seed or 1)
+    local marked_progress = floor_state.mark_event_resolved(progress_for_event)
+    local next_progress = util.merge_tables(marked_progress, { rng_seed = next_seed })
+    return util.merge_tables(applied_state, {
+      progress = next_progress,
+      ui = util.merge_tables(applied_state.ui, { mode = "move", event_id = nil, battle_message = nil }),
+    })
+  end
   if enemy_spec then
     -- 移動量が大きい場合でも敵に遭遇したら必ず戦闘を開始する。
     local progress_for_battle = util.merge_tables(base_progress, { distance = enemy_distance })
@@ -136,6 +156,22 @@ local function tick_stage_intro(state, config)
   return util.merge_tables(state, { ui = util.merge_tables(state.ui, { stage_intro_remaining = remaining }) })
 end
 
+-- 選択イベントの残り時間を減らし、期限切れなら自動選択する。
+local function tick_choice(state, config)
+  local tick_seconds = config.tick_seconds or 1
+  local remaining = (state.ui.choice_remaining or 0) - tick_seconds
+  if remaining > 0 then
+    return util.merge_tables(state, { ui = util.merge_tables(state.ui, { choice_remaining = remaining }) })
+  end
+  -- 選択が行われなかった場合はランダムに決定する。
+  local event = event_catalog.find_event(state.ui.event_id)
+  if not event_choice.is_choice_event(event) then
+    local next_ui = util.merge_tables(state.ui, { mode = "move", event_id = nil, choice_remaining = 0 })
+    return util.merge_tables(state, { ui = next_ui })
+  end
+  return event_choice.apply_choice_event(state, event, config, nil)
+end
+
 -- 会話待機中の残り時間を減らす。
 local function tick_dialogue(state, config)
   local tick_seconds = config.tick_seconds or 1
@@ -157,6 +193,9 @@ local function tick(state, config)
   end
   if state.ui.mode == "dialogue" then
     return tick_dialogue(state, config)
+  end
+  if state.ui.mode == "choice" then
+    return tick_choice(state, config)
   end
   if state.ui.mode == "battle" then
     return battle_flow.tick_battle(state, config)
