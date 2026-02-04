@@ -136,9 +136,8 @@ local function status_lines(state, lang, config)
   local floor_length = floor_progress.resolve_floor_length(config or {})
   local floor_index = floor_progress.floor_index(progress.distance or 0, floor_length)
   local floor_step = floor_progress.floor_step(progress.distance or 0, floor_length)
-  local total_floors = floor_progress.stage_total_floors(stage, floor_length)
   local floor_number = floor_index + 1
-  local floor_text = total_floors and string.format("%d/%d", floor_number, total_floors) or tostring(floor_number)
+  local floor_text = tostring(floor_number)
   local step_text = string.format("%d/%d", floor_step, floor_length)
   local auto_start_key = (state.ui and state.ui.auto_start ~= false) and "status_on" or "status_off"
   local lines = {

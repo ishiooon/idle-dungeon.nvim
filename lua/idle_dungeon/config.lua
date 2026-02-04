@@ -108,7 +108,8 @@ local function default_config()
       -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
       hero_speed = 2,
       enemy_speed = 2,
-      reward_exp = 6,
+      -- 取得経験値は体感で少しだけ伸びる程度に引き上げる。
+      reward_exp = 8,
       reward_gold = 2,
       -- エンカウントは敵の2マス手前で開始する。
       encounter_gap = 2,
