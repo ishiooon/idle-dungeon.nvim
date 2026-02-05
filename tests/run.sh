@@ -74,6 +74,8 @@ lua tests/test_menu_layout.lua
 lua tests/test_menu_tabs.lua
 # メニュー開閉の状態遷移を確認する。
 lua tests/test_menu_toggle.lua
+# メニューのサブ画面から戻れることを確認する。
+lua tests/test_menu_action_back.lua
 # Read-only表示の単体テストを確認する。
 lua tests/test_read_only.lua
 # メニュー表示のデータ生成を確認する。

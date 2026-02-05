@@ -90,7 +90,7 @@ local function apply_equipment(state, slot, item_id)
   return state_module.with_actor(state_module.with_equipment(state, next_equipment), next_actor)
 end
 
-local function open_job_menu(get_state, set_state, config)
+local function open_job_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local entries = {}
   for _, job in ipairs(content.jobs) do
@@ -108,6 +108,10 @@ local function open_job_menu(get_state, set_state, config)
     end,
   }, function(choice)
     if not choice then
+      if on_close then
+        -- キャンセル時は状態画面へ戻る。
+        on_close()
+      end
       return
     end
     local next_state = state_module.change_job(get_state(), choice.id)
@@ -116,7 +120,7 @@ local function open_job_menu(get_state, set_state, config)
 end
 
 -- スキル一覧の表示と有効/無効の切り替えを行う。
-local function open_skills_menu(get_state, set_state, config)
+local function open_skills_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local state = get_state()
   local active = skills.list_learned(state.skills, content.jobs, "active", nil)
@@ -164,6 +168,10 @@ local function open_skills_menu(get_state, set_state, config)
     end,
   }, function(choice)
     if not choice then
+      if on_close then
+        -- キャンセル時は状態画面へ戻る。
+        on_close()
+      end
       return
     end
     local current_state = get_state()
@@ -180,7 +188,7 @@ local function open_skills_menu(get_state, set_state, config)
 end
 
 -- ジョブごとのレベル一覧を表示する。
-local function open_job_levels_menu(get_state, set_state, config)
+local function open_job_levels_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local state = get_state()
   local lines = menu_locale.build_job_level_lines(state, lang, content.jobs or {})
@@ -194,12 +202,15 @@ local function open_job_levels_menu(get_state, set_state, config)
     format_item = function(item)
       return item.label
     end,
-  }, function()
-    return
+  }, function(choice)
+    if not choice and on_close then
+      -- キャンセル時は状態画面へ戻る。
+      on_close()
+    end
   end, config)
 end
 
-local function open_stage_menu(get_state, set_state, config)
+local function open_stage_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local entries = config.stages or {}
   local initial_state = get_state()
@@ -218,6 +229,10 @@ local function open_stage_menu(get_state, set_state, config)
     end,
   }, function(choice)
     if not choice then
+      if on_close then
+        -- キャンセル時は状態画面へ戻る。
+        on_close()
+      end
       return
     end
     local current = get_state()

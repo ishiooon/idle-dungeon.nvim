@@ -46,7 +46,10 @@ local function handle_action_choice(action, get_state, set_state, config, lang)
     end)
   end
   if action.id == "stage" then
-    return actions.open_stage_menu(get_state, set_state, config)
+    -- サブメニューのキャンセル時は状態画面へ戻す。
+    return actions.open_stage_menu(get_state, set_state, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "purchase" then
     return shop.open_purchase_menu(get_state, set_state, lang, config, function()
@@ -54,18 +57,30 @@ local function handle_action_choice(action, get_state, set_state, config, lang)
     end)
   end
   if action.id == "sell" then
-    return shop.open_sell_menu(get_state, set_state, lang, config)
+    -- サブメニューのキャンセル時は状態画面へ戻す。
+    return shop.open_sell_menu(get_state, set_state, lang, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "job" then
     -- ジョブ変更メニューを開く。
-    return actions.open_job_menu(get_state, set_state, config)
+    -- サブメニューのキャンセル時は状態画面へ戻す。
+    return actions.open_job_menu(get_state, set_state, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "skills" then
     -- スキル一覧と有効/無効切り替えを表示する。
-    return actions.open_skills_menu(get_state, set_state, config)
+    -- サブメニューのキャンセル時は状態画面へ戻す。
+    return actions.open_skills_menu(get_state, set_state, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
   if action.id == "job_levels" then
-    return actions.open_job_levels_menu(get_state, set_state, config)
+    -- サブメニューのキャンセル時は状態画面へ戻す。
+    return actions.open_job_levels_menu(get_state, set_state, config, function()
+      open_status_root(get_state, set_state, config)
+    end)
   end
 end
 local function handle_config_choice(action, get_state, set_state, config)

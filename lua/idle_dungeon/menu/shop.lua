@@ -164,7 +164,7 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
   open_categories()
 end
 
-local function open_sell_menu(get_state, set_state, lang, config)
+local function open_sell_menu(get_state, set_state, lang, config, on_close)
   local menu_detail = require("idle_dungeon.menu.detail")
   local menu_view = require("idle_dungeon.menu.view")
   local icons = icon_module.config(config)
@@ -192,6 +192,10 @@ local function open_sell_menu(get_state, set_state, lang, config)
     end,
   }, function(item)
     if not item then
+      if on_close then
+        -- キャンセル時は状態画面へ戻る。
+        on_close()
+      end
       return
     end
     local state = get_state()
