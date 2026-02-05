@@ -4,13 +4,14 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
-local function find_character(character_id)
-  for _, character in ipairs(content.characters) do
-    if character.id == character_id then
-      return character
+local function find_job(job_id)
+  for _, job in ipairs(content.jobs) do
+    if job.id == job_id then
+      return job
     end
   end
-  return content.characters[1]
+  -- ジョブ未指定時は先頭を既定として返す。
+  return content.jobs[1]
 end
 
 local function ensure_equipment(starter_items)
@@ -28,7 +29,7 @@ local function update_section(state, key, updates)
   return result
 end
 
-M.find_character = find_character
+M.find_job = find_job
 M.ensure_equipment = ensure_equipment
 M.update_section = update_section
 

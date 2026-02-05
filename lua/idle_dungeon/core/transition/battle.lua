@@ -5,6 +5,8 @@ local floor_state = require("idle_dungeon.game.floor.state")
 local inventory = require("idle_dungeon.game.inventory")
 local loot = require("idle_dungeon.game.loot")
 local player = require("idle_dungeon.game.player")
+local helpers = require("idle_dungeon.core.state_helpers")
+local skills = require("idle_dungeon.game.skills")
 local state_dex = require("idle_dungeon.game.dex.state")
 local util = require("idle_dungeon.util")
 
@@ -147,6 +149,13 @@ local function build_last_turn(attacker, result, state, config)
   return { attacker = attacker, result = result, time_sec = time_sec }
 end
 
+-- 敵ごとの倍率を加味した経験値報酬を計算する。
+local function resolve_reward_exp(base_exp, enemy)
+  local multiplier = enemy and enemy.exp_multiplier or 1
+  local scaled = (tonumber(base_exp) or 0) * multiplier
+  return math.max(0, math.floor(scaled + 0.5))
+end
+
 -- 戦闘の命中判定と体力更新を行う。
 local function tick_battle(state, config)
   local combat = normalize_attack_state(state.combat or {})
@@ -186,6 +195,14 @@ local function tick_battle(state, config)
   end
   local hero_speed = resolve_actor_speed(state, config)
   local enemy_speed = resolve_enemy_speed(enemy, config)
+  -- スキルのパッシブ効果を戦闘計算に反映する。
+  local passive_bonus = skills.resolve_passive_bonus(state.skills, state.skill_settings, content.jobs)
+  -- 敵側のパッシブスキルも倍率として反映する。
+  local enemy_passive = skills.resolve_passive_bonus_from_list(enemy and enemy.skills or {})
+  local hero_atk = (state.actor.atk or 0) * (passive_bonus.atk or 1)
+  local hero_def = (state.actor.def or 0) * (passive_bonus.def or 1)
+  local hero_accuracy = (battle_config.accuracy or 90) * (passive_bonus.accuracy or 1)
+  local enemy_def = (enemy.def or 0) * (enemy_passive.def or 1)
   local turn = resolve_initial_turn(combat, hero_speed, enemy_speed)
   local tick_seconds = resolve_tick_seconds(state, config)
   local attack_effect_frames = resolve_attack_frames(battle_config, tick_seconds)
@@ -196,9 +213,25 @@ local function tick_battle(state, config)
   local next_turn = turn
   local next_wait = 0
   local next_progress = util.merge_tables(state.progress, { rng_seed = seed })
+  local enemy_skill_rate = battle_config.enemy_skill_rate or battle_config.skill_active_rate or 0
   if turn == "hero" then
     local hero_result
-    hero_result, seed = build_attack_result(seed, state.actor.atk, enemy.def or 0, battle_config.accuracy or 90, "hero", hero_element, enemy_element, config)
+    local active_skill
+    active_skill = nil
+    active_skill, seed = skills.choose_active_skill(state.skills, state.skill_settings, content.jobs, seed, battle_config.skill_active_rate)
+    local skill_power = active_skill and (active_skill.power or 1) or 1
+    local skill_accuracy = active_skill and (active_skill.accuracy or 0) or 0
+    hero_result, seed = build_attack_result(
+      seed,
+      math.floor(hero_atk * skill_power + 0.5),
+      math.floor(enemy_def + 0.5),
+      math.floor(hero_accuracy + skill_accuracy + 0.5),
+      "hero",
+      hero_element,
+      enemy_element,
+      config
+    )
+    hero_result.skill = active_skill
     local next_enemy_hp = enemy.hp - hero_result.damage
     next_enemy = util.merge_tables(enemy, { hp = math.max(0, next_enemy_hp), element = enemy_element })
     last_turn = build_last_turn("hero", hero_result, state, config)
@@ -211,11 +244,13 @@ local function tick_battle(state, config)
       drop, seed = loot.roll_drop(seed, config, content.items, enemy)
       local gold_bonus
       gold_bonus, seed = loot.roll_gold(seed, enemy)
+      local reward_exp = resolve_reward_exp(battle_config.reward_exp, enemy)
       next_progress = util.merge_tables(state.progress, { rng_seed = seed })
       local next_combat = util.merge_tables(combat, {
         enemy = next_enemy,
         pending_drop = drop,
         pending_gold = gold_bonus,
+        pending_exp = reward_exp,
         last_turn = last_turn,
         -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
         attack_effect = attack_effect_frames,
@@ -226,9 +261,25 @@ local function tick_battle(state, config)
       return util.merge_tables(state, { combat = next_combat, progress = next_progress })
     end
   else
-    local enemy_accuracy = enemy.accuracy or battle_config.enemy_accuracy or 85
+    -- 敵のスキルも抽選し、能力補正を反映する。
+    local enemy_skill
+    enemy_skill, seed = skills.choose_active_skill_from_list(enemy.skills or {}, seed, enemy_skill_rate)
+    local enemy_skill_power = enemy_skill and (enemy_skill.power or 1) or 1
+    local enemy_skill_accuracy = enemy_skill and (enemy_skill.accuracy or 0) or 0
+    local enemy_atk = (enemy.atk or 0) * (enemy_passive.atk or 1)
+    local enemy_accuracy = (enemy.accuracy or battle_config.enemy_accuracy or 85) * (enemy_passive.accuracy or 1)
     local enemy_result
-    enemy_result, seed = build_attack_result(seed, enemy.atk, state.actor.def, enemy_accuracy, "enemy", enemy_element, hero_element, config)
+    enemy_result, seed = build_attack_result(
+      seed,
+      math.floor(enemy_atk * enemy_skill_power + 0.5),
+      math.floor(hero_def + 0.5),
+      math.floor(enemy_accuracy + enemy_skill_accuracy + 0.5),
+      "enemy",
+      enemy_element,
+      hero_element,
+      config
+    )
+    enemy_result.skill = enemy_skill
     local next_actor_hp = state.actor.hp - enemy_result.damage
     next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
     last_turn = build_last_turn("enemy", enemy_result, state, config)
@@ -262,18 +313,31 @@ end
 
 -- 戦闘勝利時の報酬と階層状態を更新する。
 local function tick_reward(state, config)
-  local reward_exp = (config.battle or {}).reward_exp or 0
+  local reward_exp = (state.combat and state.combat.pending_exp) or (config.battle or {}).reward_exp or 0
   local base_gold = (config.battle or {}).reward_gold or 0
   local bonus_gold = (state.combat or {}).pending_gold or 0
   local reward_gold = base_gold + bonus_gold
   local pending_drop = state.combat and state.combat.pending_drop or nil
-  local leveled = player.add_exp(state.actor, reward_exp)
+  -- 現在のジョブ進行度を更新して経験値に反映する。
+  local current_job = helpers.find_job(state.actor and state.actor.id)
+  local job_levels = util.merge_tables(state.job_levels or {}, {})
+  local job_progress = job_levels[current_job.id] or player.default_progress()
+  local leveled, next_job = player.add_exp_with_job(state.actor, reward_exp, job_progress, current_job)
   local applied = player.apply_equipment(leveled, state.equipment, content.items)
+  job_levels[current_job.id] = next_job
+  local learned_skills = skills.unlock_from_job(state.skills or skills.empty(), current_job, next_job)
+  local skill_settings = skills.ensure_enabled(state.skill_settings, learned_skills)
   local current_gold = (state.currency and state.currency.gold) or 0
   local next_currency = util.merge_tables(state.currency, { gold = current_gold + reward_gold })
   local source_enemy = state.combat and state.combat.source or nil
   local next_inventory = state.inventory
-  local next_state = util.merge_tables(state, { actor = applied, currency = next_currency })
+  local next_state = util.merge_tables(state, {
+    actor = applied,
+    currency = next_currency,
+    job_levels = job_levels,
+    skills = learned_skills,
+    skill_settings = skill_settings,
+  })
   if pending_drop and pending_drop.id then
     -- 戦利品が出た場合は所持品と図鑑を更新する。
     next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)

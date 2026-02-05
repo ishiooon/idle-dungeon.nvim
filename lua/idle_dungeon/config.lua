@@ -74,7 +74,7 @@ local function default_config()
     -- ステージ開始時のアスキーアート表示は短時間で切り替える。
     stage_intro_seconds = 1.5,
     -- 隠しイベントのメッセージ表示は数ティックだけ継続させる。
-    event_message_ticks = 3,
+    event_message_ticks = 5,
     -- 選択イベントの自動決定までの待機秒数を設定する。
     choice_seconds = 10,
     -- 左から右までの歩幅を1階層として扱い、既定は短めに整える。
@@ -87,6 +87,8 @@ local function default_config()
     boss_every = 10,
     stage_name = { en = "Glacier Command", ja = "初手の氷回廊" },
     stages = stage_defaults.default_stages(),
+    -- 既定のジョブIDを指定して初期能力値を決める。
+    default_job_id = "recorder",
     -- 図鑑と遭遇候補のための敵IDは敵定義から生成する。
     enemy_names = build_enemy_names(),
     elements = { "normal", "fire", "water", "grass", "light", "dark" },
@@ -108,8 +110,11 @@ local function default_config()
       -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
       hero_speed = 2,
       enemy_speed = 2,
-      -- 取得経験値は体感で少しだけ伸びる程度に引き上げる。
-      reward_exp = 8,
+      -- アクティブスキルの自動発動率を0〜1で設定する。
+      skill_active_rate = 0.35,
+      -- 経験値の上がり幅を少しだけ増やしてテンポを調整する。
+      -- 敵ごとの倍率と合わせて成長が体感できる基礎値にする。
+      reward_exp = 30,
       reward_gold = 2,
       -- エンカウントは敵の2マス手前で開始する。
       encounter_gap = 2,

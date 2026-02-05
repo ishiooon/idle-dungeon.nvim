@@ -173,7 +173,7 @@ local function default_stages()
       boss_id = "boss_null_horizon",
       enemy_pool = {
         fixed = { "rust_crab", "git_wyrm", "python_serpent", "java_ifrit" },
-        mixed = { "gnu_bison", "cpp_colossus", "clojure_oracle", "node_phantom", "docker_whale" },
+        mixed = { "gnu_bison", "cpp_colossus", "clojure_oracle", "node_phantom", "docker_whale", "prism_slime" },
         fixed_ratio = 35,
       },
     },

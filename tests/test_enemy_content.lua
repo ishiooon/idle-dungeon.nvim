@@ -31,6 +31,23 @@ for _, enemy in ipairs(enemies) do
   assert_true(type(enemy.drops.gold.min) == "number", "ゴールド最小値が数値で定義される")
   assert_true(type(enemy.drops.gold.max) == "number", "ゴールド最大値が数値で定義される")
   assert_true(type(enemy.flavor) == "table", "フレーバーテキストが定義される")
+  assert_true(type(enemy.skills) == "table", "敵スキルが定義される")
+  for _, skill in ipairs(enemy.skills or {}) do
+    assert_true(type(skill.id) == "string", "敵スキルIDが定義される")
+    assert_true(type(skill.name) == "string", "敵スキル名が定義される")
+    -- 英語表記は言語切り替え表示のため必須とする。
+    assert_true(type(skill.name_en) == "string", "敵スキルの英語名が定義される")
+    assert_true(skill.kind == "active" or skill.kind == "passive", "敵スキル種別が定義される")
+    if skill.kind == "active" then
+      assert_true(type(skill.rate) == "number", "敵アクティブの発動率が定義される")
+    end
+    if skill.kind == "passive" then
+      assert_true(type(skill.bonus_mul) == "table", "敵パッシブの倍率補正が定義される")
+    end
+    -- 説明文は日本語と英語の両方を持たせる。
+    assert_true(type(skill.description) == "string", "敵スキル説明が定義される")
+    assert_true(type(skill.description_en) == "string", "敵スキル説明の英語が定義される")
+  end
 end
 
 print("OK")

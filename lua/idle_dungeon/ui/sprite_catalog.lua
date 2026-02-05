@@ -1,13 +1,13 @@
--- このモジュールはキャラクターと敵の定義参照を提供する。
+-- このモジュールはジョブと敵の定義参照を提供する。
 
 local content = require("idle_dungeon.content")
 
 local M = {}
 
-local function find_character(actor_id)
-  for _, character in ipairs(content.characters or {}) do
-    if character.id == actor_id then
-      return character
+local function find_job(actor_id)
+  for _, job in ipairs(content.jobs or {}) do
+    if job.id == actor_id then
+      return job
     end
   end
   return nil
@@ -22,7 +22,8 @@ local function find_enemy(enemy_id)
   return nil
 end
 
-M.find_character = find_character
+-- ジョブ参照はスプライト色分けにのみ利用する。
+M.find_job = find_job
 M.find_enemy = find_enemy
 
 return M

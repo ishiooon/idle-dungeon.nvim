@@ -28,6 +28,11 @@ local function format_item_with_state(item, get_state, lang)
     local lines = (state.ui and state.ui.display_lines) or 2
     return menu_locale.display_lines_label(lines, lang)
   end
+  -- 戦闘時のHP分母表示はトグル表示で整形する。
+  if item.id == "battle_hp_show_max" then
+    local enabled = (state.ui and state.ui.battle_hp_show_max) or false
+    return menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang)
+  end
   return i18n.t(item.key, lang)
 end
 local function handle_action_choice(action, get_state, set_state, config, lang)
@@ -51,8 +56,16 @@ local function handle_action_choice(action, get_state, set_state, config, lang)
   if action.id == "sell" then
     return shop.open_sell_menu(get_state, set_state, lang, config)
   end
-  if action.id == "character" then
-    return actions.open_character_menu(get_state, set_state, config)
+  if action.id == "job" then
+    -- ジョブ変更メニューを開く。
+    return actions.open_job_menu(get_state, set_state, config)
+  end
+  if action.id == "skills" then
+    -- スキル一覧と有効/無効切り替えを表示する。
+    return actions.open_skills_menu(get_state, set_state, config)
+  end
+  if action.id == "job_levels" then
+    return actions.open_job_levels_menu(get_state, set_state, config)
   end
 end
 local function handle_config_choice(action, get_state, set_state, config)
@@ -67,6 +80,9 @@ local function handle_config_choice(action, get_state, set_state, config)
   end
   if action.id == "display_lines" then
     return settings.toggle_display_lines(get_state, set_state, config)
+  end
+  if action.id == "battle_hp_show_max" then
+    return settings.toggle_battle_hp_show_max(get_state, set_state, config)
   end
   if action.id == "language" then
     return settings.open_language_menu(get_state, set_state, config)

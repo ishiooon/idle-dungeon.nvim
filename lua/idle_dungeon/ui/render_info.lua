@@ -157,7 +157,8 @@ local function build_reward_info_line(state, config, lang)
   local icons = icon_module.config(config)
   local bonus_gold = (state.combat and state.combat.pending_gold) or 0
   local reward_gold = (reward.reward_gold or 0) + bonus_gold
-  local exp_label = format_icon_value(icons.exp or "", string.format("+%d", reward.reward_exp or 0))
+  local reward_exp = (state.combat and state.combat.pending_exp) or (reward.reward_exp or 0)
+  local exp_label = format_icon_value(icons.exp or "", string.format("+%d", reward_exp))
   local gold_label = format_icon_value(icons.gold or "", string.format("+%d", reward_gold))
   local base = string.format("%s %s", exp_label, gold_label)
   local drop = state.combat and state.combat.pending_drop or nil

@@ -2,6 +2,7 @@
 -- メニュー表示が参照する進行情報はgame配下へまとめる。
 local i18n = require("idle_dungeon.i18n")
 -- 階層進行の計算はgame/floor/progressに委譲する。
+local content = require("idle_dungeon.content")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local time_format = require("idle_dungeon.ui.time_format")
 local render_stage = require("idle_dungeon.ui.render_stage")
@@ -140,6 +141,14 @@ local function status_lines(state, lang, config)
   local floor_text = tostring(floor_number)
   local step_text = string.format("%d/%d", floor_step, floor_length)
   local auto_start_key = (state.ui and state.ui.auto_start ~= false) and "status_on" or "status_off"
+  -- 現在選択中のジョブ名を表示用に取得する。
+  local job_name = nil
+  for _, job in ipairs(content.jobs or {}) do
+    if job.id == actor.id then
+      job_name = job.name
+      break
+    end
+  end
   local lines = {
     string.format("%s %s", i18n.t("label_stage", lang), stage_name),
     string.format("%s %s", i18n.t("label_progress", lang), stage_progress_text),
@@ -147,6 +156,9 @@ local function status_lines(state, lang, config)
     string.format("%s %s", i18n.t("label_floor_step", lang), step_text),
     string.format("%s %d", i18n.t("label_level", lang), actor.level or 1),
     string.format("%s %d/%d", i18n.t("label_exp", lang), actor.exp or 0, actor.next_level or 0),
+    string.format("%s %s", i18n.t("label_job", lang), job_name or ""),
+    string.format("%s %d", i18n.t("label_job_level", lang), actor.job_level or 1),
+    string.format("%s %d/%d", i18n.t("label_job_exp", lang), actor.job_exp or 0, actor.job_next_level or 0),
     string.format("%s %d/%d", i18n.t("label_hp", lang), actor.hp or 0, actor.max_hp or 0),
     string.format("%s %d", i18n.t("label_atk", lang), actor.atk or 0),
     string.format("%s %d", i18n.t("label_def", lang), actor.def or 0),
@@ -165,9 +177,24 @@ M.resolve_lang = resolve_lang
 M.slot_label = slot_label
 M.auto_start_label = auto_start_label
 M.display_lines_label = display_lines_label
+-- ジョブごとのレベル表示を一覧で返す。
+local function build_job_level_lines(state, lang, jobs)
+  local levels = state.job_levels or {}
+  local lines = {}
+  for _, job in ipairs(jobs or {}) do
+    local progress = levels[job.id] or { level = 1 }
+    table.insert(lines, string.format("%s Lv%d", job.name or "", progress.level or 1))
+  end
+  if #lines == 0 then
+    table.insert(lines, i18n.t("menu_job_levels_empty", lang))
+  end
+  return lines
+end
+
 M.toggle_label = toggle_label
 M.menu_footer_hints = menu_footer_hints
 M.status_lines = status_lines
 M.build_metrics_detail_lines = build_metrics_detail_lines
+M.build_job_level_lines = build_job_level_lines
 
 return M

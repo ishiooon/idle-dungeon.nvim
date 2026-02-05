@@ -13,7 +13,11 @@ local function build_action_items()
     { id = "stage", key = "menu_action_stage" },
     { id = "purchase", key = "menu_action_purchase" },
     { id = "sell", key = "menu_action_sell" },
-    { id = "character", key = "menu_action_character" },
+    -- ジョブ変更は専用メニューで扱う。
+    { id = "job", key = "menu_action_job" },
+    -- 習得済みスキルの切り替え用メニューを追加する。
+    { id = "skills", key = "menu_action_skills" },
+    { id = "job_levels", key = "menu_action_job_levels" },
   }
 end
 
@@ -22,6 +26,8 @@ local function build_config_items()
     { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
     { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
     { id = "display_lines", key = "menu_action_display_lines", keep_open = true, kind = "toggle" },
+    -- 戦闘中のHP分母表示を切り替える設定を追加する。
+    { id = "battle_hp_show_max", key = "menu_action_battle_hp_show_max", keep_open = true, kind = "toggle" },
     -- 設定系は閉じずに選択できるようkeep_openで維持する。
     { id = "language", key = "menu_action_language", keep_open = true },
     { id = "reset", key = "menu_action_reset", keep_open = true },

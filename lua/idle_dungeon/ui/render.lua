@@ -223,7 +223,11 @@ local function build_text_status(state, config)
     return string.format("[Encountered %s: %s]", label, name)
   end
   if mode == "reward" then
-    return string.format("[Reward exp+%d gold+%d]", config.battle.reward_exp, config.battle.reward_gold)
+    local reward = config.battle or {}
+    local bonus_gold = (state.combat and state.combat.pending_gold) or 0
+    local reward_gold = (reward.reward_gold or 0) + bonus_gold
+    local reward_exp = (state.combat and state.combat.pending_exp) or (reward.reward_exp or 0)
+    return string.format("[Reward exp+%d gold+%d]", reward_exp, reward_gold)
   end
   if mode == "defeat" then
     return "[Defeated]"

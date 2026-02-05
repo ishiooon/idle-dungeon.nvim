@@ -70,12 +70,33 @@ local function filter_known_ids(ids)
   return result
 end
 
+-- 敵の重みを取得し、未設定なら既定値を使う。
+local function resolve_weight(enemy_id)
+  local enemy = find_enemy(enemy_id)
+  local weight = enemy and enemy.weight or 10
+  if type(weight) ~= "number" or weight <= 0 then
+    return 10
+  end
+  return weight
+end
+
 local function pick_from_list(seed, ids)
   if #ids == 0 then
     return nil, seed
   end
-  local index, next_seed = rng.next_int(seed or 1, 1, #ids)
-  return ids[index], next_seed
+  local total = 0
+  for _, enemy_id in ipairs(ids) do
+    total = total + resolve_weight(enemy_id)
+  end
+  local roll, next_seed = rng.next_int(seed or 1, 1, total)
+  local cursor = 0
+  for _, enemy_id in ipairs(ids) do
+    cursor = cursor + resolve_weight(enemy_id)
+    if roll <= cursor then
+      return enemy_id, next_seed
+    end
+  end
+  return ids[#ids], next_seed
 end
 
 local function resolve_pool(progress, config)

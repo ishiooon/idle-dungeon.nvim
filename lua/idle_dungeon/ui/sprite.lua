@@ -30,10 +30,10 @@ local function sprite_config(config)
     show_enemy_on_track = sprites.show_enemy_on_track ~= false,
   }
 end
-local function find_character_sprite(actor_id, icons)
-  local character = catalog.find_character(actor_id)
-  if character and character.sprite then
-    return character.sprite
+local function find_job_sprite(actor_id, icons)
+  local job = catalog.find_job(actor_id)
+  if job and job.sprite then
+    return job.sprite
   end
   return icon_module.build_frames(icons.hero) or DEFAULT_HERO
 end
@@ -61,7 +61,8 @@ local function build_hero_sprite(state, config, mode)
   local icons = icon_module.config(config)
   local hero_sprite = icon_module.icons_only(config)
     and (icon_module.build_frames(icons.hero) or DEFAULT_HERO)
-    or find_character_sprite(state.actor and state.actor.id, icons)
+    -- ジョブ側にスプライト定義が無い場合はアイコンに戻す。
+    or find_job_sprite(state.actor and state.actor.id, icons)
   local frames = select_frames(hero_sprite, mode)
   local time_sec = (state.metrics or {}).time_sec or 0
   local settings = sprite_config(config)

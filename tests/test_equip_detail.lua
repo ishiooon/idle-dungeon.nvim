@@ -14,7 +14,8 @@ local util = require("idle_dungeon.util")
 
 local config = {
   ui = { language = "ja" },
-  default_character_id = "recorder",
+  -- ジョブの既定IDを指定して初期化する。
+  default_job_id = "recorder",
 }
 
 local state = state_module.new_state(config)

@@ -65,6 +65,13 @@ local function toggle_display_lines(get_state, set_state, config)
   local next_state = state_module.set_display_lines(state, next_lines)
   set_state(next_state)
 end
+local function toggle_battle_hp_show_max(get_state, set_state, config)
+  local state = get_state()
+  local current = (state.ui and state.ui.battle_hp_show_max) or (config.ui or {}).battle_hp_show_max or false
+  -- 戦闘時のHP分母表示を反転して保存する。
+  local next_state = state_module.set_battle_hp_show_max(state, not current)
+  set_state(next_state)
+end
 
 local function build_reset_choices(lang)
   return {
@@ -96,6 +103,7 @@ M.open_language_menu = open_language_menu
 M.open_status_menu = open_status_menu
 M.toggle_auto_start = toggle_auto_start
 M.toggle_display_lines = toggle_display_lines
+M.toggle_battle_hp_show_max = toggle_battle_hp_show_max
 M.open_reset_menu = open_reset_menu
 
 return M

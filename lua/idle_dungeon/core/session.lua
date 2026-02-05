@@ -1,5 +1,6 @@
 -- このモジュールは共有状態と所有権を管理する。
 -- 永続化の参照先はstorage配下に統一する。
+local state_module = require("idle_dungeon.core.state")
 local lock = require("idle_dungeon.storage.lock")
 local store_state = require("idle_dungeon.storage.state")
 
@@ -57,7 +58,8 @@ local function load_state()
   -- 保存済みの状態を読み取る。
   local state, mtime = store_state.load_state()
   if state then
-    runtime.state = state
+    -- 旧データ形式の差分をここで吸収する。
+    runtime.state = state_module.normalize_state(state)
     runtime.last_sync_mtime = mtime
   end
   return runtime.state
@@ -67,7 +69,8 @@ local function sync_state_if_newer()
   -- 共有状態が更新されていれば読み取る。
   local state, mtime = store_state.load_state_if_newer(runtime.last_sync_mtime)
   if state then
-    runtime.state = state
+    -- 同期時も旧データ形式の差分を正規化する。
+    runtime.state = state_module.normalize_state(state)
     runtime.last_sync_mtime = mtime
   end
   return state

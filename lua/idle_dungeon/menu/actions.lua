@@ -9,6 +9,7 @@ local equip_detail = require("idle_dungeon.menu.equip_detail")
 local menu_detail = require("idle_dungeon.menu.detail")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
+local skills = require("idle_dungeon.game.skills")
 local icon_module = require("idle_dungeon.ui.icon")
 local player = require("idle_dungeon.game.player")
 local render_stage = require("idle_dungeon.ui.render_stage")
@@ -17,6 +18,60 @@ local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
+
+-- 言語設定に応じてスキル名を切り替える。
+local function resolve_skill_name(skill, lang)
+  if not skill then
+    return ""
+  end
+  if lang == "en" then
+    return skill.name_en or skill.name or ""
+  end
+  return skill.name or ""
+end
+
+-- 言語設定に応じてスキル説明を切り替える。
+local function resolve_skill_description(skill, lang)
+  if not skill then
+    return ""
+  end
+  if lang == "en" then
+    return skill.description_en or skill.description or ""
+  end
+  return skill.description or ""
+end
+
+-- ジョブ詳細の表示内容を構築する。
+local function build_job_detail(job, state, lang)
+  if not job then
+    return nil
+  end
+  local progress = (state.job_levels or {})[job.id] or player.default_progress()
+  local growth = job.growth or {}
+  local lines = {
+    string.format("%s %d", i18n.t("label_job_level", lang), progress.level or 1),
+    string.format("%s %d/%d", i18n.t("label_job_exp", lang), progress.exp or 0, progress.next_level or 0),
+    string.format("%s HP+%d ATK+%d DEF+%d SPD+%d", i18n.t("label_job_growth", lang), growth.hp or 0, growth.atk or 0, growth.def or 0, growth.speed or 0),
+  }
+  if job.skills and #job.skills > 0 then
+    table.insert(lines, i18n.t("label_job_skills", lang))
+    for _, skill in ipairs(job.skills) do
+      local learned = skills.is_learned(state.skills, skill.id)
+      local status = learned and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
+      local kind_label = (skill.kind == "active")
+        and i18n.t("skill_kind_active", lang)
+        or i18n.t("skill_kind_passive", lang)
+      local skill_name = resolve_skill_name(skill, lang)
+      table.insert(lines, string.format("Lv%d %s (%s) [%s]", skill.level or 1, skill_name, kind_label, status))
+      local skill_description = resolve_skill_description(skill, lang)
+      if skill_description ~= "" then
+        -- スキルの効果説明を補足として表示する。
+        table.insert(lines, string.format("  %s", skill_description))
+      end
+    end
+  end
+  return { title = job.name, lines = lines }
+end
 
 -- 装備名の先頭にスロットアイコンを付けて識別しやすくする。
 local function format_item_label(item, config)
@@ -35,24 +90,112 @@ local function apply_equipment(state, slot, item_id)
   return state_module.with_actor(state_module.with_equipment(state, next_equipment), next_actor)
 end
 
-local function open_character_menu(get_state, set_state, config)
+local function open_job_menu(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local entries = {}
-  for _, character in ipairs(content.characters) do
-    table.insert(entries, character)
+  for _, job in ipairs(content.jobs) do
+    table.insert(entries, job)
   end
-  -- キャラクター選択のメニューを表示する。
+  -- ジョブ選択のメニューを表示する。
   menu_view.select(entries, {
-    prompt = i18n.t("prompt_character", lang),
+    prompt = i18n.t("prompt_job", lang),
     format_item = function(item)
       return string.format("%s (%s)", item.name, item.role)
+    end,
+    detail_provider = function(item)
+      -- ジョブの成長と習得技を詳細に表示する。
+      return build_job_detail(item, get_state(), lang)
     end,
   }, function(choice)
     if not choice then
       return
     end
-    local next_state = state_module.change_character(get_state(), choice.id)
+    local next_state = state_module.change_job(get_state(), choice.id)
     set_state(next_state)
+  end, config)
+end
+
+-- スキル一覧の表示と有効/無効の切り替えを行う。
+local function open_skills_menu(get_state, set_state, config)
+  local lang = menu_locale.resolve_lang(get_state(), config)
+  local state = get_state()
+  local active = skills.list_learned(state.skills, content.jobs, "active", nil)
+  local passive = skills.list_learned(state.skills, content.jobs, "passive", nil)
+  local entries = {}
+  for _, skill in ipairs(active) do
+    table.insert(entries, util.merge_tables(skill, { kind = "active" }))
+  end
+  for _, skill in ipairs(passive) do
+    table.insert(entries, util.merge_tables(skill, { kind = "passive" }))
+  end
+  menu_view.select(entries, {
+    prompt = i18n.t("prompt_skills", lang),
+    keep_open = true,
+    format_item = function(item)
+      local current = get_state()
+      local enabled = skills.is_enabled(current.skill_settings, item.id, item.kind)
+      local status = enabled and i18n.t("status_on", lang) or i18n.t("status_off", lang)
+      local kind_label = item.kind == "active" and i18n.t("skill_kind_active", lang) or i18n.t("skill_kind_passive", lang)
+      local skill_name = resolve_skill_name(item, lang)
+      return string.format("%s (%s) [%s]", skill_name, kind_label, status)
+    end,
+    detail_provider = function(item)
+      if not item then
+        return nil
+      end
+      local lines = {}
+      if item.kind == "active" then
+        table.insert(lines, string.format("%s %d%%", i18n.t("label_skill_rate", lang), math.floor((item.rate or 0) * 100 + 0.5)))
+        table.insert(lines, string.format("%s x%.2f", i18n.t("label_skill_power", lang), item.power or 1))
+        table.insert(lines, string.format("%s %+d", i18n.t("label_skill_accuracy", lang), item.accuracy or 0))
+      else
+        local mul = item.bonus_mul or {}
+        table.insert(lines, string.format("%s ATK x%.2f", i18n.t("label_skill_bonus", lang), mul.atk or 1))
+        table.insert(lines, string.format("%s DEF x%.2f", i18n.t("label_skill_bonus", lang), mul.def or 1))
+        table.insert(lines, string.format("%s ACC x%.2f", i18n.t("label_skill_bonus", lang), mul.accuracy or 1))
+      end
+      local description = resolve_skill_description(item, lang)
+      if description ~= "" then
+        table.insert(lines, "")
+        table.insert(lines, description)
+      end
+      local title = resolve_skill_name(item, lang)
+      return { title = title, lines = lines }
+    end,
+  }, function(choice)
+    if not choice then
+      return
+    end
+    local current_state = get_state()
+    local settings = skills.normalize_settings(current_state.skill_settings)
+    local bucket = choice.kind == "active" and settings.active or settings.passive
+    local enabled = bucket[choice.id]
+    if enabled == nil then
+      enabled = true
+    end
+    bucket[choice.id] = not enabled
+    local next_state = util.merge_tables(current_state, { skill_settings = settings })
+    set_state(next_state)
+  end, config)
+end
+
+-- ジョブごとのレベル一覧を表示する。
+local function open_job_levels_menu(get_state, set_state, config)
+  local lang = menu_locale.resolve_lang(get_state(), config)
+  local state = get_state()
+  local lines = menu_locale.build_job_level_lines(state, lang, content.jobs or {})
+  local entries = {}
+  for _, line in ipairs(lines) do
+    table.insert(entries, { label = line })
+  end
+  menu_view.select(entries, {
+    prompt = i18n.t("menu_job_levels_title", lang),
+    keep_open = true,
+    format_item = function(item)
+      return item.label
+    end,
+  }, function()
+    return
   end, config)
 end
 
@@ -149,7 +292,9 @@ local function open_equip_menu(get_state, set_state, config, on_close)
   open_slot_menu()
 end
 
-M.open_character_menu = open_character_menu
+M.open_job_menu = open_job_menu
+M.open_skills_menu = open_skills_menu
+M.open_job_levels_menu = open_job_levels_menu
 M.open_stage_menu = open_stage_menu
 M.open_equip_menu = open_equip_menu
 

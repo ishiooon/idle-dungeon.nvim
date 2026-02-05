@@ -53,7 +53,9 @@ assert_true(type(built.floor_encounters.min) == "number", "階層遭遇数の最
 assert_true(type(built.floor_encounters.max) == "number", "階層遭遇数の最大値が定義される")
 assert_true(type(built.boss_every) == "number", "ボスの出現間隔が定義される")
 assert_true(type(built.battle) == "table", "戦闘設定が定義される")
-assert_true(built.battle.reward_exp == 8, "経験値の既定値が引き上げられている")
+-- 経験値の既定値は調整後の値と一致する。
+assert_true(built.battle.reward_exp == 30, "経験値の既定値が引き上げられている")
+assert_true(type(built.battle.skill_active_rate) == "number", "スキル発動率が定義される")
 -- 会話待機の既定値は0秒で停止時間を発生させない。
 assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒である")
 assert_true(type(built.stage_intro_seconds) == "number", "ステージ導入の表示秒数が定義される")
@@ -68,6 +70,8 @@ assert_true(built.ui.icons_only == true, "表示はアイコン優先が既定�
 assert_true(type(built.ui.sprites) == "table", "スプライト表示の設定が定義される")
 assert_true(built.ui.sprites.enabled == true, "スプライト表示は既定で有効である")
 assert_true(type(built.ui.sprite_palette) == "table", "スプライトの色設定が定義される")
+-- 戦闘時のHP分母表示は既定で非表示であることを確認する。
+assert_true(built.ui.battle_hp_show_max == false, "戦闘時のHP分母表示は既定で無効である")
 -- 未使用の設定は持たない。
 assert_true(built.ui.battle_effects == nil, "未使用のbattle_effectsは設定に含めない")
 -- 画像スプライト設定は廃止したため検証しない。
@@ -100,6 +104,8 @@ assert_true(built.ui.menu.detail_width_ratio == 0.3, "詳細表示の既定幅�
 assert_true(built.ui.menu.detail_min_width == 28, "詳細表示の既定最小幅が設定される")
 assert_true(built.ui.menu.detail_max_width == 56, "詳細表示の既定最大幅が設定される")
 assert_true(built.ui.menu.detail_gap == 2, "詳細表示の既定間隔が設定される")
+-- 既定ジョブIDが初期化に含まれることを確認する。
+assert_true(type(built.default_job_id) == "string", "既定ジョブIDが設定される")
 -- 敵一覧はコンテンツ定義から生成し、二重管理を避ける。
 assert_true(type(built.enemy_names) == "table", "敵一覧が設定に含まれる")
 assert_true(#built.enemy_names == #(content.enemies or {}), "敵一覧は敵定義の件数と一致する")

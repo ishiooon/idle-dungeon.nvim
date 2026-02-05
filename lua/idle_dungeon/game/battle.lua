@@ -112,6 +112,10 @@ local function build_enemy(distance, config, enemy_spec)
     speed = math.max(tonumber(scaled_speed) or 1, 1),
     is_boss = is_boss,
     level = growth,
+    -- 敵ごとの経験値倍率を保持して報酬計算に使う。
+    exp_multiplier = enemy_data.exp_multiplier or 1,
+    -- 敵スキルは戦闘演出と計算に使う。
+    skills = enemy_data.skills,
     -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。
     drops = enemy_data.drops,
   }

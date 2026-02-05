@@ -104,6 +104,9 @@ local st_lines2 = state.set_display_lines(st_lines, 2)
 assert_equal(st_lines2.ui.display_lines, 2, "表示行数が2行に戻る")
 local st_lines0 = state.set_display_lines(st_lines2, 0)
 assert_equal(st_lines0.ui.display_lines, 0, "表示行数が0行に切り替わる")
+-- 戦闘時のHP分母表示の切り替えを確認する。
+local st_battle_hp = state.set_battle_hp_show_max(st0, true)
+assert_equal(st_battle_hp.ui.battle_hp_show_max, true, "戦闘HP分母表示が更新される")
 
 local boss_config = {
   move_step = 1,

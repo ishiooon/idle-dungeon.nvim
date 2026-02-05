@@ -36,6 +36,30 @@ local function apply_speed_defaults(enemies, default_speed)
   return enemies
 end
 
+-- 敵の基礎能力から経験値倍率を計算する。
+local function build_exp_multiplier(enemy)
+  local stats = (enemy and enemy.stats) or {}
+  local base = (stats.hp or 1) + (stats.atk or 1) + (stats.def or 0)
+  -- 基礎能力に応じた経験値の振れ幅を広めにする。
+  local scaled = base / 6
+  local clamped = math.max(1, math.min(scaled, 4))
+  return math.floor(clamped * 10 + 0.5) / 10
+end
+
+-- 経験値倍率が未定義の場合は既定値で補完する。
+local function apply_exp_defaults(enemies)
+  for _, enemy in ipairs(enemies or {}) do
+    if enemy.exp_multiplier == nil then
+      if enemy.id and enemy.id:match("^boss_") then
+        enemy.exp_multiplier = 15
+      else
+        enemy.exp_multiplier = build_exp_multiplier(enemy)
+      end
+    end
+  end
+  return enemies
+end
+
 -- ドロップ配列へ重複なく追加する。
 local function append_unique(list, extras)
   local result = {}
@@ -74,6 +98,7 @@ end
 -- 図鑑表示に限らず、出現判定・戦闘・UI表示で使う敵情報を定義する。
 -- ステータスや出現条件もここに集約して管理する。
 -- アイコンとキャラクターの一致感を最優先して構成する。
+-- 敵ごとのスキルは個別に記載して戦闘や図鑑に反映する。
 local enemies = {
   {
     -- ステージ1の序盤戦は手応えを出すため、基礎敵のHPを引き上げている。
@@ -89,9 +114,40 @@ local enemies = {
       rare = { "fast_sand", "guardian_halberd" },
       pet = { "white_slime" },
     },
+    -- 敵ごとのスキルを図鑑定義に含めて内容を見通しやすくする。
+    skills = {
+      { id = "dust_slime_strike", kind = "active", name = "体当たり霞", name_en = "Body Slam Bloom", description = "勢いよく襲いかかる。", description_en = "Strikes with a sudden rush.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "dust_slime_aura", kind = "passive", name = "闘気霞", name_en = "Fury Bloom", description = "闘気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with fighting spirit.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A code-born slime that bubbles with gentle loops and sudden bursts.",
       ja = "穏やかなループと突発的な跳ねが混ざるコード生まれの粘体。",
+    },
+  },
+  {
+    -- レア枠として大量経験値を持つ特別なスライムを追加する。
+    id = "prism_slime",
+    name_en = "Prism Slime",
+    name_ja = "プリズムスライム",
+    icon = "󰝨",
+    stats = { hp = 7, atk = 2, def = 1, accuracy = 96 },
+    elements = { "light", "water" },
+    appear = { min = 4, max = 8 },
+    -- 出現率を下げるため重みを小さくする。
+    weight = 1,
+    exp_multiplier = 60,
+    drops = {
+      common = { "record_ring", "steady_band" },
+      rare = { "fast_sand" },
+      pet = {},
+    },
+    skills = {
+      { id = "prism_slime_strike", kind = "active", name = "星彩打翔", name_en = "Star Break Gloom", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "prism_slime_aura", kind = "passive", name = "霊光翔", name_en = "Lumina Gloom", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
+    flavor = {
+      en = "A rare prism slime that shatters into light and leaves a long trail of exp.",
+      ja = "光の欠片を散らしながら現れる希少な粘体。倒すと膨大な経験を残す。",
     },
   },
   {
@@ -106,6 +162,10 @@ local enemies = {
       common = { "short_bow", "thick_cloak", "guard_amulet" },
       rare = { "edge_shield" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "tux_penguin_strike", kind = "active", name = "泡砲影", name_en = "Bubble Cannon Burst", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "tux_penguin_aura", kind = "passive", name = "泡盾影", name_en = "Bubble Shield Burst", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A calm glider that answers the dungeon with crisp, icy steps.",
@@ -125,6 +185,10 @@ local enemies = {
       rare = { "typing_blade" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "vim_mantis_strike", kind = "active", name = "茨刺金", name_en = "Briar Pierce Nova", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "vim_mantis_aura", kind = "passive", name = "芽生え金", name_en = "Sprout Nova", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "It trims the corridor with razor focus, never wasting a keystroke.",
       ja = "鋭い集中で通路を刈り取り、無駄な一打を嫌う。",
@@ -142,6 +206,10 @@ local enemies = {
       common = { "round_shield", "cloth_armor", "guard_amulet", "traveler_coat" },
       rare = { "rest_armor", "bulwark_plate" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "c_sentinel_strike", kind = "active", name = "体当たり芽", name_en = "Body Slam Spike", description = "勢いよく襲いかかる。", description_en = "Strikes with a sudden rush.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "c_sentinel_aura", kind = "passive", name = "闘気芽", name_en = "Fury Spike", description = "闘気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with fighting spirit.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A simple guardian forged in raw steel, stubborn yet reliable.",
@@ -161,6 +229,10 @@ local enemies = {
       rare = { "save_hammer" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "cpp_colossus_strike", kind = "active", name = "火炎噛み渦", name_en = "Flame Bite Gale", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "cpp_colossus_aura", kind = "passive", name = "炎纏渦", name_en = "Flame Veil Gale", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "Its layered armor reflects countless patterns of ancient craft.",
       ja = "幾重もの装甲に、古い技法の痕跡が刻まれている。",
@@ -178,6 +250,10 @@ local enemies = {
       common = { "leather_armor", "thick_cloak", "record_ring" },
       rare = { "repeat_cloak" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "php_elephant_strike", kind = "active", name = "棘穿ち灼", name_en = "Thorn Skewer Storm", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "php_elephant_aura", kind = "passive", name = "蔓甲灼", name_en = "Vine Armor Storm", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A towering guardian that never forgets a path through the jungle.",
@@ -197,6 +273,10 @@ local enemies = {
       rare = { "edge_shield" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "docker_whale_strike", kind = "active", name = "波刃影", name_en = "Wave Edge Pulse", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "docker_whale_aura", kind = "passive", name = "霧護影", name_en = "Mist Guard Pulse", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "It ferries entire ecosystems on its back and never loses buoyancy.",
       ja = "背に小さな世界を乗せ、浮力を失わない巨大な運び屋。",
@@ -214,6 +294,10 @@ local enemies = {
       common = { "short_spell_staff", "swift_ring", "light_robe" },
       rare = { "fast_sand" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "go_gopher_strike", kind = "active", name = "焔尾撃翠", name_en = "Ember Tail Lance", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "go_gopher_aura", kind = "passive", name = "熾気翠", name_en = "Ember Lance", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A cheerful sprinter that darts through corridors with blazing speed.",
@@ -233,6 +317,10 @@ local enemies = {
       rare = { "focus_bracelet", "guardian_halberd" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "bash_hound_strike", kind = "active", name = "連打烈", name_en = "Flurry Pierce", description = "勢いよく襲いかかる。", description_en = "Strikes with a sudden rush.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bash_hound_aura", kind = "passive", name = "剛気烈", name_en = "Vigor Pierce", description = "闘気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with fighting spirit.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "It obeys short commands and howls when paths become tangled.",
       ja = "短い命令に従い、道が絡まると遠吠えで警告する。",
@@ -250,6 +338,10 @@ local enemies = {
       common = { "short_bow", "light_robe", "record_ring" },
       rare = { "edge_shield" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "mysql_dolphin_strike", kind = "active", name = "雨撃輪", name_en = "Rain Strike Ember", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mysql_dolphin_aura", kind = "passive", name = "潮気輪", name_en = "Tide Ember", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "It leaps through data streams, flicking droplets of polished light.",
@@ -269,6 +361,10 @@ local enemies = {
       rare = { "rest_armor" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "postgres_colossus_strike", kind = "active", name = "雨撃冷", name_en = "Rain Strike Fang", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "postgres_colossus_aura", kind = "passive", name = "潮気冷", name_en = "Tide Fang", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "An ancient titan that remembers every echo beneath the stone.",
       ja = "石の下の残響を覚えている古き巨像。",
@@ -286,6 +382,10 @@ local enemies = {
       common = { "sand_staff", "leather_armor", "sleep_pendant" },
       rare = { "repeat_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "dbeaver_strike", kind = "active", name = "渦打金", name_en = "Whirl Crash Glint", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "dbeaver_aura", kind = "passive", name = "霧護金", name_en = "Mist Guard Glint", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "It chisels through data logs and builds dams of hardened queries.",
@@ -305,6 +405,10 @@ local enemies = {
       rare = { "typing_blade" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "ruby_scarab_strike", kind = "active", name = "陽撃盾", name_en = "Solar Strike Gale", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "ruby_scarab_aura", kind = "passive", name = "陽守盾", name_en = "Sun Ward Gale", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "Its crimson shell shimmers like a gem, warding off weaker blades.",
       ja = "宝石のように輝く紅い殻で、弱い刃を弾き返す。",
@@ -322,6 +426,10 @@ local enemies = {
       common = { "record_ring", "silent_ear", "sleep_pendant" },
       rare = { "focus_bracelet" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "clojure_oracle_strike", kind = "active", name = "光輪斬霞", name_en = "Halo Edge Crash", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "clojure_oracle_aura", kind = "passive", name = "陽守霞", name_en = "Sun Ward Crash", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "It mutters in circles, reshaping fate with every repeated phrase.",
@@ -341,6 +449,10 @@ local enemies = {
       rare = { "save_hammer" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "node_phantom_strike", kind = "active", name = "黒刃白", name_en = "Black Edge Blitz", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "node_phantom_aura", kind = "passive", name = "黒幕白", name_en = "Black Mantle Blitz", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "It appears in pulses, vanishing between ticks of the event loop.",
       ja = "イベントループの隙間で揺らめき、脈動の合間に消える。",
@@ -358,6 +470,10 @@ local enemies = {
       common = { "short_bow", "leather_armor", "swift_ring" },
       rare = { "save_hammer" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "python_serpent_strike", kind = "active", name = "棘穿ち翔", name_en = "Thorn Skewer Claw", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "python_serpent_aura", kind = "passive", name = "樹皮翔", name_en = "Bark Claw", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "It coils around lanterns, squeezing until the light flickers.",
@@ -377,6 +493,10 @@ local enemies = {
       rare = { "fast_sand" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "java_ifrit_strike", kind = "active", name = "燃撃朧", name_en = "Scorch Strike Aegis", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "java_ifrit_aura", kind = "passive", name = "燃勢朧", name_en = "Blaze Aegis", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A fiery spirit that brews scorching steam with every roar.",
       ja = "咆哮のたびに灼熱の蒸気を沸き立たせる炎の精霊。",
@@ -394,6 +514,10 @@ local enemies = {
       common = { "short_bow", "light_robe", "swift_ring" },
       rare = { "typing_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "kotlin_fox_strike", kind = "active", name = "光弾曙", name_en = "Light Bolt Grim", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "kotlin_fox_aura", kind = "passive", name = "霊光曙", name_en = "Lumina Grim", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "Its twin tails weave elegant paths, never stepping on the same stone twice.",
@@ -413,6 +537,10 @@ local enemies = {
       rare = { "typing_blade" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "swift_raptor_strike", kind = "active", name = "光弾雷", name_en = "Light Bolt Rift", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "swift_raptor_aura", kind = "passive", name = "霊光雷", name_en = "Lumina Rift", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A swift hunter that strikes before the echo of its steps arrives.",
       ja = "足音の反響が届く前に斬りかかる迅速な狩人。",
@@ -430,6 +558,10 @@ local enemies = {
       common = { "round_shield", "leather_armor", "record_ring", "iron_lance" },
       rare = { "save_hammer", "guardian_halberd" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "git_wyrm_strike", kind = "active", name = "影爪岬", name_en = "Shadow Claw Frost", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "git_wyrm_aura", kind = "passive", name = "闇衣岬", name_en = "Gloom Frost", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "It burrows through history, guarding every branch it touches.",
@@ -449,6 +581,10 @@ local enemies = {
       rare = { "rest_armor" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "rust_crab_strike", kind = "active", name = "熾火突き盾", name_en = "Ash Thrust Rush", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "rust_crab_aura", kind = "passive", name = "火護盾", name_en = "Fire Guard Rush", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "Its iron claws leave a warm glow and a lingering scent of metal.",
       ja = "鉄の鋏は温かな光を残し、金属の匂いを漂わせる。",
@@ -466,6 +602,10 @@ local enemies = {
       common = { "wood_sword", "cloth_armor", "sleep_pendant", "stone_maul" },
       rare = { "repeat_cloak", "bulwark_plate" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "gnu_bison_strike", kind = "active", name = "嚙み砕き槍", name_en = "Crunch Spike", description = "勢いよく襲いかかる。", description_en = "Strikes with a sudden rush.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gnu_bison_aura", kind = "passive", name = "不屈槍", name_en = "Resolve Spike", description = "闘気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with fighting spirit.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A sturdy bison that trudges forward, breaking walls with sheer will.",
@@ -487,6 +627,10 @@ local enemies = {
       rare = { "magma_greatsword" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "penguin_ember_strike", kind = "active", name = "炎牙白", name_en = "Flame Fang Spark", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "penguin_ember_aura", kind = "passive", name = "熾気白", name_en = "Ember Spark", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A ember-lit penguin that skates in bursts and pecks at weak seams.",
       ja = "熾火を纏ったペンギン。短い滑走で間合いを詰め、隙を啄む。",
@@ -504,6 +648,10 @@ local enemies = {
       common = { "tide_spear", "mist_blade", "foam_coat" },
       rare = { "abyss_trident" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "penguin_tide_strike", kind = "active", name = "渦打黒", name_en = "Whirl Crash Howl", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "penguin_tide_aura", kind = "passive", name = "霧護黒", name_en = "Mist Guard Howl", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A tide-washed penguin that skates in bursts and pecks at weak seams.",
@@ -523,6 +671,10 @@ local enemies = {
       rare = { "grove_reaver" },
       pet = { "white_slime" },
     },
+    skills = {
+      { id = "penguin_moss_strike", kind = "active", name = "茨刺朱", name_en = "Briar Pierce Wave", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "penguin_moss_aura", kind = "passive", name = "再生朱", name_en = "Regrowth Wave", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A mossy penguin that skates in bursts and pecks at weak seams.",
       ja = "苔むしたペンギン。短い滑走で間合いを詰め、隙を啄む。",
@@ -540,6 +692,10 @@ local enemies = {
       common = { "glimmer_rapier", "halo_sling", "radiant_veil" },
       rare = { "dawn_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "penguin_lumen_strike", kind = "active", name = "星彩打轟", name_en = "Star Break Burst", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "penguin_lumen_aura", kind = "passive", name = "霊光轟", name_en = "Lumina Burst", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A luminous penguin that skates in bursts and pecks at weak seams.",
@@ -559,6 +715,10 @@ local enemies = {
       rare = { "night_reaper" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "penguin_umbral_strike", kind = "active", name = "影穿ち弧", name_en = "Shade Pierce Pulse", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "penguin_umbral_aura", kind = "passive", name = "暗気弧", name_en = "Dark Pulse Pulse", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A shadowed penguin that skates in bursts and pecks at weak seams.",
       ja = "影を帯びたペンギン。短い滑走で間合いを詰め、隙を啄む。",
@@ -576,6 +736,10 @@ local enemies = {
       common = { "ember_bow", "ash_mail", "cinder_band" },
       rare = { "phoenix_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "mantis_blaze_strike", kind = "active", name = "熾火突き冷", name_en = "Ash Thrust Bloom", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mantis_blaze_aura", kind = "passive", name = "灼護冷", name_en = "Scorch Guard Bloom", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A ember-lit mantis that lines up its scythes and cuts clean arcs.",
@@ -595,6 +759,10 @@ local enemies = {
       rare = { "leviathan_scale" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "mantis_mist_strike", kind = "active", name = "泡砲護", name_en = "Bubble Cannon Break", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mantis_mist_aura", kind = "passive", name = "霧護護", name_en = "Mist Guard Break", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A tide-washed mantis that lines up its scythes and cuts clean arcs.",
       ja = "潮の気配をまとうマンティス。鎌を揃え、鋭い弧を描いて斬り払う。",
@@ -612,6 +780,10 @@ local enemies = {
       common = { "sprout_spear", "vine_wrap", "leaf_locket" },
       rare = { "ancient_bark" },
       pet = { "white_slime" },
+    },
+    skills = {
+      { id = "mantis_verdant_strike", kind = "active", name = "棘穿ち朱", name_en = "Thorn Skewer Echo", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mantis_verdant_aura", kind = "passive", name = "蔓甲朱", name_en = "Vine Armor Echo", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A mossy mantis that lines up its scythes and cuts clean arcs.",
@@ -631,6 +803,10 @@ local enemies = {
       rare = { "aurora_plate" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "mantis_radiant_strike", kind = "active", name = "閃光刺暁", name_en = "Flash Pierce Guard", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mantis_radiant_aura", kind = "passive", name = "星護暁", name_en = "Star Guard Guard", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A luminous mantis that lines up its scythes and cuts clean arcs.",
       ja = "光をまとったマンティス。鎌を揃え、鋭い弧を描いて斬り払う。",
@@ -648,6 +824,10 @@ local enemies = {
       common = { "shade_stiletto", "umbra_mail", "void_ring" },
       rare = { "eclipse_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "mantis_gloom_strike", kind = "active", name = "闇裂き疾", name_en = "Gloom Rend Crash", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "mantis_gloom_aura", kind = "passive", name = "夜帳疾", name_en = "Night Veil Crash", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A shadowed mantis that lines up its scythes and cuts clean arcs.",
@@ -667,6 +847,10 @@ local enemies = {
       rare = { "magma_greatsword" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "whale_pyre_strike", kind = "active", name = "灼熱突進灼", name_en = "Blaze Rush Shard", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "whale_pyre_aura", kind = "passive", name = "熱気灼", name_en = "Heat Shard", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A ember-lit whale that rolls like a current and rams when the tide flips.",
       ja = "熾火を纏ったホエール。潮が変わる瞬間に体当たりする。",
@@ -684,6 +868,10 @@ local enemies = {
       common = { "foam_coat", "ripple_charm", "tide_compass" },
       rare = { "abyss_trident" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "whale_rill_strike", kind = "active", name = "泡砲渦", name_en = "Bubble Cannon Edge", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "whale_rill_aura", kind = "passive", name = "泡盾渦", name_en = "Bubble Shield Edge", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A tide-washed whale that rolls like a current and rams when the tide flips.",
@@ -703,6 +891,10 @@ local enemies = {
       rare = { "grove_reaver" },
       pet = { "white_slime" },
     },
+    skills = {
+      { id = "whale_sprout_strike", kind = "active", name = "蔓打渦", name_en = "Vine Lash Gale", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "whale_sprout_aura", kind = "passive", name = "芽生え渦", name_en = "Sprout Gale", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A mossy whale that rolls like a current and rams when the tide flips.",
       ja = "苔むしたホエール。潮が変わる瞬間に体当たりする。",
@@ -720,6 +912,10 @@ local enemies = {
       common = { "radiant_veil", "prism_charm", "beacon_ring" },
       rare = { "dawn_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "whale_halo_strike", kind = "active", name = "輝刃旋", name_en = "Radiant Slash Gloom", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "whale_halo_aura", kind = "passive", name = "星護旋", name_en = "Star Guard Gloom", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A luminous whale that rolls like a current and rams when the tide flips.",
@@ -739,6 +935,10 @@ local enemies = {
       rare = { "night_reaper" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "whale_shade_strike", kind = "active", name = "影爪鋭", name_en = "Shadow Claw Blight", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "whale_shade_aura", kind = "passive", name = "夜帳鋭", name_en = "Night Veil Blight", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A shadowed whale that rolls like a current and rams when the tide flips.",
       ja = "影を帯びたホエール。潮が変わる瞬間に体当たりする。",
@@ -756,6 +956,10 @@ local enemies = {
       common = { "cinder_band", "ember_charm", "flame_dagger" },
       rare = { "phoenix_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "gopher_cinder_strike", kind = "active", name = "炎牙荒", name_en = "Flame Fang Bloom", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gopher_cinder_aura", kind = "passive", name = "燃勢荒", name_en = "Blaze Bloom", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A ember-lit gopher that tunnels quick passages and pops out with a snap.",
@@ -775,6 +979,10 @@ local enemies = {
       rare = { "leviathan_scale" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "gopher_surge_strike", kind = "active", name = "泡砲猛", name_en = "Bubble Cannon Lance", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gopher_surge_aura", kind = "passive", name = "泡盾猛", name_en = "Bubble Shield Lance", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A tide-washed gopher that tunnels quick passages and pops out with a snap.",
       ja = "潮の気配をまとうゴーファー。抜け道から飛び出し素早く噛みつく。",
@@ -792,6 +1000,10 @@ local enemies = {
       common = { "leaf_locket", "pollen_charm", "moss_axe" },
       rare = { "ancient_bark" },
       pet = { "white_slime" },
+    },
+    skills = {
+      { id = "gopher_bloom_strike", kind = "active", name = "苔斬紅", name_en = "Moss Slash Grim", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gopher_bloom_aura", kind = "passive", name = "緑護紅", name_en = "Verdant Guard Grim", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A mossy gopher that tunnels quick passages and pops out with a snap.",
@@ -811,6 +1023,10 @@ local enemies = {
       rare = { "aurora_plate" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "gopher_dawn_strike", kind = "active", name = "光輪斬雷", name_en = "Halo Edge Crest", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gopher_dawn_aura", kind = "passive", name = "陽守雷", name_en = "Sun Ward Crest", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A luminous gopher that tunnels quick passages and pops out with a snap.",
       ja = "光をまとったゴーファー。抜け道から飛び出し素早く噛みつく。",
@@ -828,6 +1044,10 @@ local enemies = {
       common = { "void_ring", "gloom_pendant", "dusk_katana" },
       rare = { "eclipse_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "gopher_dusk_strike", kind = "active", name = "宵牙金", name_en = "Dusk Fang Howl", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "gopher_dusk_aura", kind = "passive", name = "暗気金", name_en = "Dark Pulse Howl", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A shadowed gopher that tunnels quick passages and pops out with a snap.",
@@ -847,6 +1067,10 @@ local enemies = {
       rare = { "magma_greatsword" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "elephant_sear_strike", kind = "active", name = "熾火突き砕", name_en = "Ash Thrust Howl", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "elephant_sear_aura", kind = "passive", name = "炎纏砕", name_en = "Flame Veil Howl", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A ember-lit elephant that stomps to set the tempo and shields its herd.",
       ja = "熾火を纏ったエレファント。踏み鳴らして隊列を守る。",
@@ -864,6 +1088,10 @@ local enemies = {
       common = { "tide_compass", "tide_spear", "mist_blade" },
       rare = { "abyss_trident" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "elephant_abyss_strike", kind = "active", name = "氷噛み猛", name_en = "Ice Bite Claw", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "elephant_abyss_aura", kind = "passive", name = "流水猛", name_en = "Flow Claw", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A tide-washed elephant that stomps to set the tempo and shields its herd.",
@@ -883,6 +1111,10 @@ local enemies = {
       rare = { "grove_reaver" },
       pet = { "white_slime" },
     },
+    skills = {
+      { id = "elephant_grove_strike", kind = "active", name = "蔓打鋭", name_en = "Vine Lash Edge", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "elephant_grove_aura", kind = "passive", name = "再生鋭", name_en = "Regrowth Edge", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A mossy elephant that stomps to set the tempo and shields its herd.",
       ja = "苔むしたエレファント。踏み鳴らして隊列を守る。",
@@ -900,6 +1132,10 @@ local enemies = {
       common = { "beacon_ring", "glimmer_rapier", "halo_sling" },
       rare = { "dawn_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "elephant_aurora_strike", kind = "active", name = "星彩打旋", name_en = "Star Break Shade", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "elephant_aurora_aura", kind = "passive", name = "聖気旋", name_en = "Holy Glow Shade", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A luminous elephant that stomps to set the tempo and shields its herd.",
@@ -919,6 +1155,10 @@ local enemies = {
       rare = { "night_reaper" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "elephant_void_strike", kind = "active", name = "暗刃紫", name_en = "Dark Blade Vortex", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "elephant_void_aura", kind = "passive", name = "冥護紫", name_en = "Dread Ward Vortex", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A shadowed elephant that stomps to set the tempo and shields its herd.",
       ja = "影を帯びたエレファント。踏み鳴らして隊列を守る。",
@@ -936,6 +1176,10 @@ local enemies = {
       common = { "flame_dagger", "ember_bow", "ash_mail" },
       rare = { "phoenix_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "scarab_ember_strike", kind = "active", name = "熾火突き翔", name_en = "Ash Thrust Thrust", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "scarab_ember_aura", kind = "passive", name = "火護翔", name_en = "Fire Guard Thrust", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A ember-lit scarab that polishes its shell and rebounds stray blows.",
@@ -955,6 +1199,10 @@ local enemies = {
       rare = { "leviathan_scale" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "scarab_tide_strike", kind = "active", name = "波刃朽", name_en = "Wave Edge Halo", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "scarab_tide_aura", kind = "passive", name = "潮気朽", name_en = "Tide Halo", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A tide-washed scarab that polishes its shell and rebounds stray blows.",
       ja = "潮の気配をまとうスカラベ。磨かれた殻で攻撃を弾く。",
@@ -972,6 +1220,10 @@ local enemies = {
       common = { "moss_axe", "sprout_spear", "vine_wrap" },
       rare = { "ancient_bark" },
       pet = { "white_slime" },
+    },
+    skills = {
+      { id = "scarab_moss_strike", kind = "active", name = "苔斬盾", name_en = "Moss Slash Gale", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "scarab_moss_aura", kind = "passive", name = "森護盾", name_en = "Grove Guard Gale", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A mossy scarab that polishes its shell and rebounds stray blows.",
@@ -991,6 +1243,10 @@ local enemies = {
       rare = { "aurora_plate" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "scarab_lumen_strike", kind = "active", name = "光弾芽", name_en = "Light Bolt Drift", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "scarab_lumen_aura", kind = "passive", name = "光護芽", name_en = "Radiance Drift", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A luminous scarab that polishes its shell and rebounds stray blows.",
       ja = "光をまとったスカラベ。磨かれた殻で攻撃を弾く。",
@@ -1008,6 +1264,10 @@ local enemies = {
       common = { "dusk_katana", "shade_stiletto", "umbra_mail" },
       rare = { "eclipse_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "scarab_umbral_strike", kind = "active", name = "影爪霧", name_en = "Shadow Claw Crest", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "scarab_umbral_aura", kind = "passive", name = "冥護霧", name_en = "Dread Ward Crest", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A shadowed scarab that polishes its shell and rebounds stray blows.",
@@ -1027,6 +1287,10 @@ local enemies = {
       rare = { "magma_greatsword" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "serpent_blaze_strike", kind = "active", name = "炎牙猛", name_en = "Flame Fang Guard", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "serpent_blaze_aura", kind = "passive", name = "燃勢猛", name_en = "Blaze Guard", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A ember-lit serpent that coils tight and strikes when the rhythm breaks.",
       ja = "熾火を纏ったサーペント。間合いの乱れに合わせて噛みつく。",
@@ -1044,6 +1308,10 @@ local enemies = {
       common = { "mist_blade", "foam_coat", "ripple_charm" },
       rare = { "abyss_trident" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "serpent_mist_strike", kind = "active", name = "潮撃渦", name_en = "Tide Slam Gale", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "serpent_mist_aura", kind = "passive", name = "水護渦", name_en = "Water Guard Gale", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A tide-washed serpent that coils tight and strikes when the rhythm breaks.",
@@ -1063,6 +1331,10 @@ local enemies = {
       rare = { "grove_reaver" },
       pet = { "white_slime" },
     },
+    skills = {
+      { id = "serpent_verdant_strike", kind = "active", name = "苔斬静", name_en = "Moss Slash Gloom", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "serpent_verdant_aura", kind = "passive", name = "樹皮静", name_en = "Bark Gloom", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A mossy serpent that coils tight and strikes when the rhythm breaks.",
       ja = "苔むしたサーペント。間合いの乱れに合わせて噛みつく。",
@@ -1080,6 +1352,10 @@ local enemies = {
       common = { "halo_sling", "radiant_veil", "prism_charm" },
       rare = { "dawn_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "serpent_radiant_strike", kind = "active", name = "光弾朱", name_en = "Light Bolt Ember", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "serpent_radiant_aura", kind = "passive", name = "清光朱", name_en = "Clear Light Ember", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A luminous serpent that coils tight and strikes when the rhythm breaks.",
@@ -1099,6 +1375,10 @@ local enemies = {
       rare = { "night_reaper" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "serpent_gloom_strike", kind = "active", name = "暗刃影", name_en = "Dark Blade Crest", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "serpent_gloom_aura", kind = "passive", name = "幽気影", name_en = "Umbral Crest", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A shadowed serpent that coils tight and strikes when the rhythm breaks.",
       ja = "影を帯びたサーペント。間合いの乱れに合わせて噛みつく。",
@@ -1116,6 +1396,10 @@ local enemies = {
       common = { "ash_mail", "cinder_band", "ember_charm" },
       rare = { "phoenix_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "fox_pyre_strike", kind = "active", name = "灼熱突進白", name_en = "Blaze Rush Drift", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "fox_pyre_aura", kind = "passive", name = "紅気白", name_en = "Crimson Pulse Drift", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A ember-lit fox that feints twice before darting for the throat.",
@@ -1135,6 +1419,10 @@ local enemies = {
       rare = { "leviathan_scale" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "fox_rill_strike", kind = "active", name = "泡砲刃", name_en = "Bubble Cannon Aegis", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "fox_rill_aura", kind = "passive", name = "湿気刃", name_en = "Moisture Aegis", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A tide-washed fox that feints twice before darting for the throat.",
       ja = "潮の気配をまとうフォックス。二度のフェイントから喉元へ飛び込む。",
@@ -1152,6 +1440,10 @@ local enemies = {
       common = { "vine_wrap", "leaf_locket", "pollen_charm" },
       rare = { "ancient_bark" },
       pet = { "white_slime" },
+    },
+    skills = {
+      { id = "fox_sprout_strike", kind = "active", name = "蔓打刃", name_en = "Vine Lash Glint", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "fox_sprout_aura", kind = "passive", name = "再生刃", name_en = "Regrowth Glint", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A mossy fox that feints twice before darting for the throat.",
@@ -1171,6 +1463,10 @@ local enemies = {
       rare = { "aurora_plate" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "fox_halo_strike", kind = "active", name = "輝刃轟", name_en = "Radiant Slash Spark", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "fox_halo_aura", kind = "passive", name = "清光轟", name_en = "Clear Light Spark", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A luminous fox that feints twice before darting for the throat.",
       ja = "光をまとったフォックス。二度のフェイントから喉元へ飛び込む。",
@@ -1188,6 +1484,10 @@ local enemies = {
       common = { "umbra_mail", "void_ring", "gloom_pendant" },
       rare = { "eclipse_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "fox_shade_strike", kind = "active", name = "影爪破", name_en = "Shadow Claw Halo", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "fox_shade_aura", kind = "passive", name = "闇衣破", name_en = "Gloom Halo", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A shadowed fox that feints twice before darting for the throat.",
@@ -1207,6 +1507,10 @@ local enemies = {
       rare = { "magma_greatsword" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "crab_cinder_strike", kind = "active", name = "燃撃岬", name_en = "Scorch Strike Blitz", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "crab_cinder_aura", kind = "passive", name = "火護岬", name_en = "Fire Guard Blitz", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A ember-lit crab that braces its shell and drags foes sideways.",
       ja = "熾火を纏ったクラブ。横薙ぎに相手をずらす。",
@@ -1224,6 +1528,10 @@ local enemies = {
       common = { "ripple_charm", "tide_compass", "tide_spear" },
       rare = { "abyss_trident" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "crab_surge_strike", kind = "active", name = "波刃朱", name_en = "Wave Edge Might", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "crab_surge_aura", kind = "passive", name = "潮気朱", name_en = "Tide Might", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A tide-washed crab that braces its shell and drags foes sideways.",
@@ -1243,6 +1551,10 @@ local enemies = {
       rare = { "grove_reaver" },
       pet = { "white_slime" },
     },
+    skills = {
+      { id = "crab_bloom_strike", kind = "active", name = "森槍猛", name_en = "Forest Spear Spark", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "crab_bloom_aura", kind = "passive", name = "森護猛", name_en = "Grove Guard Spark", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A mossy crab that braces its shell and drags foes sideways.",
       ja = "苔むしたクラブ。横薙ぎに相手をずらす。",
@@ -1260,6 +1572,10 @@ local enemies = {
       common = { "prism_charm", "beacon_ring", "glimmer_rapier" },
       rare = { "dawn_blade" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "crab_dawn_strike", kind = "active", name = "星彩打金", name_en = "Star Break Nimbus", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "crab_dawn_aura", kind = "passive", name = "輝護金", name_en = "Luster Nimbus", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A luminous crab that braces its shell and drags foes sideways.",
@@ -1279,6 +1595,10 @@ local enemies = {
       rare = { "night_reaper" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "crab_dusk_strike", kind = "active", name = "冥撃護", name_en = "Void Strike Dawn", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "crab_dusk_aura", kind = "passive", name = "幽気護", name_en = "Umbral Dawn", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A shadowed crab that braces its shell and drags foes sideways.",
       ja = "影を帯びたクラブ。横薙ぎに相手をずらす。",
@@ -1296,6 +1616,10 @@ local enemies = {
       common = { "ember_charm", "flame_dagger", "ember_bow" },
       rare = { "phoenix_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "bison_sear_strike", kind = "active", name = "炎牙輪", name_en = "Flame Fang Rush", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bison_sear_aura", kind = "passive", name = "熾気輪", name_en = "Ember Rush", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A ember-lit bison that charges straight and shakes the floor.",
@@ -1315,6 +1639,10 @@ local enemies = {
       rare = { "leviathan_scale" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "bison_abyss_strike", kind = "active", name = "雨撃銀", name_en = "Rain Strike Blitz", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bison_abyss_aura", kind = "passive", name = "潮気銀", name_en = "Tide Blitz", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A tide-washed bison that charges straight and shakes the floor.",
       ja = "潮の気配をまとうバイソン。一直線に突進し床を揺らす。",
@@ -1332,6 +1660,10 @@ local enemies = {
       common = { "pollen_charm", "moss_axe", "sprout_spear" },
       rare = { "ancient_bark" },
       pet = { "white_slime" },
+    },
+    skills = {
+      { id = "bison_grove_strike", kind = "active", name = "棘穿ち霞", name_en = "Thorn Skewer Grim", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bison_grove_aura", kind = "passive", name = "樹皮霞", name_en = "Bark Grim", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A mossy bison that charges straight and shakes the floor.",
@@ -1351,6 +1683,10 @@ local enemies = {
       rare = { "aurora_plate" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "bison_aurora_strike", kind = "active", name = "陽撃宵", name_en = "Solar Strike Gloom", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bison_aurora_aura", kind = "passive", name = "輝護宵", name_en = "Luster Gloom", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.05 } },
+    },
     flavor = {
       en = "A luminous bison that charges straight and shakes the floor.",
       ja = "光をまとったバイソン。一直線に突進し床を揺らす。",
@@ -1368,6 +1704,10 @@ local enemies = {
       common = { "gloom_pendant", "dusk_katana", "shade_stiletto" },
       rare = { "eclipse_cloak" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "bison_void_strike", kind = "active", name = "冥撃尖", name_en = "Void Strike Drift", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.10, accuracy = 0, rate = 0.30 },
+      { id = "bison_void_aura", kind = "passive", name = "幽気尖", name_en = "Umbral Drift", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.05 } },
     },
     flavor = {
       en = "A shadowed bison that charges straight and shakes the floor.",
@@ -1387,6 +1727,11 @@ local enemies = {
       rare = { "edge_shield", "typing_blade" },
       pet = { "wind_bird" },
     },
+    skills = {
+      { id = "boss_ice_regent_strike", kind = "active", name = "雨撃金", name_en = "Rain Strike Pierce", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_ice_regent_aura", kind = "passive", name = "潮気金", name_en = "Tide Pierce", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_ice_regent_overlord", kind = "passive", name = "覇気金", name_en = "Overlord Pierce", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
+    },
     flavor = {
       en = "A sovereign draped in frost, ruling the first halls with quiet authority.",
       ja = "霜を纏う主。静かな威厳で最初の回廊を統べる。",
@@ -1404,6 +1749,11 @@ local enemies = {
       common = { "short_bow", "thick_cloak", "guard_amulet" },
       rare = { "edge_shield", "rest_armor" },
       pet = { "wind_bird" },
+    },
+    skills = {
+      { id = "boss_docker_leviathan_strike", kind = "active", name = "水槍閃", name_en = "Water Spear Glint", description = "水流で押し流す。", description_en = "Sweeps forward with a surge of water.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_docker_leviathan_aura", kind = "passive", name = "冷気閃", name_en = "Chill Glint", description = "水気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with moisture.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_docker_leviathan_overlord", kind = "passive", name = "覇気閃", name_en = "Overlord Glint", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
     },
     flavor = {
       en = "A colossal carrier that turns the corridor into a rolling tide.",
@@ -1423,6 +1773,11 @@ local enemies = {
       rare = { "typing_blade", "fast_sand" },
       pet = { "tiny_familiar" },
     },
+    skills = {
+      { id = "boss_ruby_empress_strike", kind = "active", name = "星彩打弧", name_en = "Star Break Quake", description = "眩い光で切り込む。", description_en = "Cuts in with dazzling light.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_ruby_empress_aura", kind = "passive", name = "聖気弧", name_en = "Holy Glow Quake", description = "光気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with light.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_ruby_empress_overlord", kind = "passive", name = "覇気弧", name_en = "Overlord Quake", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
+    },
     flavor = {
       en = "A jewel-bright ruler who commands the mid halls with radiant resolve.",
       ja = "宝石のように輝き、中層を照らして支配する女帝。",
@@ -1440,6 +1795,11 @@ local enemies = {
       common = { "leather_armor", "swift_ring", "sleep_pendant" },
       rare = { "save_hammer", "repeat_cloak" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "boss_python_prime_strike", kind = "active", name = "苔斬旋", name_en = "Moss Slash Rift", description = "蔓や棘で追い詰める。", description_en = "Presses in with vines and thorns.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_python_prime_aura", kind = "passive", name = "緑護旋", name_en = "Verdant Guard Rift", description = "芽生えで攻撃力がわずかに上がる。", description_en = "Attack rises slightly with budding growth.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_python_prime_overlord", kind = "passive", name = "覇気旋", name_en = "Overlord Rift", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
     },
     flavor = {
       en = "An ancient coil that tightens every loop until the air cracks.",
@@ -1459,6 +1819,11 @@ local enemies = {
       rare = { "save_hammer", "focus_bracelet", "bulwark_plate" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "boss_git_overlord_strike", kind = "active", name = "宵牙銀", name_en = "Dusk Fang Burst", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_git_overlord_aura", kind = "passive", name = "暗気銀", name_en = "Dark Pulse Burst", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_git_overlord_overlord", kind = "passive", name = "覇気銀", name_en = "Overlord Burst", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
+    },
     flavor = {
       en = "A tyrant of branching paths, sealing exits with layered history.",
       ja = "分岐の道を支配し、幾重の履歴で出口を封じる暴君。",
@@ -1476,6 +1841,11 @@ local enemies = {
       common = { "round_shield", "thick_cloak", "guard_amulet" },
       rare = { "rest_armor", "fast_sand" },
       pet = { "stone_spirit" },
+    },
+    skills = {
+      { id = "boss_rust_juggernaut_strike", kind = "active", name = "燃撃黒", name_en = "Scorch Strike Echo", description = "燃える一撃を放つ。", description_en = "Delivers a burning hit.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_rust_juggernaut_aura", kind = "passive", name = "灼護黒", name_en = "Scorch Guard Echo", description = "熱気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with heat.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_rust_juggernaut_overlord", kind = "passive", name = "覇気黒", name_en = "Overlord Echo", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
     },
     flavor = {
       en = "A relentless crusher whose armor heats the very stone around it.",
@@ -1495,6 +1865,11 @@ local enemies = {
       rare = { "repeat_cloak", "focus_bracelet" },
       pet = { "stone_spirit" },
     },
+    skills = {
+      { id = "boss_gnu_ancestral_strike", kind = "active", name = "嚙み砕き雷", name_en = "Crunch Ward", description = "勢いよく襲いかかる。", description_en = "Strikes with a sudden rush.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_gnu_ancestral_aura", kind = "passive", name = "守勢雷", name_en = "Guard Ward", description = "闘気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with fighting spirit.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_gnu_ancestral_overlord", kind = "passive", name = "覇気雷", name_en = "Overlord Ward", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
+    },
     flavor = {
       en = "An ancient guardian that tramples forward with unshakable creed.",
       ja = "揺るがぬ信条で踏み進む、古き守護者の祖霊。",
@@ -1512,6 +1887,11 @@ local enemies = {
       common = { "light_robe", "silent_ear", "record_ring" },
       rare = { "typing_blade", "save_hammer" },
       pet = { "tiny_familiar" },
+    },
+    skills = {
+      { id = "boss_null_horizon_strike", kind = "active", name = "闇裂き煌", name_en = "Gloom Rend Bloom", description = "影をまとい切り裂く。", description_en = "Slashes under the cover of shadows.", power = 1.25, accuracy = 0, rate = 0.35 },
+      { id = "boss_null_horizon_aura", kind = "passive", name = "闇衣煌", name_en = "Gloom Bloom", description = "闇気で攻撃力がわずかに上がる。", description_en = "Attack rises slightly with darkness.", bonus_mul = { atk = 1.10 } },
+      { id = "boss_null_horizon_overlord", kind = "passive", name = "覇気煌", name_en = "Overlord Bloom", description = "覇気で防御もわずかに上がる。", description_en = "Defense rises slightly with overwhelming presence.", bonus_mul = { def = 1.10 } },
     },
     flavor = {
       en = "A final boundary where light and shadow cancel, leaving only silence.",
@@ -1545,6 +1925,9 @@ local drop_overrides = {
 local function finalize_enemies(entries)
   -- 攻撃速度の既定値を付与して交互ターンの間隔を整える。
   apply_speed_defaults(entries, 2)
+  -- 経験値倍率を補完して敵ごとの差を明確にする。
+  apply_exp_defaults(entries)
+  -- 敵スキルは個別定義をそのまま付与して戦闘演出に使う。
   apply_gold_defaults(entries)
   apply_drop_overrides(entries, drop_overrides)
   return entries

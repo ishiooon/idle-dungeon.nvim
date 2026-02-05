@@ -11,8 +11,9 @@ local function palette_config(config)
 end
 
 local function palette_key_for_actor(state)
-  local character = catalog.find_character(state.actor and state.actor.id)
-  return character and character.sprite_palette or "default_hero"
+  local job = catalog.find_job(state.actor and state.actor.id)
+  -- ジョブごとの色味を優先し、無い場合は既定色を使う。
+  return job and job.sprite_palette or "default_hero"
 end
 
 local function palette_key_for_enemy_instance(enemy)

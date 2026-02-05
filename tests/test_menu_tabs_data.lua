@@ -59,6 +59,7 @@ assert_true(#config_items >= 3, "設定タブの項目が生成される")
 assert_match(config_items[1].id or "", "toggle_text", "設定項目にモード切り替えが含まれる")
 local found_language = false
 local found_display_lines = false
+local found_battle_hp = false
 for _, item in ipairs(config_items) do
   if item.id == "language" then
     found_language = true
@@ -68,9 +69,15 @@ for _, item in ipairs(config_items) do
     found_display_lines = true
     assert_true(item.keep_open == true, "表示行数の設定はメニューを閉じずに開ける")
   end
+  -- 戦闘時のHP分母表示を切り替える項目が含まれることを確認する。
+  if item.id == "battle_hp_show_max" then
+    found_battle_hp = true
+    assert_true(item.keep_open == true, "戦闘HP表示の設定はメニューを閉じずに開ける")
+  end
 end
 assert_true(found_language, "言語設定の項目が含まれる")
 assert_true(found_display_lines, "表示行数の項目が含まれる")
+assert_true(found_battle_hp, "戦闘HP表示の項目が含まれる")
 
 local credits_items = menu_data.build_credits_items("en")
 assert_true(#credits_items > 0, "クレジットタブの項目が生成される")

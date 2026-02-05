@@ -9,6 +9,7 @@ local M = {}
 
 local ui_state = { buf = nil, win = nil, on_click = nil, prev_win = nil }
 local highlight_ns = vim.api.nvim_create_namespace("IdleDungeonSprites")
+local info_highlight_ns = vim.api.nvim_create_namespace("IdleDungeonInfoLine")
 -- 関数の参照順序を安定させるため、先に宣言しておく。
 local close
 
@@ -119,6 +120,12 @@ local function render_ui(state, config)
   -- ハイライトは維持し、画像スプライトは廃止する。
   local highlights = sprite_highlight.build(state, config, lines)
   sprite_highlight.apply(buf, highlight_ns, highlights, config)
+  -- 戦闘中の情報行は背景色で見分けやすくする。
+  vim.api.nvim_buf_clear_namespace(buf, info_highlight_ns, 0, -1)
+  if state.ui and state.ui.mode == "battle" and #lines >= 2 then
+    vim.api.nvim_set_hl(0, "IdleDungeonBattleInfo", { link = "NormalFloat" })
+    vim.api.nvim_buf_add_highlight(buf, info_highlight_ns, "IdleDungeonBattleInfo", 1, 0, -1)
+  end
 end
 
 close = function()

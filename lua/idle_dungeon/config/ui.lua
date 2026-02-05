@@ -10,6 +10,8 @@ local function default_ui()
     -- 表示は2行を既定とし、最大2行に制限する。
     height = 2,
     max_height = 2,
+    -- 戦闘中のHP分母表示は既定で隠す。
+    battle_hp_show_max = false,
     -- 進行トラックは少し短めにして右下の表示密度を抑える。
     track_length = 32,
     render_mode = "visual",

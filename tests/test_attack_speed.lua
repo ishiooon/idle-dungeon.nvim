@@ -23,9 +23,10 @@ for _, enemy in ipairs(content.enemies or {}) do
   assert_true(speed and speed >= 1, "敵の攻撃速度が設定されている: " .. (enemy.id or "?"))
 end
 
-for _, character in ipairs(content.characters or {}) do
-  local speed = character.base and character.base.speed or nil
-  assert_true(speed and speed >= 1, "勇者の攻撃速度が設定されている: " .. (character.id or "?"))
+-- ジョブの基礎攻撃速度も必須項目として検証する。
+for _, job in ipairs(content.jobs or {}) do
+  local speed = job.base and job.base.speed or nil
+  assert_true(speed and speed >= 1, "勇者の攻撃速度が設定されている: " .. (job.id or "?"))
 end
 
 local config = {
