@@ -82,6 +82,15 @@ local function resolve_passive_bonus(learned, settings, jobs)
   return bonus
 end
 
+-- パッシブスキルによるペット保持上限の増加量を合算する。
+local function resolve_passive_pet_slots(learned, settings, jobs)
+  local slots = 0
+  for _, skill in ipairs(list_learned(learned, jobs, "passive", settings)) do
+    slots = slots + math.max(tonumber(skill.pet_slots) or 0, 0)
+  end
+  return slots
+end
+
 -- 敵のパッシブスキル倍率を合算する。
 local function resolve_passive_bonus_from_list(skill_list)
   local bonus = { atk = 1, def = 1, accuracy = 1 }
@@ -206,6 +215,7 @@ M.normalize_settings = normalize_settings
 M.unlock_from_job = unlock_from_job
 M.list_learned = list_learned
 M.resolve_passive_bonus = resolve_passive_bonus
+M.resolve_passive_pet_slots = resolve_passive_pet_slots
 M.resolve_passive_bonus_from_list = resolve_passive_bonus_from_list
 M.choose_active_skill = choose_active_skill
 M.choose_active_skill_from_list = choose_active_skill_from_list

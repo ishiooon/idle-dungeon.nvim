@@ -1,9 +1,11 @@
 -- このモジュールはイベント効果の適用を純粋関数として提供する。
 
 local inventory = require("idle_dungeon.game.inventory")
+local pets = require("idle_dungeon.game.pets")
 local state_dex = require("idle_dungeon.game.dex.state")
 local util = require("idle_dungeon.util")
 local rng = require("idle_dungeon.rng")
+local content = require("idle_dungeon.content")
 
 local M = {}
 
@@ -86,6 +88,16 @@ local function apply_item(state, effect)
   return state_dex.record_item(next_state, item_id, 1)
 end
 
+local function apply_pet(state, effect, config)
+  local item_id = effect.item_id
+  if not item_id or item_id == "" then
+    return state
+  end
+  local companion_icon = ((config.ui or {}).icons or {}).companion
+  local next_state = pets.add_pet(state, item_id, content.items, content.jobs, companion_icon)
+  return state_dex.record_item(next_state, item_id, 1)
+end
+
 local function apply_effect(state, effect, config, seed)
   local kind = effect and effect.kind or ""
   if kind == "heal" then
@@ -97,8 +109,11 @@ local function apply_effect(state, effect, config, seed)
   if kind == "speed" then
     return apply_speed(state, effect), seed
   end
-  if kind == "item" or kind == "pet" then
+  if kind == "item" then
     return apply_item(state, effect), seed
+  end
+  if kind == "pet" then
+    return apply_pet(state, effect, config), seed
   end
   return state, seed
 end

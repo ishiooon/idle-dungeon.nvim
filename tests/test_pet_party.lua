@@ -1,0 +1,107 @@
+-- このテストはペットの獲得・保持上限・戦闘参加・離脱の振る舞いを確認する。
+
+local function assert_true(value, message)
+  if not value then
+    error(message or "assert_true failed")
+  end
+end
+
+local function assert_equal(actual, expected, message)
+  if actual ~= expected then
+    error((message or "assert_equal failed") .. ": " .. tostring(actual) .. " ~= " .. tostring(expected))
+  end
+end
+
+package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
+
+local battle_flow = require("idle_dungeon.core.transition.battle")
+local state_module = require("idle_dungeon.core.state")
+local util = require("idle_dungeon.util")
+
+local config = {
+  move_step = 1,
+  encounter_every = 99,
+  dialogue_seconds = 0,
+  stage_name = "pet-stage",
+  stages = {
+    { id = 1, name = "pet-stage", start = 0, length = 12 },
+  },
+  battle = {
+    enemy_hp = 4,
+    enemy_atk = 1,
+    reward_exp = 1,
+    reward_gold = 1,
+    accuracy = 100,
+    skill_active_rate = 0,
+    enemy_skill_rate = 0,
+    pet_target_rate = 1,
+  },
+  event_distances = {},
+  ui = { language = "en" },
+}
+
+local st0 = state_module.new_state(config)
+assert_equal(#(st0.pet_party or {}), 0, "初期状態ではペットを保持しない")
+
+-- 通常ジョブでは保持上限1で、後から得たペットが残る。
+local reward1 = util.merge_tables(st0, {
+  ui = util.merge_tables(st0.ui, { mode = "reward" }),
+  combat = { pending_drop = { id = "white_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+})
+local st1 = battle_flow.tick_reward(reward1, config)
+assert_equal(#(st1.pet_party or {}), 1, "ペットドロップで1匹保持する")
+assert_equal(st1.pet_party[1].id, "white_slime", "取得したペットが保持される")
+
+local reward2 = util.merge_tables(st1, {
+  ui = util.merge_tables(st1.ui, { mode = "reward" }),
+  combat = { pending_drop = { id = "wind_bird", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+})
+local st2 = battle_flow.tick_reward(reward2, config)
+assert_equal(#(st2.pet_party or {}), 1, "保持上限を超えた場合でも1匹のみ保持する")
+assert_equal(st2.pet_party[1].id, "wind_bird", "上限超過時は後から得たペットが残る")
+
+-- 猛獣使いは保持上限が増え、複数保持できる。
+local st_tamer = state_module.change_job(st0, "beast_tamer")
+local reward3 = util.merge_tables(st_tamer, {
+  ui = util.merge_tables(st_tamer.ui, { mode = "reward" }),
+  combat = { pending_drop = { id = "white_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+})
+local st3 = battle_flow.tick_reward(reward3, config)
+local reward4 = util.merge_tables(st3, {
+  ui = util.merge_tables(st3.ui, { mode = "reward" }),
+  combat = { pending_drop = { id = "wind_bird", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+})
+local st4 = battle_flow.tick_reward(reward4, config)
+assert_true(#(st4.pet_party or {}) >= 2, "猛獣使いはペット保持上限が増える")
+
+-- ペットがいる場合、勇者ターンでペット攻撃が加算される。
+local battle_with_pet = util.merge_tables(st1, {
+  actor = util.merge_tables(st1.actor, { atk = 0, speed = 1 }),
+  progress = { rng_seed = 1 },
+  ui = util.merge_tables(st1.ui, { mode = "battle" }),
+  combat = {
+    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 1, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
+    turn = "hero",
+    turn_wait = 0,
+    last_turn = nil,
+  },
+})
+local st5 = battle_flow.tick_battle(battle_with_pet, config)
+assert_true((st5.combat.enemy.hp or 8) < 8, "勇者ターンでペットが攻撃に参加する")
+
+-- 敵ターンでペットが0になった場合は手放す。
+local battle_pet_defeated = util.merge_tables(st1, {
+  actor = util.merge_tables(st1.actor, { def = 0, speed = 1 }),
+  progress = { rng_seed = 1 },
+  ui = util.merge_tables(st1.ui, { mode = "battle" }),
+  combat = {
+    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 99, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
+    turn = "enemy",
+    turn_wait = 0,
+    last_turn = nil,
+  },
+})
+local st6 = battle_flow.tick_battle(battle_pet_defeated, config)
+assert_equal(#(st6.pet_party or {}), 0, "ペットHPが0になると手放す")
+
+print("OK")

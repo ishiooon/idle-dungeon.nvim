@@ -124,6 +124,15 @@ local function menu_footer_hints(lang)
   }
 end
 
+-- 子画面用の操作案内を返す。
+local function submenu_footer_hints(lang)
+  return {
+    i18n.t("menu_hint_select", lang),
+    i18n.t("menu_hint_back", lang),
+    i18n.t("menu_hint_close", lang),
+  }
+end
+
 -- メニュー内の状態表示用の行を組み立てる。
 local function status_lines(state, lang, config)
   local progress = state.progress or {}
@@ -193,6 +202,7 @@ end
 
 M.toggle_label = toggle_label
 M.menu_footer_hints = menu_footer_hints
+M.submenu_footer_hints = submenu_footer_hints
 M.status_lines = status_lines
 M.build_metrics_detail_lines = build_metrics_detail_lines
 M.build_job_level_lines = build_job_level_lines

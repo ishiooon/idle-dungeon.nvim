@@ -121,6 +121,25 @@ M.jobs = {
     },
   },
   {
+    id = "beast_tamer",
+    name = "猛獣使い",
+    role = "共闘型",
+    -- 共闘型は本人の攻撃力を抑え、ペット運用で火力を補う。
+    base = { hp = 13, atk = 3, def = 2, speed = 3 },
+    -- ジョブ固有の成長値を定義する。
+    growth = { hp = 1, atk = 1, def = 1, speed = 0 },
+    dialogue_ratio = 1.0,
+    starter_items = { weapon = "wood_sword", armor = "leather_armor", accessory = "steady_band", companion = "white_slime" },
+    -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
+    sprite_palette = "hunter",
+    -- パッシブで保持可能なペット数を増やす。
+    skills = {
+      { id = "pack_command", level = 1, kind = "passive", name = "群れの号令", name_en = "Pack Command", description = "保持できるペット数が増える。", description_en = "Increase the number of pets you can keep.", bonus_mul = {}, pet_slots = 1 },
+      { id = "beast_strike", level = 6, kind = "active", name = "連携牙撃", name_en = "Beast Strike", description = "仲間と連携して鋭く攻める。", description_en = "Strike sharply with your companions.", power = 1.2, accuracy = 5, rate = 0.3 },
+      { id = "alpha_whistle", level = 12, kind = "passive", name = "統率の笛", name_en = "Alpha Whistle", description = "さらに保持できるペット数が増える。", description_en = "Further increase pet capacity.", bonus_mul = {}, pet_slots = 1 },
+    },
+  },
+  {
     id = "monk",
     name = "武闘家",
     role = "近接型",

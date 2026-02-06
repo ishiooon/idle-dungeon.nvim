@@ -4,13 +4,22 @@ local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
 local inventory = require("idle_dungeon.game.inventory")
 local loot = require("idle_dungeon.game.loot")
+local pets = require("idle_dungeon.game.pets")
 local player = require("idle_dungeon.game.player")
+local rng = require("idle_dungeon.rng")
 local helpers = require("idle_dungeon.core.state_helpers")
 local skills = require("idle_dungeon.game.skills")
 local state_dex = require("idle_dungeon.game.dex.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
+
+-- pet_partyは配列として管理するため、状態更新時は明示代入で置き換える。
+local function merge_with_pet_party(state, updates, pet_party)
+  local next_state = util.merge_tables(state, updates or {})
+  next_state.pet_party = pet_party or {}
+  return next_state
+end
 
 -- 装備中の武器から属性タイプを解決する。
 local function resolve_weapon_element(state, items)
@@ -156,6 +165,58 @@ local function resolve_reward_exp(base_exp, enemy)
   return math.max(0, math.floor(scaled + 0.5))
 end
 
+-- 敵がペットを狙うかどうかを抽選して対象を返す。
+local function choose_enemy_target(seed, party, rate)
+  if #(party or {}) == 0 then
+    return "hero", nil, seed
+  end
+  local chance = math.max(tonumber(rate) or 0, 0)
+  if chance <= 0 then
+    return "hero", nil, seed
+  end
+  local threshold = math.min(math.floor(chance * 100 + 0.5), 100)
+  local roll, next_seed = rng.next_int(seed or 1, 1, 100)
+  if roll > threshold then
+    return "hero", nil, next_seed
+  end
+  local index, seeded = rng.next_int(next_seed, 1, #party)
+  return "pet", index, seeded
+end
+
+-- 勇者ターン時に保持中ペットの追撃を適用する。
+local function apply_pet_follow_up(seed, enemy, party, enemy_def, enemy_element, config)
+  local next_seed = seed
+  local next_enemy = util.merge_tables(enemy or {}, {})
+  local total_damage = 0
+  local attacked = false
+  for _, pet in ipairs(party or {}) do
+    if (pet.hp or 0) > 0 then
+      local result
+      result, next_seed = build_attack_result(
+        next_seed,
+        math.max(math.floor((pet.atk or 1) + 0.5), 1),
+        math.floor(enemy_def + 0.5),
+        math.floor((pet.accuracy or 90) + 0.5),
+        "pet",
+        pet.element or "normal",
+        enemy_element,
+        config
+      )
+      local damage = math.max(tonumber(result.damage) or 0, 0)
+      if damage > 0 then
+        attacked = true
+      end
+      total_damage = total_damage + damage
+      local next_hp = math.max((next_enemy.hp or 0) - damage, 0)
+      next_enemy = util.merge_tables(next_enemy, { hp = next_hp })
+      if next_hp <= 0 then
+        break
+      end
+    end
+  end
+  return next_enemy, next_seed, total_damage, attacked
+end
+
 -- 戦闘の命中判定と体力更新を行う。
 local function tick_battle(state, config)
   local combat = normalize_attack_state(state.combat or {})
@@ -171,6 +232,7 @@ local function tick_battle(state, config)
   local battle_config = config.battle or {}
   local hero_element = resolve_weapon_element(state, content.items)
   local enemy_element = enemy.element or "normal"
+  local companion_icon = ((config.ui or {}).icons or {}).companion
   local seed = state.progress.rng_seed or 1
   local outcome = combat.outcome
   local outcome_wait = combat.outcome_wait or 0
@@ -209,6 +271,7 @@ local function tick_battle(state, config)
   local attack_step_frames = resolve_attack_step_frames(battle_config, tick_seconds)
   local next_actor = state.actor
   local next_enemy = enemy
+  local next_pet_party = pets.normalize_party(state.pet_party, content.items, companion_icon)
   local last_turn
   local next_turn = turn
   local next_wait = 0
@@ -234,11 +297,19 @@ local function tick_battle(state, config)
     hero_result.skill = active_skill
     local next_enemy_hp = enemy.hp - hero_result.damage
     next_enemy = util.merge_tables(enemy, { hp = math.max(0, next_enemy_hp), element = enemy_element })
+    if (next_enemy.hp or 0) > 0 and #next_pet_party > 0 then
+      -- 勇者の行動後に保持中ペットの追撃を適用する。
+      local pet_damage, pet_attacked
+      next_enemy, seed, pet_damage, pet_attacked = apply_pet_follow_up(seed, next_enemy, next_pet_party, enemy_def, enemy_element, config)
+      if pet_attacked then
+        hero_result.pet_damage = pet_damage
+      end
+    end
     last_turn = build_last_turn("hero", hero_result, state, config)
     next_turn = "enemy"
     next_wait = resolve_turn_wait(enemy_speed)
     next_progress = util.merge_tables(state.progress, { rng_seed = seed })
-    if next_enemy_hp <= 0 then
+    if (next_enemy.hp or 0) <= 0 then
       -- 撃破時に戦利品の抽選を行い、報酬画面で表示できるように保持する。
       local drop
       drop, seed = loot.roll_drop(seed, config, content.items, enemy)
@@ -258,7 +329,7 @@ local function tick_battle(state, config)
         outcome = "reward",
         outcome_wait = resolve_outcome_wait(battle_config, tick_seconds),
       })
-      return util.merge_tables(state, { combat = next_combat, progress = next_progress })
+      return merge_with_pet_party(state, { combat = next_combat, progress = next_progress }, next_pet_party)
     end
   else
     -- 敵のスキルも抽選し、能力補正を反映する。
@@ -269,19 +340,49 @@ local function tick_battle(state, config)
     local enemy_atk = (enemy.atk or 0) * (enemy_passive.atk or 1)
     local enemy_accuracy = (enemy.accuracy or battle_config.enemy_accuracy or 85) * (enemy_passive.accuracy or 1)
     local enemy_result
-    enemy_result, seed = build_attack_result(
-      seed,
-      math.floor(enemy_atk * enemy_skill_power + 0.5),
-      math.floor(hero_def + 0.5),
-      math.floor(enemy_accuracy + enemy_skill_accuracy + 0.5),
-      "enemy",
-      enemy_element,
-      hero_element,
-      config
-    )
+    local target_kind, target_index
+    target_kind, target_index, seed = choose_enemy_target(seed, next_pet_party, battle_config.pet_target_rate or 0)
+    if target_kind == "pet" and target_index then
+      local target_pet = next_pet_party[target_index]
+      enemy_result, seed = build_attack_result(
+        seed,
+        math.floor(enemy_atk * enemy_skill_power + 0.5),
+        math.floor((target_pet and target_pet.def or 0) + 0.5),
+        math.floor(enemy_accuracy + enemy_skill_accuracy + 0.5),
+        "enemy",
+        enemy_element,
+        (target_pet and target_pet.element) or "normal",
+        config
+      )
+      enemy_result.target = "pet"
+      local damaged_state
+      damaged_state, enemy_result.defeated_pet = pets.damage_pet(
+        util.merge_tables(state, { pet_party = next_pet_party }),
+        enemy_result.damage,
+        target_index,
+        content.items,
+        companion_icon
+      )
+      next_pet_party = damaged_state.pet_party or {}
+    else
+      enemy_result, seed = build_attack_result(
+        seed,
+        math.floor(enemy_atk * enemy_skill_power + 0.5),
+        math.floor(hero_def + 0.5),
+        math.floor(enemy_accuracy + enemy_skill_accuracy + 0.5),
+        "enemy",
+        enemy_element,
+        hero_element,
+        config
+      )
+      enemy_result.target = "hero"
+    end
     enemy_result.skill = enemy_skill
-    local next_actor_hp = state.actor.hp - enemy_result.damage
-    next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
+    local next_actor_hp = state.actor.hp
+    if enemy_result.target == "hero" then
+      next_actor_hp = state.actor.hp - enemy_result.damage
+      next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
+    end
     last_turn = build_last_turn("enemy", enemy_result, state, config)
     next_turn = "hero"
     next_wait = resolve_turn_wait(hero_speed)
@@ -296,7 +397,7 @@ local function tick_battle(state, config)
         outcome = "defeat",
         outcome_wait = resolve_outcome_wait(battle_config, tick_seconds),
       })
-      return util.merge_tables(state, { actor = next_actor, combat = next_combat, progress = next_progress })
+      return merge_with_pet_party(state, { actor = next_actor, combat = next_combat, progress = next_progress }, next_pet_party)
     end
   end
   local next_combat = util.merge_tables(combat, {
@@ -308,7 +409,7 @@ local function tick_battle(state, config)
     turn = next_turn,
     turn_wait = next_wait,
   })
-  return util.merge_tables(state, { actor = next_actor, combat = next_combat, progress = next_progress })
+  return merge_with_pet_party(state, { actor = next_actor, combat = next_combat, progress = next_progress }, next_pet_party)
 end
 
 -- 戦闘勝利時の報酬と階層状態を更新する。
@@ -331,6 +432,7 @@ local function tick_reward(state, config)
   local next_currency = util.merge_tables(state.currency, { gold = current_gold + reward_gold })
   local source_enemy = state.combat and state.combat.source or nil
   local next_inventory = state.inventory
+  local companion_icon = ((config.ui or {}).icons or {}).companion
   local next_state = util.merge_tables(state, {
     actor = applied,
     currency = next_currency,
@@ -339,11 +441,18 @@ local function tick_reward(state, config)
     skill_settings = skill_settings,
   })
   if pending_drop and pending_drop.id then
-    -- 戦利品が出た場合は所持品と図鑑を更新する。
-    next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)
-    next_state = util.merge_tables(next_state, { inventory = next_inventory })
+    -- ペット枠のドロップは保持中ペットとして登録する。
+    if pending_drop.rarity == "pet" then
+      next_state = pets.add_pet(next_state, pending_drop.id, content.items, content.jobs, companion_icon)
+    else
+      -- 通常の戦利品は所持品へ追加する。
+      next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)
+      next_state = util.merge_tables(next_state, { inventory = next_inventory })
+    end
     next_state = state_dex.record_item(next_state, pending_drop.id, 1)
   end
+  -- スキル変化後の保持上限を超えないように補正する。
+  next_state = pets.enforce_capacity(next_state, content.jobs, content.items, companion_icon)
   local updated_progress = floor_state.mark_enemy_defeated(state.progress, source_enemy)
   next_state = util.merge_tables(next_state, { combat = nil, progress = updated_progress })
   return util.merge_tables(next_state, { ui = util.merge_tables(state.ui, { mode = "move", event_id = nil, battle_message = nil }) })
@@ -361,7 +470,8 @@ local function tick_defeat(state, config)
   })
   local refreshed = floor_state.refresh(reset_progress, config)
   local actor = util.merge_tables(state.actor, { hp = state.actor.max_hp })
-  local next_state = util.merge_tables(state, { progress = refreshed, actor = actor, combat = nil })
+  -- 勇者が倒れた時点で保持中ペットはすべて離脱する。
+  local next_state = merge_with_pet_party(state, { progress = refreshed, actor = actor, combat = nil }, {})
   return util.merge_tables(next_state, { ui = util.merge_tables(state.ui, { mode = "move", event_id = nil, battle_message = nil }) })
 end
 

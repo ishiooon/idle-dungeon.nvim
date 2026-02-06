@@ -110,6 +110,8 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
       prompt_provider = function()
         return build_gold_prompt(i18n.t("prompt_purchase", lang), get_state(), lang)
       end,
+      lang = lang,
+      footer_hints = menu_locale.submenu_footer_hints(lang),
       format_item = function(item)
         return item.label
       end,
@@ -127,6 +129,8 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
         prompt_provider = function()
           return build_gold_prompt(menu_locale.slot_label(slot, lang), get_state(), lang)
         end,
+        lang = lang,
+        footer_hints = menu_locale.submenu_footer_hints(lang),
         -- 連続購入できるように購入後もメニューを閉じない。
         keep_open = true,
         format_item = function(item)
@@ -179,6 +183,8 @@ local function open_sell_menu(get_state, set_state, lang, config, on_close)
   -- 売却対象を選ぶための中央メニューを表示する。
   menu_view.select(choices, {
     prompt = i18n.t("prompt_sell", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     -- 連続売却できるように売却後もメニューを閉じない。
     keep_open = true,
     format_item = function(item)

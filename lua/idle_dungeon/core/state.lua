@@ -6,6 +6,7 @@ local floor_state = require("idle_dungeon.game.floor.state")
 local helpers = require("idle_dungeon.core.state_helpers")
 local inventory = require("idle_dungeon.game.inventory")
 local metrics = require("idle_dungeon.game.metrics")
+local pets = require("idle_dungeon.game.pets")
 local player = require("idle_dungeon.game.player")
 local skills = require("idle_dungeon.game.skills")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
@@ -46,6 +47,8 @@ local function new_state(config)
     inventory = inventory_items,
     currency = { gold = 0 },
     combat = nil,
+    -- 戦闘に参加する保持中ペットを管理する。
+    pet_party = {},
     -- ジョブごとの成長を保持する。
     job_levels = job_levels,
     skills = learned_skills,
@@ -132,12 +135,14 @@ local function normalize_state(state)
   local learned_skills = next_state.skills and skills.normalize(next_state.skills)
     or skills.unlock_from_job(skills.empty(), job, job_progress)
   local skill_settings = skills.ensure_enabled(next_state.skill_settings, learned_skills)
-  return util.merge_tables(next_state, {
+  local normalized = util.merge_tables(next_state, {
     job_levels = job_levels,
     actor = applied_actor,
     skills = learned_skills,
     skill_settings = skill_settings,
   })
+  -- 旧データ互換のためペット保持情報も正規化する。
+  return pets.enforce_capacity(normalized, content.jobs, content.items, nil)
 end
 local function set_render_mode(state, mode)
   return helpers.update_section(state, "ui", { render_mode = mode })
@@ -211,7 +216,9 @@ local function apply_ui_timers(state)
 end
 local function tick(state, config)
   local next_state = transition.tick(state, config)
-  return apply_ui_timers(next_state)
+  local applied = apply_ui_timers(next_state)
+  -- スキル切り替え後も保持上限を常に満たすよう補正する。
+  return pets.enforce_capacity(applied, content.jobs, content.items, ((config.ui or {}).icons or {}).companion)
 end
 local function change_job(state, job_id)
   local job = helpers.find_job(job_id)
@@ -248,8 +255,10 @@ local function change_job(state, job_id)
     skills = learned_skills,
     skill_settings = skill_settings,
   })
+  -- ジョブ変更で保持上限が変わるため保持ペット数を補正する。
+  local adjusted = pets.enforce_capacity(next_state, content.jobs, content.items, nil)
   -- 新たに追加された所持品だけ図鑑へ記録する。
-  return state_dex.apply_inventory_delta(next_state, state.inventory, next_inventory)
+  return state_dex.apply_inventory_delta(adjusted, state.inventory, next_inventory)
 end
 
 M.new_state = new_state

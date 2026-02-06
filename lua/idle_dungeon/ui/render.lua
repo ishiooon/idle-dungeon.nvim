@@ -60,6 +60,56 @@ local function build_floor_enemies(state, config)
   return enemies
 end
 
+-- トラック上で既に使われている位置を記録する。
+local function build_occupied_positions(enemies)
+  local occupied = {}
+  for _, enemy in ipairs(enemies or {}) do
+    if enemy and enemy.position then
+      occupied[enemy.position] = true
+    end
+  end
+  return occupied
+end
+
+-- 保持中ペットを勇者の後方へ配置する。
+local function build_pet_followers(state, config, hero_position, length, occupied)
+  local icons = icon_module.config(config)
+  local followers = {}
+  local distance = 2
+  for index = #(state.pet_party or {}), 1, -1 do
+    local pet = state.pet_party[index]
+    if pet and (pet.hp or 0) > 0 then
+      local position = hero_position - distance
+      while position >= 1 and occupied[position] do
+        position = position - 1
+      end
+      if position < 1 then
+        -- 左端で追従位置が取れない場合は右側へ回して表示を維持する。
+        position = hero_position + distance
+        while position <= length and occupied[position] do
+          position = position + 1
+        end
+      end
+      if position >= 1 and position <= length then
+        local icon = pet.icon
+        if not icon or icon == "" then
+          icon = icons.companion or "󰠳"
+        end
+        table.insert(followers, {
+          position = position,
+          icon = icon,
+          id = pet.id,
+          element = pet.element or "normal",
+          is_pet = true,
+        })
+        occupied[position] = true
+      end
+      distance = distance + 2
+    end
+  end
+  return followers
+end
+
 -- 戦闘対象の敵をリストから推定してインデックスを返す。
 local function resolve_primary_enemy_index(enemies, combat_enemy, combat_source, hero_position)
   if not combat_enemy then
@@ -114,6 +164,13 @@ local function build_track_line(state, config)
   local enemies = build_floor_enemies(state, config)
   local hero_sprite = hero_icon ~= "" and hero_icon or "@"
   if state.ui.mode ~= "battle" then
+    local hero_width = math.max(util.display_width(hero_sprite), 1)
+    local hero_pos = track.calculate_position(state.progress.distance or 0, length, hero_width) + 1
+    local occupied = build_occupied_positions(enemies)
+    local followers = build_pet_followers(state, config, hero_pos, length, occupied)
+    for _, follower in ipairs(followers) do
+      table.insert(enemies, follower)
+    end
     return track.build_track_line(state.progress.distance or 0, length, hero_sprite, ground, enemies)
   end
   -- 戦闘中は敵との間に余白を作り、演出が見えるようにする。
@@ -190,6 +247,11 @@ local function build_track_line(state, config)
     end
     adjusted_enemies[primary_index] = util.merge_tables(primary_enemy, { position = enemy_pos })
     primary_enemy = adjusted_enemies[primary_index]
+  end
+  local occupied = build_occupied_positions(adjusted_enemies)
+  local followers = build_pet_followers(state, config, hero_pos, length, occupied)
+  for _, follower in ipairs(followers) do
+    table.insert(adjusted_enemies, follower)
   end
   local distance_override = math.max(hero_pos - 1, 0)
   local track_model = track.build_track(distance_override, length, hero_sprite, ground, adjusted_enemies)

@@ -2,7 +2,6 @@
 -- レイアウト計算はmenu/layoutへ統一する。
 local layout = require("idle_dungeon.menu.layout")
 local theme = require("idle_dungeon.menu.theme")
-local util = require("idle_dungeon.util")
 local M = {}
 
 -- テスト環境でも安全に使えるよう画面行数の既定値を用意する。
@@ -105,59 +104,8 @@ local function menu_config(config)
   }
 end
 
--- 下部に表示する案内文を幅に合わせて整形する。
-local function build_footer_hint_lines(hints, config, max_width)
-  local padding = math.max(config.padding or 0, 0)
-  local pad = string.rep(" ", padding)
-  local lines = {}
-  for _, hint in ipairs(hints or {}) do
-    table.insert(lines, util.clamp_line(pad .. hint, max_width))
-  end
-  return lines
-end
-
-local function build_tabs_sections(opts, config, tabs_line, built, max_width, hint_lines)
-  local padding = math.max(config.padding or 0, 0)
-  local pad = string.rep(" ", padding)
-  local title = (opts or {}).title or ""
-  local title_line = title ~= "" and util.clamp_line(pad .. title, max_width) or nil
-  local tabs_text = util.clamp_line(pad .. tabs_line, max_width)
-  local tabs_width = util.display_width(tabs_text)
-  local title_width = title_line and util.display_width(title_line) or 0
-  local width = math.max(config.width or 0, built.width, tabs_width, title_width, 1)
-  local divider = pad .. string.rep("-", math.max(width - padding, 1))
-  local divider_line = util.clamp_line(divider, max_width)
-  local header_lines, footer_lines = {}, {}
-  local tabs_line_offset = nil
-  if config.tabs_position == "bottom" then
-    if title_line then table.insert(header_lines, title_line) end
-    table.insert(header_lines, divider_line)
-    table.insert(footer_lines, divider_line)
-    tabs_line_offset = #footer_lines + 1
-    table.insert(footer_lines, tabs_text)
-  else
-    if title_line then table.insert(header_lines, title_line) end
-    table.insert(header_lines, tabs_text)
-    table.insert(header_lines, divider_line)
-  end
-  if hint_lines and #hint_lines > 0 then
-    table.insert(footer_lines, divider_line)
-    for _, line in ipairs(hint_lines) do
-      table.insert(footer_lines, line)
-    end
-  end
-  return {
-    header_lines = header_lines,
-    footer_lines = footer_lines,
-    width = width,
-    tabs_line_offset = tabs_line_offset,
-  }
-end
-
 M.clamp_selected = clamp_selected
 M.adjust_offset = adjust_offset
 M.menu_config = menu_config
-M.build_footer_hint_lines = build_footer_hint_lines
-M.build_tabs_sections = build_tabs_sections
 
 return M

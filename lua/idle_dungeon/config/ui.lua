@@ -74,13 +74,13 @@ local function default_ui()
     -- 画像スプライト設定は廃止したため保持しない。
     -- 中央メニューの表示設定をまとめる。
     menu = {
-      width_ratio = 0.72,
-      height_ratio = 0.78,
-      min_width = 72,
-      min_height = 24,
-      max_width = 120,
-      max_height = 32,
-      padding = 2,
+      width_ratio = 0.84,
+      height_ratio = 0.84,
+      min_width = 90,
+      min_height = 28,
+      max_width = 140,
+      max_height = 40,
+      padding = 3,
       border = "rounded",
       tabs_position = "top",
       -- 右側に詳細表示を開くための幅と余白を定義する。
@@ -90,9 +90,9 @@ local function default_ui()
       detail_gap = 2,
       -- タブ表示のスタイルを調整する。
       tabs = {
-        separator = " │ ",
-        active_prefix = "[",
-        active_suffix = "]",
+        separator = "  ",
+        active_prefix = "",
+        active_suffix = "",
         show_index = true,
         icons = {
           status = "󰨇",
@@ -103,7 +103,7 @@ local function default_ui()
         },
       },
       -- 項目表示の見た目を整える記号を定義する。
-      item_prefix = "  • ",
+      item_prefix = "  ▸ ",
       section_prefix = "◆ ",
       empty_prefix = "  · ",
       theme = menu_theme.default_theme(),

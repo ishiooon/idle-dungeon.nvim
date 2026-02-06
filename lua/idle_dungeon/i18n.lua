@@ -29,6 +29,8 @@ local translations = {
   -- メニュー下部の案内文を定義する。
   menu_hint_tabs = { en = "Tabs: Click / <- -> / Tab", jp = "タブ: クリック / <- -> / Tab" },
   menu_hint_toggle = { en = "Toggle: Enter switches", jp = "切り替え: Enterで変更" },
+  menu_hint_select = { en = "Select: Enter", jp = "選択: Enter" },
+  menu_hint_back = { en = "Back: b / <- / Esc", jp = "戻る: b / <- / Esc" },
   menu_hint_close = { en = "Close: q / Esc", jp = "閉じる: q / Esc" },
   -- 状態詳細メニューの文言を定義する。
   menu_action_open_actions = { en = "Open Actions", jp = "操作メニューへ" },

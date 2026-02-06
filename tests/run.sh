@@ -70,6 +70,10 @@ lua tests/test_render.lua
 # ペット表示は削除したため、該当テストは実行しない。
 # メニュー表示のレイアウト生成を確認する。
 lua tests/test_menu_layout.lua
+# メニュー共通フレームの生成を確認する。
+lua tests/test_menu_frame.lua
+# ジョブ選択メニューが確定後に閉じないことを確認する。
+lua tests/test_menu_job_keep_open.lua
 # メニュータブの文字列生成を確認する。
 lua tests/test_menu_tabs.lua
 # メニュー開閉の状態遷移を確認する。
@@ -160,6 +164,10 @@ lua tests/test_battle_outcome_wait.lua
 lua tests/test_defeat_icon.lua
 # 敵敗北時のアイコン表示を確認する。
 lua tests/test_enemy_defeat_icon.lua
+# ペットの獲得・保持・戦闘参加の振る舞いを確認する。
+lua tests/test_pet_party.lua
+# ペット追従のトラック表示を確認する。
+lua tests/test_pet_track.lua
 # 図鑑の未発見表示を確認する。
 lua tests/test_dex_unknown.lua
 # 属性相性の単体テストを確認する。

@@ -13,6 +13,8 @@ local function open_language_menu(get_state, set_state, config)
   -- 言語選択のメニューを表示する。
   menu_view.select(languages, {
     prompt = i18n.t("prompt_language", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     -- 言語を選んでも閉じず、連続操作できるようにする。
     keep_open = true,
     format_item = function(item)
@@ -36,6 +38,8 @@ local function open_status_menu(get_state, config)
   -- 現在の状態を確認するためのメニューを表示する。
   menu_view.select(lines, {
     prompt = i18n.t("prompt_status", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     format_item = function(item)
       return item
     end,
@@ -86,6 +90,8 @@ local function open_reset_menu(get_state, set_state, config)
   -- すべてのデータを初期化する確認メニューを表示する。
   menu_view.select(choices, {
     prompt = i18n.t("prompt_reset_confirm", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     format_item = function(item)
       return item.label
     end,

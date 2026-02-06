@@ -39,7 +39,14 @@ state = util.merge_tables(state, {
 })
 local status_items = menu_data.build_status_items(state, config, "en")
 assert_true(#status_items > 0, "状態タブの項目が生成される")
-assert_match(status_items[1].label or "", "Stage:", "英語の状態表示が含まれる")
+local found_stage = false
+for _, item in ipairs(status_items) do
+  if (item.label or ""):match("Stage:") then
+    found_stage = true
+    break
+  end
+end
+assert_true(found_stage, "英語の状態表示が含まれる")
 local found_metrics = false
 for _, item in ipairs(status_items) do
   if item.id == "metrics_detail" then

@@ -99,6 +99,9 @@ local function open_job_menu(get_state, set_state, config, on_close)
   -- ジョブ選択のメニューを表示する。
   menu_view.select(entries, {
     prompt = i18n.t("prompt_job", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
+    keep_open = true,
     format_item = function(item)
       return string.format("%s (%s)", item.name, item.role)
     end,
@@ -134,6 +137,8 @@ local function open_skills_menu(get_state, set_state, config, on_close)
   end
   menu_view.select(entries, {
     prompt = i18n.t("prompt_skills", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     keep_open = true,
     format_item = function(item)
       local current = get_state()
@@ -198,6 +203,8 @@ local function open_job_levels_menu(get_state, set_state, config, on_close)
   end
   menu_view.select(entries, {
     prompt = i18n.t("menu_job_levels_title", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     keep_open = true,
     format_item = function(item)
       return item.label
@@ -219,6 +226,8 @@ local function open_stage_menu(get_state, set_state, config, on_close)
   -- 開始ダンジョンを選択するためのメニューを表示する。
   menu_view.select(entries, {
     prompt = i18n.t("prompt_stage", lang),
+    lang = lang,
+    footer_hints = menu_locale.submenu_footer_hints(lang),
     format_item = function(item)
       local unlocked = stage_unlock.is_unlocked(unlocks, item.id)
         or item.id == (initial_state.progress or {}).stage_id
@@ -264,6 +273,8 @@ local function open_equip_menu(get_state, set_state, config, on_close)
     -- 装備枠を選択するためのメニューを表示する。
     menu_view.select(slots, {
       prompt = i18n.t("prompt_slot", lang),
+      lang = lang,
+      footer_hints = menu_locale.submenu_footer_hints(lang),
       format_item = function(item)
         return menu_locale.slot_label(item, lang)
       end,
@@ -284,6 +295,8 @@ local function open_equip_menu(get_state, set_state, config, on_close)
       -- 選択可能な装備を表示し、差分を詳細で確認できるようにする。
       menu_view.select(choices, {
         prompt = i18n.t("prompt_equipment", lang),
+        lang = lang,
+        footer_hints = menu_locale.submenu_footer_hints(lang),
         -- 装備確定後もメニューを閉じずに連続で選択できるようにする。
         keep_open = true,
         format_item = function(item)

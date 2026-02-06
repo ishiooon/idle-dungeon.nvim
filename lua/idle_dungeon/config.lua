@@ -112,6 +112,8 @@ local function default_config()
       enemy_speed = 2,
       -- アクティブスキルの自動発動率を0〜1で設定する。
       skill_active_rate = 0.35,
+      -- ペット保持時に敵がペットを狙う確率を0〜1で設定する。
+      pet_target_rate = 0.35,
       -- 経験値の上がり幅を少しだけ増やしてテンポを調整する。
       -- 敵ごとの倍率と合わせて成長が体感できる基礎値にする。
       reward_exp = 30,

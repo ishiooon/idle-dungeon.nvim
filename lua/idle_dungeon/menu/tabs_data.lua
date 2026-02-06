@@ -3,6 +3,7 @@
 local dex_catalog = require("idle_dungeon.game.dex.catalog")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
+local render = require("idle_dungeon.ui.render")
 
 local M = {}
 
@@ -50,11 +51,20 @@ end
 -- 状態タブ用の行をまとめて返す。
 local function build_status_items(state, config, lang)
   local items = {}
+  local preview_lines = render.build_lines(state, config)
+  table.insert(items, { id = "header", label = lang == "ja" and "ライブプレビュー" or "Live Preview" })
+  table.insert(items, { id = "entry", label = preview_lines[1] or "" })
+  if preview_lines[2] and preview_lines[2] ~= "" then
+    table.insert(items, { id = "entry", label = preview_lines[2] })
+  end
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = lang == "ja" and "ステータス" or "Status" })
   for _, line in ipairs(menu_locale.status_lines(state, lang, config)) do
-    table.insert(items, { id = "info", label = line })
+    table.insert(items, { id = "entry", label = line })
   end
   -- 入力統計の詳細は別の詳細表示で確認できるようにする。
   table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = lang == "ja" and "詳細" or "Details" })
   table.insert(items, {
     id = "metrics_detail",
     label = i18n.t("menu_status_metrics", lang),
