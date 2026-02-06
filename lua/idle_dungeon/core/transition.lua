@@ -9,6 +9,7 @@ local event_choice = require("idle_dungeon.game.event_choice")
 local event_effects = require("idle_dungeon.game.event_effects")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local floor_state = require("idle_dungeon.game.floor.state")
+local game_speed = require("idle_dungeon.core.game_speed")
 local stage_unlock = require("idle_dungeon.game.stage_unlock")
 local story = require("idle_dungeon.game.story")
 local state_dex = require("idle_dungeon.game.dex.state")
@@ -48,8 +49,17 @@ local function start_battle(state, progress, enemy, enemy_spec)
     ui = util.merge_tables(state.ui, next_ui),
   })
   -- 戦闘開始時は前回の戦闘状態を持ち越さないように初期化する。
-  -- 先制判定は戦闘遷移側で速度比較して決定する。
-  next_state.combat = { enemy = enemy, source = enemy_spec, last_turn = nil, turn = nil, turn_wait = 0 }
+  -- 先制判定と行動順は戦闘遷移側の待機カウンタで決定する。
+  next_state.combat = {
+    enemy = enemy,
+    source = enemy_spec,
+    last_turn = nil,
+    turn = nil,
+    turn_wait = 0,
+    hero_turn_wait = 0,
+    enemy_turn_wait = 0,
+    battle_tick_buffer = 0,
+  }
   return state_dex.record_enemy(next_state, enemy.id or enemy.name, enemy.element)
 end
 
@@ -156,7 +166,7 @@ end
 
 -- ステージ開始演出の残り時間を減らす。
 local function tick_stage_intro(state, config)
-  local tick_seconds = config.tick_seconds or 1
+  local tick_seconds = game_speed.resolve_runtime_tick_seconds(state, config)
   local remaining = (state.ui.stage_intro_remaining or 0) - tick_seconds
   if remaining <= 0 then
     local next_ui = { mode = "move", stage_intro_remaining = 0, event_id = nil }
@@ -167,7 +177,7 @@ end
 
 -- 選択イベントの残り時間を減らし、期限切れなら自動選択する。
 local function tick_choice(state, config)
-  local tick_seconds = config.tick_seconds or 1
+  local tick_seconds = game_speed.resolve_runtime_tick_seconds(state, config)
   local remaining = (state.ui.choice_remaining or 0) - tick_seconds
   if remaining > 0 then
     return util.merge_tables(state, { ui = util.merge_tables(state.ui, { choice_remaining = remaining }) })
@@ -183,7 +193,7 @@ end
 
 -- 会話待機中の残り時間を減らす。
 local function tick_dialogue(state, config)
-  local tick_seconds = config.tick_seconds or 1
+  local tick_seconds = game_speed.resolve_runtime_tick_seconds(state, config)
   local remaining = state.ui.dialogue_remaining - tick_seconds
   if remaining <= 0 then
     local next_ui = { mode = "move", dialogue_remaining = 0, event_id = nil }

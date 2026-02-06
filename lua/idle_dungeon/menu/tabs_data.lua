@@ -3,9 +3,72 @@
 local dex_catalog = require("idle_dungeon.game.dex.catalog")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
-local render = require("idle_dungeon.ui.render")
+local floor_progress = require("idle_dungeon.game.floor.progress")
+local render_stage = require("idle_dungeon.ui.render_stage")
+local stage_progress = require("idle_dungeon.game.stage_progress")
 
 local M = {}
+
+local function clamp_ratio(current, total)
+  local safe_total = math.max(tonumber(total) or 0, 0)
+  if safe_total <= 0 then
+    return 0
+  end
+  local safe_current = math.max(tonumber(current) or 0, 0)
+  return math.max(math.min(safe_current / safe_total, 1), 0)
+end
+
+local function resolve_meter_style(config)
+  local menu = ((config or {}).ui or {}).menu or {}
+  local style = menu.meter or {}
+  return {
+    on = style.on or "┃",
+    off = style.off or "·",
+  }
+end
+
+local function build_meter(label, current, total, width, suffix, meter_style)
+  local bar_width = math.max(tonumber(width) or 14, 6)
+  local ratio = clamp_ratio(current, total)
+  local filled = math.floor(ratio * bar_width + 0.5)
+  local empty = math.max(bar_width - filled, 0)
+  local style = meter_style or { on = "┃", off = "·" }
+  local bar = string.format("[%s%s]", string.rep(style.on, filled), string.rep(style.off, empty))
+  local tail = suffix or string.format("%d/%d", math.floor(current or 0), math.floor(total or 0))
+  return string.format("%s %s %s", label, bar, tail)
+end
+
+local function resolve_stage_info(state, config, lang)
+  local progress = state.progress or {}
+  local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
+  local stage_name = render_stage.resolve_stage_name(stage, progress, lang)
+  local floor_length = floor_progress.resolve_floor_length(config or {})
+  local stage_floor = floor_progress.stage_floor_distance(progress, floor_length)
+  local current_floor = math.max(stage_floor + 1, 1)
+  local total_floors = floor_progress.stage_total_floors(stage, floor_length)
+  local stage_ratio = clamp_ratio(current_floor, total_floors or 0)
+  local stage_text = render_stage.build_stage_progress_text(progress, stage, config)
+  local floor_step = floor_progress.floor_step(progress.distance or 0, floor_length)
+  return {
+    name = stage_name,
+    text = stage_text,
+    ratio = stage_ratio,
+    current_floor = current_floor,
+    total_floors = total_floors or 0,
+    floor_step = floor_step,
+    floor_length = floor_length,
+  }
+end
+
+local function build_status_detail(item, state, config, lang)
+  if item.id == "metrics_detail" then
+    return {
+      title = i18n.t("metrics_detail_title", lang),
+      lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang),
+    }
+  end
+  return nil
+end
 
 local function build_action_items()
   return {
@@ -26,6 +89,7 @@ local function build_config_items()
   return {
     { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
     { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
+    { id = "game_speed", key = "menu_action_game_speed", keep_open = true, kind = "cycle" },
     { id = "display_lines", key = "menu_action_display_lines", keep_open = true, kind = "toggle" },
     -- 戦闘中のHP分母表示を切り替える設定を追加する。
     { id = "battle_hp_show_max", key = "menu_action_battle_hp_show_max", keep_open = true, kind = "toggle" },
@@ -51,25 +115,55 @@ end
 -- 状態タブ用の行をまとめて返す。
 local function build_status_items(state, config, lang)
   local items = {}
-  local preview_lines = render.build_lines(state, config)
-  table.insert(items, { id = "header", label = lang == "ja" and "ライブプレビュー" or "Live Preview" })
-  table.insert(items, { id = "entry", label = preview_lines[1] or "" })
-  if preview_lines[2] and preview_lines[2] ~= "" then
-    table.insert(items, { id = "entry", label = preview_lines[2] })
-  end
+  local stage_info = resolve_stage_info(state, config, lang)
+  local actor = state.actor or {}
+  local meter_style = resolve_meter_style(config)
+  table.insert(items, { id = "header", label = lang == "ja" and "ヒーロー" or "Hero" })
+  table.insert(items, {
+    id = "entry",
+    label = string.format("%s %d  %s %d", i18n.t("label_level", lang), actor.level or 1, i18n.t("label_job_level", lang), actor.job_level or 1),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = build_meter(i18n.t("label_hp", lang), actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = build_meter(i18n.t("label_exp", lang), actor.exp or 0, actor.next_level or 0, 14, nil, meter_style),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = string.format("%s %d  %s %d", i18n.t("label_atk", lang), actor.atk or 0, i18n.t("label_def", lang), actor.def or 0),
+  })
   table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = lang == "ja" and "ステータス" or "Status" })
-  for _, line in ipairs(menu_locale.status_lines(state, lang, config)) do
+  table.insert(items, { id = "header", label = lang == "ja" and "進行" or "Progress" })
+  table.insert(items, {
+    id = "entry",
+    label = string.format("%s %s", i18n.t("label_stage", lang), stage_info.name),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = build_meter(i18n.t("label_progress", lang), stage_info.current_floor, stage_info.total_floors, 14, stage_info.text, meter_style),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = string.format("%s %d/%d", i18n.t("label_floor_step", lang), stage_info.floor_step, stage_info.floor_length),
+  })
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = lang == "ja" and "入力統計" or "Input Metrics" })
+  local metrics_lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang)
+  for index, line in ipairs(metrics_lines) do
+    if index > 3 then
+      break
+    end
     table.insert(items, { id = "entry", label = line })
   end
-  -- 入力統計の詳細は別の詳細表示で確認できるようにする。
   table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = lang == "ja" and "詳細" or "Details" })
   table.insert(items, {
     id = "metrics_detail",
     label = i18n.t("menu_status_metrics", lang),
     detail_title = i18n.t("metrics_detail_title", lang),
-    detail_lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang),
+    detail_lines = metrics_lines,
     keep_open = true,
   })
   return items
@@ -235,6 +329,7 @@ M.build_action_items = build_action_items
 M.build_config_items = build_config_items
 M.build_credits_items = build_credits_items
 M.build_dex_items = build_dex_items
+M.build_status_detail = build_status_detail
 M.build_status_items = build_status_items
 
 return M

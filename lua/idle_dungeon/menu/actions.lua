@@ -103,7 +103,10 @@ local function open_job_menu(get_state, set_state, config, on_close)
     footer_hints = menu_locale.submenu_footer_hints(lang),
     keep_open = true,
     format_item = function(item)
-      return string.format("%s (%s)", item.name, item.role)
+      local current = get_state()
+      local active = (current.actor or {}).id == item.id and "●" or " "
+      local progress = (current.job_levels or {})[item.id] or player.default_progress()
+      return string.format("%s %-20s Lv%-3d %s", active, item.name, progress.level or 1, item.role or "")
     end,
     detail_provider = function(item)
       -- ジョブの成長と習得技を詳細に表示する。
@@ -228,6 +231,7 @@ local function open_stage_menu(get_state, set_state, config, on_close)
     prompt = i18n.t("prompt_stage", lang),
     lang = lang,
     footer_hints = menu_locale.submenu_footer_hints(lang),
+    keep_open = true,
     format_item = function(item)
       local unlocked = stage_unlock.is_unlocked(unlocks, item.id)
         or item.id == (initial_state.progress or {}).stage_id
@@ -275,6 +279,7 @@ local function open_equip_menu(get_state, set_state, config, on_close)
       prompt = i18n.t("prompt_slot", lang),
       lang = lang,
       footer_hints = menu_locale.submenu_footer_hints(lang),
+      keep_open = true,
       format_item = function(item)
         return menu_locale.slot_label(item, lang)
       end,

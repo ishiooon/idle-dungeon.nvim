@@ -19,9 +19,11 @@ for _, job in ipairs(content.jobs or {}) do
   assert_true(type(job.growth.def) == "number", "ジョブ成長値の防御力が定義されている")
   assert_true(type(job.growth.speed) == "number", "ジョブ成長値の速度が定義されている")
   assert_true(type(job.skills) == "table", "ジョブの技一覧が定義されている")
+  assert_true(#(job.skills or {}) >= 4, "ジョブごとに十分な数のスキルが定義されている")
   for _, skill in ipairs(job.skills or {}) do
     assert_true(type(skill.id) == "string", "スキルIDが定義されている")
     assert_true(type(skill.level) == "number", "スキルの習得レベルが定義されている")
+    assert_true(skill.level >= 5, "スキルの習得レベル下限が5以上である")
     assert_true(type(skill.name) == "string", "スキルの名称が定義されている")
     -- 英語名は言語切り替え時の表示に使う。
     assert_true(type(skill.name_en) == "string", "スキルの英語名が定義されている")

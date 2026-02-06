@@ -26,16 +26,14 @@ local function format_item_label(item, owned, unlocked, gold, lang, icon)
   if icon and icon ~= "" then
     name = string.format("%s %s", icon, name)
   end
-  local status = unlocked and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
-  local count = i18n.t("status_owned", lang) .. (owned or 0)
+  local marker = unlocked and "✓" or "?"
   local price_value = unlocked and (item.price or 0) or i18n.t("dex_unknown", lang)
-  local price = i18n.t("status_price", lang) .. price_value
-  local afford = i18n.t("status_unaffordable", lang)
+  local afford = unlocked and "✗" or " "
   if unlocked then
     local current_gold = gold or 0
-    afford = current_gold >= (item.price or 0) and i18n.t("status_affordable", lang) or i18n.t("status_unaffordable", lang)
+    afford = current_gold >= (item.price or 0) and "✓" or "✗"
   end
-  return string.format("%s (%s %s %s %s)", name, status, count, price, afford)
+  return string.format("%s %-32s x%-3d $%-6s %s", marker, name, owned or 0, tostring(price_value), afford)
 end
 
 -- 購入画面の見出しに現在の所持金を含める。
@@ -112,6 +110,7 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
       end,
       lang = lang,
       footer_hints = menu_locale.submenu_footer_hints(lang),
+      keep_open = true,
       format_item = function(item)
         return item.label
       end,
@@ -191,7 +190,7 @@ local function open_sell_menu(get_state, set_state, lang, config, on_close)
       local state = get_state()
       local icon = icon_module.resolve_slot_icon(item.slot, icons)
       local name = icon ~= "" and string.format("%s %s", icon, item.name) or item.name
-      return string.format("%s (%s%d)", name, i18n.t("status_owned", lang), state.inventory[item.id] or 0)
+      return string.format("✓ %-36s x%d", name, state.inventory[item.id] or 0)
     end,
     detail_provider = function(item)
       return menu_detail.build_item_detail(item, get_state(), lang, config)

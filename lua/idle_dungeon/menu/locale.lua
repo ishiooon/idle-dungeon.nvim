@@ -3,6 +3,7 @@
 local i18n = require("idle_dungeon.i18n")
 -- 階層進行の計算はgame/floor/progressに委譲する。
 local content = require("idle_dungeon.content")
+local game_speed = require("idle_dungeon.core.game_speed")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local time_format = require("idle_dungeon.ui.time_format")
 local render_stage = require("idle_dungeon.ui.render_stage")
@@ -43,6 +44,14 @@ local function display_lines_label(lines, lang)
   end
   local suffix = is_ja and string.format("%d行", count) or string.format("%d line%s", count, count == 1 and "" or "s")
   return string.format("%s: %s", title, suffix)
+end
+
+-- ゲーム速度の設定値を見やすいラベルに整形する。
+local function game_speed_label(state, config, lang)
+  local speed_id = game_speed.resolve_game_speed_id(state, config)
+  local speed = game_speed.label_from_id(speed_id, config)
+  local title = i18n.t("menu_action_game_speed", lang)
+  return string.format("%s: %s", title, speed)
 end
 
 -- トグル表示をボタン風の文言へ整形する。
@@ -186,6 +195,7 @@ M.resolve_lang = resolve_lang
 M.slot_label = slot_label
 M.auto_start_label = auto_start_label
 M.display_lines_label = display_lines_label
+M.game_speed_label = game_speed_label
 -- ジョブごとのレベル表示を一覧で返す。
 local function build_job_level_lines(state, lang, jobs)
   local levels = state.job_levels or {}

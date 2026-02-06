@@ -6,17 +6,17 @@ local M = {}
 
 local function default_theme()
   return {
-    -- 既定はテーマ色へ寄せるため、色指定は最小限に留める。
+    -- 既定配色はgruvbox-material系の落ち着いたコントラストに寄せる。
     inherit = true,
-    accent = nil,
-    title = nil,
-    text = nil,
-    muted = nil,
-    border = nil,
-    divider = nil,
-    background = nil,
-    selected_bg = nil,
-    selected_fg = nil,
+    accent = "#a9b665",
+    title = "#d8a657",
+    text = "#d4be98",
+    muted = "#928374",
+    border = "#665c54",
+    divider = "#504945",
+    background = "#282828",
+    selected_bg = "#3c3836",
+    selected_fg = "#fbf1c7",
   }
 end
 

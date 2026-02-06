@@ -1,4 +1,4 @@
--- このテストはパッシブ補正が掛け算で適用されることを確認する。
+-- このテストはパッシブ補正が加算で適用されることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -23,6 +23,6 @@ local jobs = {
 local learned = { active = {}, passive = { p1 = true, p2 = true } }
 local enabled = { active = {}, passive = { p1 = true, p2 = true } }
 local bonus = skills.resolve_passive_bonus(learned, enabled, jobs)
-assert_true(math.abs((bonus.atk or 1) - 1.32) < 0.0001, "パッシブ補正は掛け算で合成される")
+assert_true(math.abs((bonus.atk or 1) - 1.3) < 0.0001, "パッシブ補正は加算で合成される")
 
 print("OK")

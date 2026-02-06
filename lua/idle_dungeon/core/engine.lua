@@ -1,6 +1,7 @@
 -- このモジュールはゲームの進行と同期を統括する。
 -- 参照先はcore・game・ui・menu配下へ整理する。
 local config_module = require("idle_dungeon.config")
+local game_speed = require("idle_dungeon.core.game_speed")
 local input = require("idle_dungeon.core.input")
 local loop = require("idle_dungeon.core.loop")
 local menu = require("idle_dungeon.menu")
@@ -20,11 +21,7 @@ local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner
 
 -- 速度上昇などによる実効ティック秒を解決する。
 local function resolve_tick_seconds(state, config)
-  local boost = state and state.ui and state.ui.speed_boost or nil
-  if boost and boost.remaining_ticks and boost.remaining_ticks > 0 and boost.tick_seconds then
-    return boost.tick_seconds
-  end
-  return config.tick_seconds
+  return game_speed.resolve_runtime_tick_seconds(state, config)
 end
 
 -- ティック間隔が変わった場合はタイマーを更新する。
@@ -44,6 +41,10 @@ end
 local function configure(user_config)
   current_config = config_module.build(user_config)
   session.set_config(current_config)
+  -- メニューを閉じた直後に右下表示を即時で復帰する。
+  menu.set_on_close(function()
+    render_current(session.get_state())
+  end)
   -- 右下の表示をクリックした際にメニューを開閉する。
   ui.set_on_click(toggle_menu)
   return current_config
@@ -52,7 +53,12 @@ render_current = function(state)
   if not state then return end
   -- Read-only表示を反映した状態で描画する。
   local display_state = render_state.with_read_only(state, session.is_owner())
-  ui.render(display_state, current_config)
+  if menu.is_open and menu.is_open() then
+    -- メニュー中は右下表示を消して重なりを避ける。
+    ui.close()
+  else
+    ui.render(display_state, current_config)
+  end
   -- 開いているメニューがあれば最新状態へ更新する。
   menu.update(session.get_state, set_state_and_render, current_config)
 end
@@ -81,12 +87,22 @@ open_menu = function()
   if not current_config then start() end
   if not session.is_owner() then return notify_read_only() end
   menu.open(session.get_state, set_state_and_render, current_config)
+  -- メニュー表示中は右下表示を閉じる。
+  ui.close()
 end
 toggle_menu = function()
   if not current_config then start() end
   if not session.is_owner() then return notify_read_only() end
+  local was_open = menu.is_open and menu.is_open() or false
   -- クリック操作でメニュー表示を開閉する。
   menu.toggle(session.get_state, set_state_and_render, current_config)
+  if menu.is_open and menu.is_open() then
+    ui.close()
+    return
+  end
+  if was_open then
+    render_current(session.get_state())
+  end
 end
 local function toggle_text_mode()
   if not current_config then start() end
@@ -101,7 +117,7 @@ tick = function()
   if not state then return end
   -- 進行を更新し、描画を反映する。
   local next_state = state_module.tick(state, current_config)
-  local elapsed = current_tick_seconds or current_config.tick_seconds
+  local elapsed = current_tick_seconds or game_speed.resolve_runtime_tick_seconds(state, current_config)
   local next_metrics = metrics.add_time(next_state.metrics, elapsed)
   next_state = state_module.with_metrics(next_state, next_metrics)
   next_state = apply_unlocks(next_state)
@@ -175,8 +191,10 @@ handle_choice = function(choice_index)
   set_state_and_render(next_state)
 end
 set_state_and_render = function(next_state)
-  session.set_state(session.save_state(next_state))
-  render_current(session.get_state())
+  local saved = session.save_state(next_state)
+  session.set_state(saved)
+  update_tick_timer(saved)
+  render_current(saved)
 end
 notify_read_only = function()
   if session.read_only_notified() then return end

@@ -12,7 +12,8 @@ local effects = require("idle_dungeon.game.event_effects")
 local state_module = require("idle_dungeon.core.state")
 
 local config = {
-  tick_seconds = 1,
+  game_tick_seconds = 1,
+  battle_tick_seconds = 1,
   event_message_ticks = 2,
   ui = { language = "en" },
 }

@@ -12,7 +12,12 @@ local battle_flow = require("idle_dungeon.core.transition.battle")
 local util = require("idle_dungeon.util")
 
 local config = {
-  tick_seconds = 1,
+  game_tick_seconds = 1,
+  battle_tick_seconds = 1,
+  default_game_speed = "1x",
+  game_speed_options = {
+    { id = "1x", label = "1x", tick_seconds = 1 },
+  },
   battle = { accuracy = 100, hero_speed = 1, enemy_speed = 1, outcome_wait = 0 },
 }
 

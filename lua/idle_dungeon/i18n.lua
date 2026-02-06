@@ -20,6 +20,7 @@ local translations = {
   menu_action_job_levels = { en = "Job Levels", jp = "ジョブレベル一覧" },
   menu_action_toggle_text = { en = "Toggle Text Mode", jp = "テキストモード切り替え" },
   menu_action_auto_start = { en = "Auto Start", jp = "自動開始" },
+  menu_action_game_speed = { en = "Game Speed", jp = "ゲーム速度" },
   menu_action_display_lines = { en = "Display Lines", jp = "表示行数" },
   -- 戦闘時のHP分母表示を切り替える文言を追加する。
   menu_action_battle_hp_show_max = { en = "Battle HP Max", jp = "戦闘HP分母表示" },

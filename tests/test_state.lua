@@ -28,6 +28,7 @@ local base_config = {
 
 local st0 = state.new_state(base_config)
 assert_equal(st0.ui.mode, "move", "初期状態は移動中")
+assert_equal(st0.ui.game_speed, "1x", "初期状態のゲーム速度は1x")
 assert_equal(st0.progress.distance, 0, "初期距離は0")
 
 local st1 = state.tick(st0, base_config)
@@ -104,6 +105,8 @@ local st_lines2 = state.set_display_lines(st_lines, 2)
 assert_equal(st_lines2.ui.display_lines, 2, "表示行数が2行に戻る")
 local st_lines0 = state.set_display_lines(st_lines2, 0)
 assert_equal(st_lines0.ui.display_lines, 0, "表示行数が0行に切り替わる")
+local st_speed = state.set_game_speed(st0, "2x")
+assert_equal(st_speed.ui.game_speed, "2x", "ゲーム速度が更新される")
 -- 戦闘時のHP分母表示の切り替えを確認する。
 local st_battle_hp = state.set_battle_hp_show_max(st0, true)
 assert_equal(st_battle_hp.ui.battle_hp_show_max, true, "戦闘HP分母表示が更新される")

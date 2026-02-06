@@ -59,6 +59,8 @@ local function new_state(config)
       render_mode = (config.ui or {}).render_mode or "visual",
       auto_start = (config.ui or {}).auto_start ~= false,
       language = (config.ui or {}).language or "en",
+      -- ゲーム進行速度はメニュー設定で切り替えるため状態へ保持する。
+      game_speed = config.default_game_speed or "1x",
       -- 右下表示の行数は設定値を初期値として保持する。
       display_lines = (config.ui or {}).height or 2,
       -- 戦闘時のHP分母表示は設定値を初期値として保持する。
@@ -140,6 +142,7 @@ local function normalize_state(state)
     actor = applied_actor,
     skills = learned_skills,
     skill_settings = skill_settings,
+    ui = util.merge_tables(next_state.ui or {}, { game_speed = ((next_state.ui or {}).game_speed or "1x") }),
   })
   -- 旧データ互換のためペット保持情報も正規化する。
   return pets.enforce_capacity(normalized, content.jobs, content.items, nil)
@@ -160,6 +163,9 @@ end
 local function set_display_lines(state, lines)
   local next_lines = math.max(math.min(tonumber(lines) or 2, 2), 0)
   return helpers.update_section(state, "ui", { display_lines = next_lines })
+end
+local function set_game_speed(state, speed_id)
+  return helpers.update_section(state, "ui", { game_speed = tostring(speed_id or "1x") })
 end
 local function set_battle_hp_show_max(state, enabled)
   local next_enabled = enabled == true
@@ -269,6 +275,7 @@ M.toggle_render_mode = toggle_render_mode
 M.set_language = set_language
 M.set_auto_start = set_auto_start
 M.set_display_lines = set_display_lines
+M.set_game_speed = set_game_speed
 M.set_battle_hp_show_max = set_battle_hp_show_max
 M.set_ui_mode = set_ui_mode
 M.with_metrics = with_metrics

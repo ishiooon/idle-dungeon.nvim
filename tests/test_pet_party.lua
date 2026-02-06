@@ -61,7 +61,12 @@ assert_equal(#(st2.pet_party or {}), 1, "保持上限を超えた場合でも1�
 assert_equal(st2.pet_party[1].id, "wind_bird", "上限超過時は後から得たペットが残る")
 
 -- 猛獣使いは保持上限が増え、複数保持できる。
-local st_tamer = state_module.change_job(st0, "beast_tamer")
+local st_tamer_seed = util.merge_tables(st0, {
+  job_levels = util.merge_tables(st0.job_levels or {}, {
+    beast_tamer = { level = 5, exp = 0, next_level = 10 },
+  }),
+})
+local st_tamer = state_module.change_job(st_tamer_seed, "beast_tamer")
 local reward3 = util.merge_tables(st_tamer, {
   ui = util.merge_tables(st_tamer.ui, { mode = "reward" }),
   combat = { pending_drop = { id = "white_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
@@ -80,8 +85,8 @@ local battle_with_pet = util.merge_tables(st1, {
   progress = { rng_seed = 1 },
   ui = util.merge_tables(st1.ui, { mode = "battle" }),
   combat = {
-    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 1, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
-    turn = "hero",
+    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 1, def = 0, accuracy = 100, speed = 3, element = "normal", drops = {} },
+    turn = nil,
     turn_wait = 0,
     last_turn = nil,
   },
@@ -91,12 +96,12 @@ assert_true((st5.combat.enemy.hp or 8) < 8, "勇者ターンでペットが攻�
 
 -- 敵ターンでペットが0になった場合は手放す。
 local battle_pet_defeated = util.merge_tables(st1, {
-  actor = util.merge_tables(st1.actor, { def = 0, speed = 1 }),
+  actor = util.merge_tables(st1.actor, { def = 0, speed = 3 }),
   progress = { rng_seed = 1 },
   ui = util.merge_tables(st1.ui, { mode = "battle" }),
   combat = {
     enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 99, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
-    turn = "enemy",
+    turn = nil,
     turn_wait = 0,
     last_turn = nil,
   },

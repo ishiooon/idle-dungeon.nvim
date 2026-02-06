@@ -13,12 +13,12 @@ local skills = require("idle_dungeon.game.skills")
 local util = require("idle_dungeon.util")
 
 local base_state = {
-  actor = { hp = 10, max_hp = 10, atk = 4, def = 1, speed = 3, level = 1, exp = 0, next_level = 10 },
+  actor = { hp = 10, max_hp = 10, atk = 4, def = 1, speed = 1, level = 1, exp = 0, next_level = 10 },
   metrics = { time_sec = 0 },
   progress = { rng_seed = 1 },
   ui = { mode = "battle" },
   combat = {
-    enemy = { hp = 10, max_hp = 10, atk = 1, def = 0, accuracy = 100, speed = 1 },
+    enemy = { hp = 10, max_hp = 10, atk = 1, def = 0, accuracy = 100, speed = 3 },
     turn = nil,
     turn_wait = 0,
     last_turn = nil,
@@ -26,7 +26,7 @@ local base_state = {
 }
 
 local passive_state = util.merge_tables(base_state, {
-  actor = { hp = 10, max_hp = 10, atk = 9, def = 1, speed = 3, level = 1, exp = 0, next_level = 10 },
+  actor = { hp = 10, max_hp = 10, atk = 9, def = 1, speed = 1, level = 1, exp = 0, next_level = 10 },
   skills = { active = {}, passive = { blade_aura = true } },
 })
 local passive_config = { battle = { accuracy = 100, skill_active_rate = 0 } }
@@ -34,7 +34,7 @@ local passive_result = battle_flow.tick_battle(passive_state, passive_config)
 assert_true((passive_result.combat.enemy.hp or 10) == 0, "パッシブスキルの攻撃補正が反映される")
 
 local active_state = util.merge_tables(base_state, {
-  actor = { hp = 10, max_hp = 10, atk = 5, def = 1, speed = 3, level = 1, exp = 0, next_level = 10 },
+  actor = { hp = 10, max_hp = 10, atk = 5, def = 1, speed = 1, level = 1, exp = 0, next_level = 10 },
   skills = { active = { ambush = true }, passive = {} },
 })
 local active_config = { battle = { accuracy = 100, skill_active_rate = 1 } }
@@ -44,7 +44,7 @@ assert_true(active_result.combat.last_turn and active_result.combat.last_turn.re
 
 -- 敵側のアクティブスキルが勇者に反映されることを確認する。
 local enemy_skill_state = util.merge_tables(base_state, {
-  actor = { hp = 10, max_hp = 10, atk = 4, def = 0, speed = 1, level = 1, exp = 0, next_level = 10 },
+  actor = { hp = 10, max_hp = 10, atk = 4, def = 0, speed = 3, level = 1, exp = 0, next_level = 10 },
   combat = {
     enemy = {
       hp = 10,
@@ -52,7 +52,7 @@ local enemy_skill_state = util.merge_tables(base_state, {
       atk = 2,
       def = 0,
       accuracy = 100,
-      speed = 5,
+      speed = 1,
       skills = {
         { id = "enemy_test_strike", kind = "active", name = "強打", power = 2, accuracy = 0, rate = 1 },
       },

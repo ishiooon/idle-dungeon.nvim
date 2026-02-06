@@ -40,13 +40,17 @@ state = util.merge_tables(state, {
 local status_items = menu_data.build_status_items(state, config, "en")
 assert_true(#status_items > 0, "状態タブの項目が生成される")
 local found_stage = false
+local found_live_track_label = false
 for _, item in ipairs(status_items) do
   if (item.label or ""):match("Stage:") then
     found_stage = true
-    break
+  end
+  if (item.label or ""):match("Live Track") then
+    found_live_track_label = true
   end
 end
 assert_true(found_stage, "英語の状態表示が含まれる")
+assert_true(not found_live_track_label, "ライブトラックの見出しはタブ内に重複表示しない")
 local found_metrics = false
 for _, item in ipairs(status_items) do
   if item.id == "metrics_detail" then
@@ -56,6 +60,26 @@ for _, item in ipairs(status_items) do
   end
 end
 assert_true(found_metrics, "入力統計の詳細項目が含まれる")
+local normal_entry = nil
+for _, item in ipairs(status_items) do
+  if item.id == "entry" then
+    normal_entry = item
+    break
+  end
+end
+assert_true(normal_entry ~= nil, "通常エントリが存在する")
+local detail_none = menu_data.build_status_detail(normal_entry, state, config, "en")
+assert_true(detail_none == nil, "通常エントリでは詳細を表示しない")
+local metrics_entry = nil
+for _, item in ipairs(status_items) do
+  if item.id == "metrics_detail" then
+    metrics_entry = item
+    break
+  end
+end
+assert_true(metrics_entry ~= nil, "統計詳細エントリが存在する")
+local detail_metrics = menu_data.build_status_detail(metrics_entry, state, config, "en")
+assert_true(type(detail_metrics) == "table", "統計詳細エントリでは詳細を表示する")
 
 local action_items = menu_data.build_action_items()
 assert_true(#action_items >= 5, "操作タブの項目が生成される")
@@ -67,6 +91,7 @@ assert_match(config_items[1].id or "", "toggle_text", "設定項目にモード�
 local found_language = false
 local found_display_lines = false
 local found_battle_hp = false
+local found_game_speed = false
 for _, item in ipairs(config_items) do
   if item.id == "language" then
     found_language = true
@@ -76,6 +101,10 @@ for _, item in ipairs(config_items) do
     found_display_lines = true
     assert_true(item.keep_open == true, "表示行数の設定はメニューを閉じずに開ける")
   end
+  if item.id == "game_speed" then
+    found_game_speed = true
+    assert_true(item.keep_open == true, "ゲーム速度の設定はメニューを閉じずに開ける")
+  end
   -- 戦闘時のHP分母表示を切り替える項目が含まれることを確認する。
   if item.id == "battle_hp_show_max" then
     found_battle_hp = true
@@ -84,6 +113,7 @@ for _, item in ipairs(config_items) do
 end
 assert_true(found_language, "言語設定の項目が含まれる")
 assert_true(found_display_lines, "表示行数の項目が含まれる")
+assert_true(found_game_speed, "ゲーム速度の項目が含まれる")
 assert_true(found_battle_hp, "戦闘HP表示の項目が含まれる")
 
 local credits_items = menu_data.build_credits_items("en")

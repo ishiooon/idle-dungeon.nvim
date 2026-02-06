@@ -8,8 +8,7 @@
 - 自動開始の判定ロジックが期待通りに動作することを確認する。
 
 ## 実行方法
-- ローカル環境で `bash tests/run.sh --env=local` を実行する。
-- ローカル環境で `bash tests/run.sh --env=localdev` を実行することも許可する。
+- ローカル環境で `bash tests/run.sh --env=localdev` を実行する。
 
 ## 補足
 - テストは文書の読み取りのみを行い、内容の変更は行わない。

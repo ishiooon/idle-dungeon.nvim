@@ -66,7 +66,18 @@ end
 
 local function default_config()
   return {
-    tick_seconds = 0.5,
+    -- ゲーム進行の更新間隔は既定で0.5秒とする。
+    game_tick_seconds = 0.5,
+    -- 戦闘進行の更新間隔はゲーム進行と独立して管理する。
+    battle_tick_seconds = 0.5,
+    -- メニューから切り替えるゲーム速度の既定値と候補を定義する。
+    default_game_speed = "1x",
+    game_speed_options = {
+      { id = "1x", label = "1x", tick_seconds = 0.5 },
+      { id = "2x", label = "2x", tick_seconds = 0.25 },
+      { id = "5x", label = "5x", tick_seconds = 0.1 },
+      { id = "10x", label = "10x", tick_seconds = 0.05 },
+    },
     move_step = 1,
     encounter_every = 5,
     -- 会話の待機時間は0秒とし、進行の停止を発生させない。

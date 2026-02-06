@@ -13,19 +13,19 @@ local skills = require("idle_dungeon.game.skills")
 local rogue = {
   id = "rogue",
   skills = {
-    { id = "ambush", kind = "active", level = 1, name = "奇襲", description = "先制攻撃を行う。" },
+    { id = "ambush", kind = "active", level = 5, name = "奇襲", description = "先制攻撃を行う。" },
   },
 }
 local cleric = {
   id = "cleric",
   skills = {
-    { id = "prayer", kind = "passive", level = 1, name = "祈り", description = "回復を意識する。" },
+    { id = "prayer", kind = "passive", level = 5, name = "祈り", description = "回復を意識する。" },
   },
 }
 
 local learned = skills.empty()
-learned = skills.unlock_from_job(learned, rogue, { level = 1 })
-learned = skills.unlock_from_job(learned, cleric, { level = 1 })
+learned = skills.unlock_from_job(learned, rogue, { level = 5 })
+learned = skills.unlock_from_job(learned, cleric, { level = 5 })
 
 assert_true(skills.is_learned(learned, "ambush"), "盗賊のスキルが引き継がれる")
 assert_true(skills.is_learned(learned, "prayer"), "神官のスキルが引き継がれる")

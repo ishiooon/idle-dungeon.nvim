@@ -7,9 +7,9 @@ set -euo pipefail
 
 ENV_ARG="${1:-}"
 case "${ENV_ARG}" in
-  --env=local|--env=localdev) ;;
+  --env=localdev) ;;
   "")
-    echo "引数に --env=local または --env=localdev を指定してください。" >&2
+    echo "引数に --env=localdev を指定してください。" >&2
     exit 1
     ;;
   *)
@@ -72,18 +72,26 @@ lua tests/test_render.lua
 lua tests/test_menu_layout.lua
 # メニュー共通フレームの生成を確認する。
 lua tests/test_menu_frame.lua
+# メニュー上部のライブトラック表示を確認する。
+lua tests/test_menu_live_header.lua
 # ジョブ選択メニューが確定後に閉じないことを確認する。
 lua tests/test_menu_job_keep_open.lua
+# ステージ選択メニューが確定後に閉じないことを確認する。
+lua tests/test_menu_stage_keep_open.lua
 # メニュータブの文字列生成を確認する。
 lua tests/test_menu_tabs.lua
 # メニュー開閉の状態遷移を確認する。
 lua tests/test_menu_toggle.lua
+# メニューの開閉状態とクローズコールバックを確認する。
+lua tests/test_menu_open_state.lua
 # メニューのサブ画面から戻れることを確認する。
 lua tests/test_menu_action_back.lua
 # Read-only表示の単体テストを確認する。
 lua tests/test_read_only.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
+# メニューの状態タブに指標と進行バーが表示されることを確認する。
+lua tests/test_menu_status_widgets.lua
 # 図鑑データの単体テストを確認する。
 lua tests/test_dex.lua
 # 購入メニューの分類と解錠判定を確認する。
@@ -108,7 +116,7 @@ lua tests/test_enemy_content.lua
 lua tests/test_enemy_exp_reward.lua
 # 敵ごとの固有スキルを確認する。
 lua tests/test_enemy_skill_templates.lua
-# 攻撃速度と交互ターンの単体テストを確認する。
+# 攻撃速度と行動回数差の単体テストを確認する。
 lua tests/test_attack_speed.lua
 # 攻撃演出の時刻が速度上昇に追従することを確認する。
 lua tests/test_attack_frame_timing.lua
@@ -152,6 +160,8 @@ lua tests/test_menu_detail_unlock.lua
 lua tests/test_boss_config.lua
 # メニューのヒント文言とトグル表記を確認する。
 lua tests/test_menu_hints.lua
+# メニューのゲーム速度切り替えを確認する。
+lua tests/test_menu_game_speed.lua
 # 戦利品ドロップの単体テストを確認する。
 lua tests/test_loot.lua
 # 戦闘中の情報表示を確認する。

@@ -13,8 +13,9 @@ local tabs_view = require("idle_dungeon.menu.tabs_view")
 local M = {}
 local menu_open = false
 local open_status_root
+local on_close_callback = nil
 -- 状態に応じてラベルが変わる項目を整形する。
-local function format_item_with_state(item, get_state, lang)
+local function format_item_with_state(item, get_state, config, lang)
   local state = get_state()
   -- トグル系はボタン風の表示で状態が分かるように整形する。
   if item.id == "auto_start" then
@@ -27,6 +28,9 @@ local function format_item_with_state(item, get_state, lang)
   if item.id == "display_lines" then
     local lines = (state.ui and state.ui.display_lines) or 2
     return menu_locale.display_lines_label(lines, lang)
+  end
+  if item.id == "game_speed" then
+    return menu_locale.game_speed_label(state, config, lang)
   end
   -- 戦闘時のHP分母表示はトグル表示で整形する。
   if item.id == "battle_hp_show_max" then
@@ -96,6 +100,9 @@ local function handle_config_choice(action, get_state, set_state, config)
   if action.id == "display_lines" then
     return settings.toggle_display_lines(get_state, set_state, config)
   end
+  if action.id == "game_speed" then
+    return settings.cycle_game_speed(get_state, set_state, config)
+  end
   if action.id == "battle_hp_show_max" then
     return settings.toggle_battle_hp_show_max(get_state, set_state, config)
   end
@@ -110,6 +117,9 @@ end
 -- メニューの開閉状態を閉じる側へ更新する。
 local function mark_closed()
   menu_open = false
+  if on_close_callback then
+    on_close_callback()
+  end
 end
 
 local function build_tabs(get_state, set_state, config)
@@ -122,6 +132,9 @@ local function build_tabs(get_state, set_state, config)
       items = tabs_data.build_status_items(state, config, lang),
       format_item = function(item)
         return item.label
+      end,
+      detail_provider = function(item)
+        return tabs_data.build_status_detail(item, get_state(), config, lang)
       end,
     },
     {
@@ -140,7 +153,7 @@ local function build_tabs(get_state, set_state, config)
       label = i18n.t("menu_tab_config", lang),
       items = tabs_data.build_config_items(),
       format_item = function(item)
-        return format_item_with_state(item, get_state, lang)
+        return format_item_with_state(item, get_state, config, lang)
       end,
       on_choice = function(action)
         return handle_config_choice(action, get_state, set_state, config)
@@ -152,18 +165,6 @@ local function build_tabs(get_state, set_state, config)
       items = tabs_data.build_dex_items(state, config, lang),
       format_item = function(item)
         return item.label
-      end,
-      on_choice = function(item)
-        if not item or item.id ~= "dex_entry" then
-          return
-        end
-        -- 図鑑タイルの詳細表示を開く。
-        menu_view.select(item.detail_lines or {}, {
-          prompt = item.detail_title or "",
-          format_item = function(line)
-            return line
-          end,
-        }, function() end, config)
       end,
     },
     {
@@ -179,6 +180,9 @@ end
 -- メニューの最初のページを再表示するための入口を用意する。
 open_status_root = function(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
+  -- 全メニュー画面で共通のライブトラック情報を表示するため文脈を共有する。
+  menu_view.set_context(get_state, config)
+  tabs_view.set_context(get_state, config)
   local tabs = build_tabs(get_state, set_state, config)
   -- メニューの最初のページは状態詳細として表示する。
   tabs_view.select(tabs, {
@@ -207,6 +211,8 @@ local function update_menu(get_state, set_state, config)
   if not menu_open then
     return
   end
+  menu_view.set_context(get_state, config)
+  tabs_view.set_context(get_state, config)
   -- 開いているメニュー表示を最新の状態に更新する。
   tabs_view.update(build_tabs(get_state, set_state, config))
 end
@@ -214,5 +220,11 @@ end
 M.open = open
 M.toggle = toggle_menu
 M.update = update_menu
+M.is_open = function()
+  return menu_open
+end
+M.set_on_close = function(callback)
+  on_close_callback = callback
+end
 
 return M

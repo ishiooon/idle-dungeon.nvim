@@ -37,14 +37,18 @@ local function ensure_highlights(theme)
   -- メニュー表示用のハイライトを定義して視認性を保つ。
   local safe = theme or {}
   local inherit = safe.inherit ~= false
-  apply_highlight("IdleDungeonMenuTitle", { fg = safe.title or safe.accent, bold = true }, "Title", inherit)
-  apply_highlight("IdleDungeonMenuTabs", { fg = safe.accent, bold = true }, "Identifier", inherit)
-  apply_highlight("IdleDungeonMenuDivider", { fg = safe.divider or safe.border }, "WinSeparator", inherit)
+  -- triforce風に役割ごとに色を分け、未指定時はテーマ側の代表グループへ委譲する。
+  apply_highlight("IdleDungeonMenuTitle", { fg = safe.title or safe.accent, bold = true }, "Keyword", inherit)
+  apply_highlight("IdleDungeonMenuTabs", { fg = safe.accent, bold = true }, "String", inherit)
+  apply_highlight("IdleDungeonMenuTabActive", { fg = safe.selected_fg or safe.accent, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
+  apply_highlight("IdleDungeonMenuTabInactive", { fg = safe.muted }, "Pmenu", inherit)
+  apply_highlight("IdleDungeonMenuDivider", { fg = safe.divider or safe.border }, "Comment", inherit)
   apply_highlight("IdleDungeonMenuSelected", { fg = safe.selected_fg, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
-  apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "FloatBorder", inherit)
-  apply_highlight("IdleDungeonMenuNormal", { fg = safe.text, bg = safe.background }, "Normal", inherit)
+  apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "String", inherit)
+  apply_highlight("IdleDungeonMenuNormal", { fg = safe.text, bg = safe.background }, "NormalFloat", inherit)
+  apply_highlight("IdleDungeonMenuCursor", { fg = safe.background, bg = safe.background }, "NormalFloat", inherit)
   apply_highlight("IdleDungeonMenuMuted", { fg = safe.muted }, "Comment", inherit)
-  apply_highlight("IdleDungeonMenuSection", { fg = safe.accent or safe.title, bold = true }, "Title", inherit)
+  apply_highlight("IdleDungeonMenuSection", { fg = safe.accent or safe.title, bold = true }, "Question", inherit)
 end
 
 local function calculate_center(height, width)
@@ -79,11 +83,11 @@ local function open_window(height, width, border, theme)
     zindex = MAIN_ZINDEX,
   })
   vim.api.nvim_set_option_value("wrap", false, { win = win })
-  vim.api.nvim_set_option_value("cursorline", true, { win = win })
-  vim.api.nvim_set_option_value("cursorlineopt", "line", { win = win })
+  -- 行全体の着色は使わず、選択記号で現在行を示す。
+  vim.api.nvim_set_option_value("cursorline", false, { win = win })
   vim.api.nvim_set_option_value(
     "winhl",
-    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,CursorLine:IdleDungeonMenuSelected",
+    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,Cursor:IdleDungeonMenuCursor",
     { win = win }
   )
   return win, buf
@@ -115,7 +119,7 @@ local function open_window_at(row, col, height, width, border, theme, focusable)
   vim.api.nvim_set_option_value("cursorline", false, { win = win })
   vim.api.nvim_set_option_value(
     "winhl",
-    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder",
+    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,Cursor:IdleDungeonMenuCursor",
     { win = win }
   )
   return win, buf

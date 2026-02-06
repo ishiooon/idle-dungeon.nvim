@@ -70,14 +70,23 @@ local function list_learned(learned, jobs, kind, settings)
   return result
 end
 
+-- 乗数表現の補正値を「1基準の差分」で加算合成する。
+local function merge_bonus_value(current, value)
+  local numeric = tonumber(value)
+  if numeric == nil then
+    return current
+  end
+  return current + (numeric - 1)
+end
+
 -- パッシブスキルの補正値を合算して返す。
 local function resolve_passive_bonus(learned, settings, jobs)
   local bonus = { atk = 1, def = 1, accuracy = 1 }
   for _, skill in ipairs(list_learned(learned, jobs, "passive", settings)) do
     local mul = skill.bonus_mul or {}
-    bonus.atk = bonus.atk * (mul.atk or 1)
-    bonus.def = bonus.def * (mul.def or 1)
-    bonus.accuracy = bonus.accuracy * (mul.accuracy or 1)
+    bonus.atk = merge_bonus_value(bonus.atk, mul.atk)
+    bonus.def = merge_bonus_value(bonus.def, mul.def)
+    bonus.accuracy = merge_bonus_value(bonus.accuracy, mul.accuracy)
   end
   return bonus
 end
@@ -97,9 +106,9 @@ local function resolve_passive_bonus_from_list(skill_list)
   for _, skill in ipairs(skill_list or {}) do
     if skill.kind == "passive" then
       local mul = skill.bonus_mul or {}
-      bonus.atk = bonus.atk * (mul.atk or 1)
-      bonus.def = bonus.def * (mul.def or 1)
-      bonus.accuracy = bonus.accuracy * (mul.accuracy or 1)
+      bonus.atk = merge_bonus_value(bonus.atk, mul.atk)
+      bonus.def = merge_bonus_value(bonus.def, mul.def)
+      bonus.accuracy = merge_bonus_value(bonus.accuracy, mul.accuracy)
     end
   end
   return bonus

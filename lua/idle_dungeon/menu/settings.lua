@@ -1,6 +1,7 @@
 -- このモジュールはメニューの設定系操作をまとめる。
 -- 設定操作の参照先はmenuとcore配下へ整理する。
 local i18n = require("idle_dungeon.i18n")
+local game_speed = require("idle_dungeon.core.game_speed")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
 local state_module = require("idle_dungeon.core.state")
@@ -69,6 +70,15 @@ local function toggle_display_lines(get_state, set_state, config)
   local next_state = state_module.set_display_lines(state, next_lines)
   set_state(next_state)
 end
+
+local function cycle_game_speed(get_state, set_state, config)
+  local state = get_state()
+  local current = (state.ui and state.ui.game_speed) or nil
+  local next_speed = game_speed.cycle_game_speed_id(current, config)
+  -- ゲーム進行速度のみを循環切り替えして保存する。
+  local next_state = state_module.set_game_speed(state, next_speed)
+  set_state(next_state)
+end
 local function toggle_battle_hp_show_max(get_state, set_state, config)
   local state = get_state()
   local current = (state.ui and state.ui.battle_hp_show_max) or (config.ui or {}).battle_hp_show_max or false
@@ -92,6 +102,7 @@ local function open_reset_menu(get_state, set_state, config)
     prompt = i18n.t("prompt_reset_confirm", lang),
     lang = lang,
     footer_hints = menu_locale.submenu_footer_hints(lang),
+    keep_open = true,
     format_item = function(item)
       return item.label
     end,
@@ -109,6 +120,7 @@ M.open_language_menu = open_language_menu
 M.open_status_menu = open_status_menu
 M.toggle_auto_start = toggle_auto_start
 M.toggle_display_lines = toggle_display_lines
+M.cycle_game_speed = cycle_game_speed
 M.toggle_battle_hp_show_max = toggle_battle_hp_show_max
 M.open_reset_menu = open_reset_menu
 
