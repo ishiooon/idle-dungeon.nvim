@@ -131,7 +131,8 @@ local function render()
     lang
   )
   local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active, config.tabs_style)
-  local title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
+  local base_title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
+  local title = string.format("󰀘 %s", base_title)
   local footer_hints = (ui_state.opts and ui_state.opts.footer_hints) or {}
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   local labels, visible_items = build_tab_lines(tab, config)
@@ -185,7 +186,6 @@ local function render()
       end_col = (shell.left_col - 1) + marker_width,
     })
   end
-  window.apply_highlights(buf, highlights)
   local cursor_row = shell.body_start + (ui_state.selected - ui_state.offset) - 1
   vim.api.nvim_win_set_cursor(win, { math.max(cursor_row, shell.body_start), shell.left_col - 1 })
   ui_state.labels = labels
@@ -196,11 +196,18 @@ local function render()
     for _, segment in ipairs(menu_tabs.build_tabs_segments(ui_state.tabs, ui_state.active, config.tabs_style)) do
       table.insert(ui_state.tab_segments, {
         index = segment.index,
-        start_col = segment.start_col + 2,
-        end_col = segment.end_col + 2,
+        start_col = segment.start_col,
+        end_col = segment.end_col,
+      })
+      table.insert(highlights, {
+        line = shell.tabs_line_index,
+        group = segment.index == ui_state.active and "IdleDungeonMenuTabActive" or "IdleDungeonMenuTabInactive",
+        start_col = math.max(segment.start_col - 1, 0),
+        end_col = segment.end_col,
       })
     end
   end
+  window.apply_highlights(buf, highlights)
   ui_state.win = win
   ui_state.buf = buf
 end

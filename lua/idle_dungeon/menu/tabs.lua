@@ -6,10 +6,10 @@ local M = {}
 
 -- タブ表示の既定スタイルを定義して統一感を保つ。
 local DEFAULT_STYLE = {
-  separator = " │ ",
-  active_prefix = "[",
-  active_suffix = "]",
-  show_index = true,
+  separator = "  ",
+  active_prefix = "",
+  active_suffix = "",
+  show_index = false,
   icons = {},
 }
 
@@ -47,7 +47,16 @@ local function build_tab_label(tab, index, style, is_active)
   table.insert(parts, label)
   local joined = table.concat(parts, " ")
   if is_active then
-    return string.format("%s%s%s", style.active_prefix, joined, style.active_suffix)
+    if style.active_prefix ~= "" and style.active_suffix ~= "" then
+      return string.format("%s %s %s", style.active_prefix, joined, style.active_suffix)
+    end
+    if style.active_prefix ~= "" then
+      return string.format("%s %s", style.active_prefix, joined)
+    end
+    if style.active_suffix ~= "" then
+      return string.format("%s %s", joined, style.active_suffix)
+    end
+    return joined
   end
   return joined
 end

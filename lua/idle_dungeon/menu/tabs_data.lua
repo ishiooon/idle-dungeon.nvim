@@ -22,8 +22,8 @@ local function resolve_meter_style(config)
   local menu = ((config or {}).ui or {}).menu or {}
   local style = menu.meter or {}
   return {
-    on = style.on or "┃",
-    off = style.off or "·",
+    on = style.on or "▰",
+    off = style.off or "▱",
   }
 end
 
@@ -32,10 +32,19 @@ local function build_meter(label, current, total, width, suffix, meter_style)
   local ratio = clamp_ratio(current, total)
   local filled = math.floor(ratio * bar_width + 0.5)
   local empty = math.max(bar_width - filled, 0)
-  local style = meter_style or { on = "┃", off = "·" }
+  local style = meter_style or { on = "▰", off = "▱" }
   local bar = string.format("[%s%s]", string.rep(style.on, filled), string.rep(style.off, empty))
   local tail = suffix or string.format("%d/%d", math.floor(current or 0), math.floor(total or 0))
   return string.format("%s %s %s", label, bar, tail)
+end
+
+local function with_icon(icon, text)
+  local safe_icon = icon or ""
+  local safe_text = text or ""
+  if safe_icon == "" then
+    return safe_text
+  end
+  return string.format("%s %s", safe_icon, safe_text)
 end
 
 local function resolve_stage_info(state, config, lang)
@@ -73,29 +82,29 @@ end
 local function build_action_items()
   return {
     -- 操作系はメニューを閉じてから各サブメニューを開く。
-    { id = "equip", key = "menu_action_equip" },
-    { id = "stage", key = "menu_action_stage" },
-    { id = "purchase", key = "menu_action_purchase" },
-    { id = "sell", key = "menu_action_sell" },
+    { id = "equip", key = "menu_action_equip", icon = "󰓥" },
+    { id = "stage", key = "menu_action_stage", icon = "󰝰" },
+    { id = "purchase", key = "menu_action_purchase", icon = "󰏓" },
+    { id = "sell", key = "menu_action_sell", icon = "󰆏" },
     -- ジョブ変更は専用メニューで扱う。
-    { id = "job", key = "menu_action_job" },
+    { id = "job", key = "menu_action_job", icon = "󰘧" },
     -- 習得済みスキルの切り替え用メニューを追加する。
-    { id = "skills", key = "menu_action_skills" },
-    { id = "job_levels", key = "menu_action_job_levels" },
+    { id = "skills", key = "menu_action_skills", icon = "󰌵" },
+    { id = "job_levels", key = "menu_action_job_levels", icon = "󰁨" },
   }
 end
 
 local function build_config_items()
   return {
-    { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle" },
-    { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle" },
-    { id = "game_speed", key = "menu_action_game_speed", keep_open = true, kind = "cycle" },
-    { id = "display_lines", key = "menu_action_display_lines", keep_open = true, kind = "toggle" },
+    { id = "toggle_text", key = "menu_action_toggle_text", keep_open = true, kind = "toggle", icon = "󰘎" },
+    { id = "auto_start", key = "menu_action_auto_start", keep_open = true, kind = "toggle", icon = "󰐊" },
+    { id = "game_speed", key = "menu_action_game_speed", keep_open = true, kind = "cycle", icon = "󰓅" },
+    { id = "display_lines", key = "menu_action_display_lines", keep_open = true, kind = "toggle", icon = "󰍹" },
     -- 戦闘中のHP分母表示を切り替える設定を追加する。
-    { id = "battle_hp_show_max", key = "menu_action_battle_hp_show_max", keep_open = true, kind = "toggle" },
+    { id = "battle_hp_show_max", key = "menu_action_battle_hp_show_max", keep_open = true, kind = "toggle", icon = "󰓣" },
     -- 設定系は閉じずに選択できるようkeep_openで維持する。
-    { id = "language", key = "menu_action_language", keep_open = true },
-    { id = "reset", key = "menu_action_reset", keep_open = true },
+    { id = "language", key = "menu_action_language", keep_open = true, icon = "󰗊" },
+    { id = "reset", key = "menu_action_reset", keep_open = true, icon = "󰑐" },
   }
 end
 
@@ -118,39 +127,39 @@ local function build_status_items(state, config, lang)
   local stage_info = resolve_stage_info(state, config, lang)
   local actor = state.actor or {}
   local meter_style = resolve_meter_style(config)
-  table.insert(items, { id = "header", label = lang == "ja" and "ヒーロー" or "Hero" })
+  table.insert(items, { id = "header", label = with_icon("󰀘", lang == "ja" and "ヒーロー" or "Hero") })
   table.insert(items, {
     id = "entry",
-    label = string.format("%s %d  %s %d", i18n.t("label_level", lang), actor.level or 1, i18n.t("label_job_level", lang), actor.job_level or 1),
+    label = with_icon("󰁨", string.format("%s %d  %s %d", i18n.t("label_level", lang), actor.level or 1, i18n.t("label_job_level", lang), actor.job_level or 1)),
   })
   table.insert(items, {
     id = "entry",
-    label = build_meter(i18n.t("label_hp", lang), actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style),
+    label = build_meter(with_icon("󰓣", i18n.t("label_hp", lang)), actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style),
   })
   table.insert(items, {
     id = "entry",
-    label = build_meter(i18n.t("label_exp", lang), actor.exp or 0, actor.next_level or 0, 14, nil, meter_style),
+    label = build_meter(with_icon("", i18n.t("label_exp", lang)), actor.exp or 0, actor.next_level or 0, 14, nil, meter_style),
   })
   table.insert(items, {
     id = "entry",
-    label = string.format("%s %d  %s %d", i18n.t("label_atk", lang), actor.atk or 0, i18n.t("label_def", lang), actor.def or 0),
-  })
-  table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = lang == "ja" and "進行" or "Progress" })
-  table.insert(items, {
-    id = "entry",
-    label = string.format("%s %s", i18n.t("label_stage", lang), stage_info.name),
-  })
-  table.insert(items, {
-    id = "entry",
-    label = build_meter(i18n.t("label_progress", lang), stage_info.current_floor, stage_info.total_floors, 14, stage_info.text, meter_style),
-  })
-  table.insert(items, {
-    id = "entry",
-    label = string.format("%s %d/%d", i18n.t("label_floor_step", lang), stage_info.floor_step, stage_info.floor_length),
+    label = with_icon("󰓥", string.format("%s %d  %s %d", i18n.t("label_atk", lang), actor.atk or 0, i18n.t("label_def", lang), actor.def or 0)),
   })
   table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = lang == "ja" and "入力統計" or "Input Metrics" })
+  table.insert(items, { id = "header", label = with_icon("󰑓", lang == "ja" and "進行" or "Progress") })
+  table.insert(items, {
+    id = "entry",
+    label = with_icon("󰝰", string.format("%s %s", i18n.t("label_stage", lang), stage_info.name)),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = build_meter(with_icon("󰢚", i18n.t("label_progress", lang)), stage_info.current_floor, stage_info.total_floors, 14, stage_info.text, meter_style),
+  })
+  table.insert(items, {
+    id = "entry",
+    label = with_icon("󰳞", string.format("%s %d/%d", i18n.t("label_floor_step", lang), stage_info.floor_step, stage_info.floor_length)),
+  })
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = with_icon("󱂬", lang == "ja" and "入力統計" or "Input Metrics") })
   local metrics_lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang)
   for index, line in ipairs(metrics_lines) do
     if index > 3 then
@@ -161,7 +170,7 @@ local function build_status_items(state, config, lang)
   table.insert(items, { id = "spacer", label = "" })
   table.insert(items, {
     id = "metrics_detail",
-    label = i18n.t("menu_status_metrics", lang),
+    label = with_icon("󰈞", i18n.t("menu_status_metrics", lang)),
     detail_title = i18n.t("metrics_detail_title", lang),
     detail_lines = metrics_lines,
     keep_open = true,

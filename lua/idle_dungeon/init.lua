@@ -32,10 +32,15 @@ local function open_menu()
   engine.open_menu()
 end
 
+local function takeover_owner()
+  return engine.takeover_owner()
+end
+
 M.setup = setup
 M.start = start
 M.stop = stop
 M.toggle_text_mode = toggle_text_mode
 M.open_menu = open_menu
+M.takeover_owner = takeover_owner
 
 return M

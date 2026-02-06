@@ -14,14 +14,12 @@ end
 local function fixed_text(text, width)
   local safe_width = math.max(tonumber(width) or 0, 0)
   local safe_text = text or ""
-  local clamped = util.clamp_line(safe_text, safe_width)
-  -- 収まらない文字列は末尾に省略記号を付けて可読性を保つ。
-  if util.display_width(safe_text) > safe_width and safe_width >= 4 then
-    local core = util.clamp_line(safe_text, safe_width - 3)
-    clamped = core .. "..."
+  -- 収まらない文字列は切り詰めず、ウィンドウ側の折り返し表示に委ねる。
+  if util.display_width(safe_text) >= safe_width then
+    return safe_text
   end
-  local gap = math.max(width - util.display_width(clamped), 0)
-  return clamped .. string.rep(" ", gap)
+  local gap = math.max(safe_width - util.display_width(safe_text), 0)
+  return safe_text .. string.rep(" ", gap)
 end
 
 local function resolve_panel_width(width)
@@ -86,7 +84,8 @@ local function compose(opts)
     table.insert(lines, fixed_text(tabs_line, width))
     tabs_line_index = #lines
   end
-  table.insert(lines, fixed_text(string.rep("─", width), width))
+  -- 境界線は細い点線にして情報を分断しすぎない見た目にする。
+  table.insert(lines, fixed_text(string.rep("·", width), width))
   local body_start = #lines + 1
   for index = 1, body_height do
     local left = fixed_text((opts.left_lines or {})[index] or "", left_width)

@@ -10,13 +10,13 @@ local function default_theme()
     inherit = true,
     accent = "#a9b665",
     title = "#d8a657",
-    text = "#d4be98",
-    muted = "#928374",
-    border = "#665c54",
+    text = "#ddc7a1",
+    muted = "#7c6f64",
+    border = "#3c3836",
     divider = "#504945",
-    background = "#282828",
-    selected_bg = "#3c3836",
-    selected_fg = "#fbf1c7",
+    background = "#1d2021",
+    selected_bg = "#32302f",
+    selected_fg = "#f5e6c8",
   }
 end
 

@@ -74,32 +74,38 @@ local function default_ui()
     -- 画像スプライト設定は廃止したため保持しない。
     -- 中央メニューの表示設定をまとめる。
     menu = {
-      width_ratio = 0.56,
-      height_ratio = 0.54,
-      min_width = 56,
+      width_ratio = 0.52,
+      height_ratio = 0.56,
+      min_width = 52,
       min_height = 16,
-      max_width = 76,
-      max_height = 24,
+      max_width = 68,
+      max_height = 26,
       padding = 2,
-      border = "rounded",
+      border = "none",
       tabs_position = "top",
       -- タブ表示のスタイルを調整する。
       tabs = {
         separator = "  ",
-        active_prefix = "▌ ",
-        active_suffix = "",
+        active_prefix = "",
+        active_suffix = "",
         show_index = false,
-        icons = {},
+        icons = {
+          status = "󰍉",
+          actions = "󱎫",
+          config = "󰒓",
+          dex = "󰈔",
+          credits = "󰨭",
+        },
       },
       -- 進行バーはtriforce風に縦棒を使って視認性を上げる。
       meter = {
-        on = "┃",
-        off = "·",
+        on = "▰",
+        off = "▱",
       },
       -- 項目表示の見た目を整える記号を定義する。
-      item_prefix = "≫ ",
-      section_prefix = "◆ ",
-      empty_prefix = "  · ",
+      item_prefix = "󰜴 ",
+      section_prefix = "󰉖 ",
+      empty_prefix = "󰇘 ",
       theme = menu_theme.default_theme(),
     },
   }

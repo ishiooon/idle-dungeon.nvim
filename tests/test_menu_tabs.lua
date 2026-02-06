@@ -19,13 +19,25 @@ local items = {
 
 -- タブの番号表示と区切り記号が含まれることを確認する。
 local line1 = tabs.build_tabs_line(items, 1)
-assert_equal(line1, "[1 Status] │ 2 Actions │ 3 Config", "先頭タブが強調表示される")
+assert_equal(line1, " Status   Actions  Config", "先頭タブが強調表示される")
 
 local line2 = tabs.build_tabs_line(items, 2)
-assert_equal(line2, "1 Status │ [2 Actions] │ 3 Config", "中間タブが強調表示される")
+assert_equal(line2, "Status   Actions   Config", "中間タブが強調表示される")
 
 local line3 = tabs.build_tabs_line(items, 3)
-assert_equal(line3, "1 Status │ 2 Actions │ [3 Config]", "末尾タブが強調表示される")
+assert_equal(line3, "Status  Actions   Config ", "末尾タブが強調表示される")
+
+local icon_line = tabs.build_tabs_line({
+  { id = "status", label = "Status" },
+  { id = "actions", label = "Actions" },
+}, 1, {
+  separator = " · ",
+  active_prefix = "(",
+  active_suffix = ")",
+  show_index = false,
+  icons = { status = "󰍉", actions = "󱎫" },
+})
+assert_equal(icon_line, "( 󰍉 Status ) · 󱎫 Actions", "タブアイコンを含む表示を組み立てる")
 
 local segments = tabs.build_tabs_segments(items, 2)
 assert_equal(#segments, 3, "タブのクリック領域が3件生成される")

@@ -72,6 +72,10 @@ lua tests/test_render.lua
 lua tests/test_menu_layout.lua
 # メニュー共通フレームの生成を確認する。
 lua tests/test_menu_frame.lua
+# サブメニューでは上部進捗を表示しないことを確認する。
+lua tests/test_menu_submenu_header.lua
+# 横幅超過の文字列が省略されないことを確認する。
+lua tests/test_menu_wrap.lua
 # メニュー上部のライブトラック表示を確認する。
 lua tests/test_menu_live_header.lua
 # ジョブ選択メニューが確定後に閉じないことを確認する。
@@ -88,6 +92,10 @@ lua tests/test_menu_open_state.lua
 lua tests/test_menu_action_back.lua
 # Read-only表示の単体テストを確認する。
 lua tests/test_read_only.lua
+# 閲覧専用状態から主導権を奪取できることを確認する。
+lua tests/test_session_takeover.lua
+# 公開APIの主導権奪取委譲を確認する。
+lua tests/test_takeover_api.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
 # メニューの状態タブに指標と進行バーが表示されることを確認する。

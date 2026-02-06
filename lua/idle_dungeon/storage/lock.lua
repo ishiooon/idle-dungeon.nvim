@@ -78,9 +78,17 @@ local function release_lock(instance_id)
   return uv.fs_unlink(io.lock_path())
 end
 
+local function steal_lock(instance_id)
+  -- 既存ロックを優先して上書きし、主導権を奪取する。
+  io.ensure_dir()
+  uv.fs_unlink(io.lock_path())
+  return acquire_lock(instance_id, nil)
+end
+
 M.build_instance_id = build_instance_id
 M.acquire_lock = acquire_lock
 M.refresh_lock = refresh_lock
 M.release_lock = release_lock
+M.steal_lock = steal_lock
 
 return M

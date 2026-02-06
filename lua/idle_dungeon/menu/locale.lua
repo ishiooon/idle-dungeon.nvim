@@ -12,6 +12,13 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
+local function with_hint_icon(icon, text)
+  if not icon or icon == "" then
+    return text
+  end
+  return string.format("%s %s", icon, text or "")
+end
+
 local function resolve_lang(state, config)
   return (state.ui or {}).language or (config.ui or {}).language or "en"
 end
@@ -127,18 +134,18 @@ end
 -- メニュー下部の案内文を行配列で返す。
 local function menu_footer_hints(lang)
   return {
-    i18n.t("menu_hint_tabs", lang),
-    i18n.t("menu_hint_toggle", lang),
-    i18n.t("menu_hint_close", lang),
+    with_hint_icon("󰌑", i18n.t("menu_hint_tabs", lang)),
+    with_hint_icon("󰁍", i18n.t("menu_hint_toggle", lang)),
+    with_hint_icon("󰅖", i18n.t("menu_hint_close", lang)),
   }
 end
 
 -- 子画面用の操作案内を返す。
 local function submenu_footer_hints(lang)
   return {
-    i18n.t("menu_hint_select", lang),
-    i18n.t("menu_hint_back", lang),
-    i18n.t("menu_hint_close", lang),
+    with_hint_icon("󰌑", i18n.t("menu_hint_select", lang)),
+    with_hint_icon("󰁍", i18n.t("menu_hint_back", lang)),
+    with_hint_icon("󰅖", i18n.t("menu_hint_close", lang)),
   }
 end
 

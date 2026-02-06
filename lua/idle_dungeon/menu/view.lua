@@ -1,7 +1,6 @@
 -- このモジュールは子メニューの2ペイン表示と操作を提供する。
 
 local frame = require("idle_dungeon.menu.frame")
-local live_header = require("idle_dungeon.menu.live_header")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view_util = require("idle_dungeon.menu.view_util")
 local window = require("idle_dungeon.menu.window")
@@ -70,9 +69,8 @@ end
 local function render()
   local config = menu_view_util.menu_config(ui_state.config)
   local lang = ui_state.meta.lang
-  local source_state = shared_context.get_state and shared_context.get_state() or nil
-  local source_config = shared_context.config or ui_state.config
-  local top_lines = live_header.build_lines(source_state, source_config, lang)
+  -- サブメニューでは上部の進捗表示を省き、選択操作へ集中できるようにする。
+  local top_lines = {}
   local labels = build_labels(ui_state.items, ui_state.opts)
   local title = ui_state.opts.prompt_provider and ui_state.opts.prompt_provider()
     or ui_state.opts.prompt

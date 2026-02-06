@@ -87,9 +87,14 @@ local function save_state(state)
   return saved
 end
 
-local function acquire_owner()
+local function acquire_owner(force_takeover)
   -- 所有権を取得して更新可能にする。
-  local ok = lock.acquire_lock(runtime.instance_id, runtime.config.storage.lock_ttl_seconds)
+  local ok
+  if force_takeover == true then
+    ok = lock.steal_lock(runtime.instance_id)
+  else
+    ok = lock.acquire_lock(runtime.instance_id, runtime.config.storage.lock_ttl_seconds)
+  end
   runtime.owner = ok
   if ok then
     clear_read_only_notified()

@@ -39,9 +39,9 @@ local function ensure_highlights(theme)
   local inherit = safe.inherit ~= false
   -- triforce風に役割ごとに色を分け、未指定時はテーマ側の代表グループへ委譲する。
   apply_highlight("IdleDungeonMenuTitle", { fg = safe.title or safe.accent, bold = true }, "Keyword", inherit)
-  apply_highlight("IdleDungeonMenuTabs", { fg = safe.accent, bold = true }, "String", inherit)
-  apply_highlight("IdleDungeonMenuTabActive", { fg = safe.selected_fg or safe.accent, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
-  apply_highlight("IdleDungeonMenuTabInactive", { fg = safe.muted }, "Pmenu", inherit)
+  apply_highlight("IdleDungeonMenuTabs", { fg = safe.muted }, "Comment", inherit)
+  apply_highlight("IdleDungeonMenuTabActive", { fg = safe.background, bg = safe.accent, bold = true }, "PmenuSel", inherit)
+  apply_highlight("IdleDungeonMenuTabInactive", { fg = safe.text }, "Pmenu", inherit)
   apply_highlight("IdleDungeonMenuDivider", { fg = safe.divider or safe.border }, "Comment", inherit)
   apply_highlight("IdleDungeonMenuSelected", { fg = safe.selected_fg, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
   apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "String", inherit)
@@ -82,7 +82,9 @@ local function open_window(height, width, border, theme)
     -- 詳細表示より下に配置して重なり順を安定させる。
     zindex = MAIN_ZINDEX,
   })
-  vim.api.nvim_set_option_value("wrap", false, { win = win })
+  -- 横幅を超える文は折り返して表示し、情報欠落を防ぐ。
+  vim.api.nvim_set_option_value("wrap", true, { win = win })
+  vim.api.nvim_set_option_value("linebreak", true, { win = win })
   -- 行全体の着色は使わず、選択記号で現在行を示す。
   vim.api.nvim_set_option_value("cursorline", false, { win = win })
   vim.api.nvim_set_option_value(
@@ -115,7 +117,9 @@ local function open_window_at(row, col, height, width, border, theme, focusable)
     -- 左右どちらに表示しても見えるよう前面に出す。
     zindex = DETAIL_ZINDEX,
   })
-  vim.api.nvim_set_option_value("wrap", false, { win = win })
+  -- 横幅を超える文は折り返して表示し、情報欠落を防ぐ。
+  vim.api.nvim_set_option_value("wrap", true, { win = win })
+  vim.api.nvim_set_option_value("linebreak", true, { win = win })
   vim.api.nvim_set_option_value("cursorline", false, { win = win })
   vim.api.nvim_set_option_value(
     "winhl",

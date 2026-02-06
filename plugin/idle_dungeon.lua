@@ -19,6 +19,10 @@ vim.api.nvim_create_user_command("IdleDungeonToggleTextMode", function()
   idle.toggle_text_mode()
 end, {})
 
+vim.api.nvim_create_user_command("IdleDungeonTakeover", function()
+  idle.takeover_owner()
+end, {})
+
 -- Neovim終了時に停止処理を実行してロックを解放する。
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()

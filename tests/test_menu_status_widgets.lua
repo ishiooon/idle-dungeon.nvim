@@ -58,7 +58,7 @@ local text = table.concat(joined, " ")
 assert_match(text, "HP", "HPの指標が表示される")
 assert_match(text, "%[", "進行バーの開始記号が表示される")
 assert_match(text, "%]", "進行バーの終了記号が表示される")
-assert_match(text, "┃", "バー表示は縦棒インジケータを使う")
+assert_match(text, "▰", "バー表示は塗りつぶしインジケータを使う")
 assert_not_match(text, "#", "バー表示に#を使わない")
 assert_true(#items > 8, "状態タブの項目数が不足しない")
 

@@ -17,7 +17,13 @@ local i18n = require("idle_dungeon.i18n")
 local M = {}
 local current_config = nil
 local current_tick_seconds = nil
-local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current
+local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current, takeover_owner
+
+local function resolve_lang()
+  local state = session.get_state()
+  local ui_config = (current_config and current_config.ui) or {}
+  return (state and state.ui and state.ui.language) or ui_config.language or "en"
+end
 
 -- 速度上昇などによる実効ティック秒を解決する。
 local function resolve_tick_seconds(state, config)
@@ -199,14 +205,33 @@ end
 notify_read_only = function()
   if session.read_only_notified() then return end
   session.mark_read_only_notified()
-  local state = session.get_state()
-  local lang = (state and state.ui and state.ui.language) or (current_config.ui or {}).language or "en"
+  local lang = resolve_lang()
   -- 他のインスタンスが稼働中である旨を通知する。
   vim.notify(i18n.t("notify_read_only", lang), vim.log.levels.INFO)
+end
+takeover_owner = function()
+  if not current_config then start() end
+  if session.is_owner() then
+    vim.notify(i18n.t("notify_takeover_already_owner", resolve_lang()), vim.log.levels.INFO)
+    return true
+  end
+  if session.acquire_owner(true) then
+    start_owner_mode()
+    local state = session.get_state()
+    if state then
+      session.save_state(state)
+    end
+    render_current(session.get_state())
+    vim.notify(i18n.t("notify_takeover_success", resolve_lang()), vim.log.levels.INFO)
+    return true
+  end
+  vim.notify(i18n.t("notify_takeover_failed", resolve_lang()), vim.log.levels.WARN)
+  return false
 end
 M.configure = configure
 M.start = start
 M.stop = stop
 M.open_menu = open_menu
 M.toggle_text_mode = toggle_text_mode
+M.takeover_owner = takeover_owner
 return M

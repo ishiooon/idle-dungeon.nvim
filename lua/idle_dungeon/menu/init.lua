@@ -14,30 +14,38 @@ local M = {}
 local menu_open = false
 local open_status_root
 local on_close_callback = nil
+
+local function with_item_icon(item, text)
+  if not item or not item.icon or item.icon == "" then
+    return text
+  end
+  return string.format("%s %s", item.icon, text)
+end
+
 -- 状態に応じてラベルが変わる項目を整形する。
 local function format_item_with_state(item, get_state, config, lang)
   local state = get_state()
   -- トグル系はボタン風の表示で状態が分かるように整形する。
   if item.id == "auto_start" then
-    return menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang)
+    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang))
   end
   if item.id == "toggle_text" then
     local is_text = (state.ui and state.ui.render_mode) == "text"
-    return menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang)
+    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang))
   end
   if item.id == "display_lines" then
     local lines = (state.ui and state.ui.display_lines) or 2
-    return menu_locale.display_lines_label(lines, lang)
+    return with_item_icon(item, menu_locale.display_lines_label(lines, lang))
   end
   if item.id == "game_speed" then
-    return menu_locale.game_speed_label(state, config, lang)
+    return with_item_icon(item, menu_locale.game_speed_label(state, config, lang))
   end
   -- 戦闘時のHP分母表示はトグル表示で整形する。
   if item.id == "battle_hp_show_max" then
     local enabled = (state.ui and state.ui.battle_hp_show_max) or false
-    return menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang)
+    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang))
   end
-  return i18n.t(item.key, lang)
+  return with_item_icon(item, i18n.t(item.key, lang))
 end
 local function handle_action_choice(action, get_state, set_state, config, lang)
   if not action then
@@ -142,7 +150,7 @@ local function build_tabs(get_state, set_state, config)
       label = i18n.t("menu_tab_actions", lang),
       items = tabs_data.build_action_items(),
       format_item = function(item)
-        return i18n.t(item.key, lang)
+        return with_item_icon(item, i18n.t(item.key, lang))
       end,
       on_choice = function(action)
         return handle_action_choice(action, get_state, set_state, config, lang)

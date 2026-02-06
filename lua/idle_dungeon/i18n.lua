@@ -135,7 +135,10 @@ local translations = {
   label_filetypes = { en = "Filetypes:", jp = "入力内訳:" },
   metrics_detail_title = { en = "Input Metrics", jp = "入力統計" },
   metrics_detail_empty = { en = "No filetype data yet.", jp = "ファイル種別の入力はまだありません。" },
-  notify_read_only = { en = "Idle Dungeon is running in another Neovim. Read-only mode is active.", jp = "Idle Dungeonは他のNeovimで稼働中のため閲覧専用です。" },
+  notify_read_only = { en = "Idle Dungeon is running in another Neovim. Read-only mode is active. Use :IdleDungeonTakeover to take ownership.", jp = "Idle Dungeonは他のNeovimで稼働中のため閲覧専用です。:IdleDungeonTakeover で主導権を奪取できます。" },
+  notify_takeover_success = { en = "Idle Dungeon ownership takeover succeeded.", jp = "Idle Dungeonの主導権奪取に成功しました。" },
+  notify_takeover_failed = { en = "Failed to take over Idle Dungeon ownership.", jp = "Idle Dungeonの主導権奪取に失敗しました。" },
+  notify_takeover_already_owner = { en = "You already own Idle Dungeon in this Neovim.", jp = "このNeovimはすでにIdle Dungeonの主導権を持っています。" },
   language_en = { en = "English", jp = "English" },
   language_ja = { en = "日本語", jp = "日本語" },
 }
