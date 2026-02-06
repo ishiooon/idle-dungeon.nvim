@@ -19,13 +19,13 @@ local items = {
 
 -- タブの番号表示と区切り記号が含まれることを確認する。
 local line1 = tabs.build_tabs_line(items, 1)
-assert_equal(line1, " Status   Actions  Config", "先頭タブが強調表示される")
+assert_equal(line1, "󰐊 Status 󰇙 Actions 󰇙 Config", "先頭タブが強調表示される")
 
 local line2 = tabs.build_tabs_line(items, 2)
-assert_equal(line2, "Status   Actions   Config", "中間タブが強調表示される")
+assert_equal(line2, "Status 󰇙 󰐊 Actions 󰇙 Config", "中間タブが強調表示される")
 
 local line3 = tabs.build_tabs_line(items, 3)
-assert_equal(line3, "Status  Actions   Config ", "末尾タブが強調表示される")
+assert_equal(line3, "Status 󰇙 Actions 󰇙 󰐊 Config", "末尾タブが強調表示される")
 
 local icon_line = tabs.build_tabs_line({
   { id = "status", label = "Status" },

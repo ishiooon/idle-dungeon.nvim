@@ -76,8 +76,16 @@ lua tests/test_menu_frame.lua
 lua tests/test_menu_submenu_header.lua
 # 横幅超過の文字列が省略されないことを確認する。
 lua tests/test_menu_wrap.lua
+# メニュー上部表示が折り返し回避のため幅を優先拡張することを確認する。
+lua tests/test_menu_live_header_no_wrap.lua
 # メニュー上部のライブトラック表示を確認する。
 lua tests/test_menu_live_header.lua
+# メニュー選択アニメーションの位相切替を確認する。
+lua tests/test_menu_selection_fx.lua
+# メインメニューの横幅拡張と折り返し無効を確認する。
+lua tests/test_menu_tabs_width_expand.lua
+# タブ更新時にメニューの表示サイズが縮まないことを確認する。
+lua tests/test_menu_tabs_stable_layout.lua
 # ジョブ選択メニューが確定後に閉じないことを確認する。
 lua tests/test_menu_job_keep_open.lua
 # ステージ選択メニューが確定後に閉じないことを確認する。

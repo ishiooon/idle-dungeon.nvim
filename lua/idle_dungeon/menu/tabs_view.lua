@@ -3,6 +3,7 @@
 local frame = require("idle_dungeon.menu.frame")
 local live_header = require("idle_dungeon.menu.live_header")
 local menu_locale = require("idle_dungeon.menu.locale")
+local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view = require("idle_dungeon.menu.view")
 local menu_tabs = require("idle_dungeon.menu.tabs")
 local menu_view_util = require("idle_dungeon.menu.view_util")
@@ -25,15 +26,20 @@ local ui_state = {
   tabs_line_index = nil,
   tab_segments = {},
   visible_items = {},
+  layout = { width = nil, height = nil },
+  selection_fx = {},
 }
 local shared_context = { get_state = nil, config = nil }
 
 local function close()
   local callback = ui_state.on_close
   ui_state.on_close = nil
+  selection_fx.stop(ui_state.selection_fx)
   window.close_window(ui_state.win, ui_state.prev_win)
   ui_state.win = nil
   ui_state.buf = nil
+  ui_state.tabs = {}
+  ui_state.tab_segments = {}
   if callback then
     callback()
   end
@@ -89,11 +95,11 @@ local function build_tab_lines(tab, config)
     local format_item = tab and tab.format_item or nil
     local label = format_item and format_item(item) or (item and item.label) or ""
     if item and item.id == "header" then
-      table.insert(lines, string.format("  %s", config.section_prefix or "◆ "))
+      table.insert(lines, string.format("  %s", config.section_prefix or "󰉖 "))
       lines[#lines] = lines[#lines] .. label
       table.insert(visible_items, item)
     elseif item and item.id == "empty" then
-      table.insert(lines, string.format("  %s%s", config.empty_prefix or "· ", label))
+      table.insert(lines, string.format("  %s%s", config.empty_prefix or "󰇘 ", label))
       table.insert(visible_items, item)
     elseif item and item.id == "spacer" then
       table.insert(lines, "")
@@ -104,6 +110,50 @@ local function build_tab_lines(tab, config)
     end
   end
   return lines, visible_items
+end
+
+local function build_formatted_lines(tab, config)
+  local labels = {}
+  for _, item in ipairs((tab and tab.items) or {}) do
+    local format_item = tab and tab.format_item or nil
+    local label = format_item and format_item(item) or (item and item.label) or ""
+    if item and item.id == "header" then
+      label = string.format("  %s%s", config.section_prefix or "󰉖 ", label)
+    elseif item and item.id == "empty" then
+      label = string.format("  %s%s", config.empty_prefix or "󰇘 ", label)
+    elseif item and item.id == "spacer" then
+      label = ""
+    end
+    table.insert(labels, label)
+  end
+  return labels
+end
+
+local function build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, all_tabs, config)
+  local lines = { title, tabs_line, table.concat(footer_hints or {}, "   ") }
+  for _, line in ipairs(top_lines or {}) do
+    table.insert(lines, line)
+  end
+  for _, line in ipairs(left_lines or {}) do
+    table.insert(lines, line)
+  end
+  -- タブ切替時の横幅ジャンプを避けるため、全タブの本文長も幅計算へ含める。
+  for _, tab in ipairs(all_tabs or {}) do
+    for _, line in ipairs(build_formatted_lines(tab, config)) do
+      table.insert(lines, line)
+    end
+  end
+  return lines
+end
+
+local function resolve_stable_layout(config, width, height)
+  local max_width = tonumber(config.available_width) or width
+  local max_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 10)
+  local next_width = math.max(ui_state.layout.width or 0, width)
+  local next_height = math.max(ui_state.layout.height or 0, height)
+  ui_state.layout.width = math.min(next_width, max_width)
+  ui_state.layout.height = math.min(next_height, max_height)
+  return ui_state.layout.width, ui_state.layout.height
 end
 
 local function has_detail_lines(lines)
@@ -146,7 +196,7 @@ local function render()
     selected = ui_state.selected,
     offset = ui_state.offset,
     visible = visible,
-    prefix = config.item_prefix or "≫ ",
+    prefix = config.item_prefix or "󰜴 ",
     non_select_prefix = "  ",
     is_selectable = is_selectable,
     render_line = function(label, _, mark, _, selectable)
@@ -156,6 +206,9 @@ local function render()
       return "  " .. label
     end,
   })
+  local width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
+  width = menu_view_util.resolve_display_width(config, width, width_lines)
+  width, height = resolve_stable_layout(config, width, height)
   local shell = frame.compose({
     title = title,
     top_lines = top_lines,
@@ -167,7 +220,10 @@ local function render()
     width = width,
     height = height,
   })
-  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border, config.theme)
+  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border, config.theme, {
+    -- メイン画面は折り返さず1行で表示して視認性を保つ。
+    wrap_lines = false,
+  })
   window.update_window(win, height, width)
   window.set_lines(buf, shell.lines)
   local highlights = {
@@ -178,10 +234,10 @@ local function render()
     table.insert(highlights, { line = shell.tabs_line_index, group = "IdleDungeonMenuTabs" })
   end
   if selected_row then
-    local marker_width = string.len(config.item_prefix or "≫ ")
+    local marker_width = string.len(config.item_prefix or "󰜴 ")
     table.insert(highlights, {
       line = shell.body_start + selected_row - 1,
-      group = "IdleDungeonMenuSelected",
+      group = selection_fx.selected_group(ui_state.selection_fx),
       start_col = shell.left_col - 1,
       end_col = (shell.left_col - 1) + marker_width,
     })
@@ -263,6 +319,7 @@ local function move(delta)
   local next_cursor = math.max(math.min(cursor + delta, #indexes), 1)
   ui_state.selected = indexes[next_cursor]
   render()
+  selection_fx.start(ui_state.selection_fx, render)
 end
 
 local function switch_tab(delta)
@@ -270,6 +327,7 @@ local function switch_tab(delta)
   ui_state.offset = 0
   ui_state.selected = 1
   render()
+  selection_fx.start(ui_state.selection_fx, render)
 end
 
 local function select_current()
@@ -328,6 +386,7 @@ local function set_keymaps(buf)
           ui_state.selected = 1
           ui_state.offset = 0
           render()
+          selection_fx.start(ui_state.selection_fx, render)
           return
         end
       end
@@ -346,6 +405,7 @@ local function set_keymaps(buf)
       ui_state.selected = 1
       ui_state.offset = 0
       render()
+      selection_fx.start(ui_state.selection_fx, render)
     end, { buffer = buf, silent = true })
   end
 end
@@ -383,6 +443,8 @@ local function select(tabs, opts, config)
   ui_state.active = menu_view_util.clamp_selected(active, #tabs)
   ui_state.selected = 1
   ui_state.offset = 0
+  ui_state.layout = { width = nil, height = nil }
+  ui_state.selection_fx = {}
   render()
   if ui_state.buf then
     set_keymaps(ui_state.buf)

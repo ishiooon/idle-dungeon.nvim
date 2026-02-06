@@ -55,11 +55,34 @@ for _, item in ipairs(items) do
 end
 local text = table.concat(joined, " ")
 
+local function prefix_width(line, marker)
+  local start_pos = string.find(line or "", marker, 1, true)
+  if not start_pos or start_pos <= 1 then
+    return 0
+  end
+  return util.display_width(string.sub(line, 1, start_pos - 1))
+end
+
 assert_match(text, "HP", "HPの指標が表示される")
 assert_match(text, "%[", "進行バーの開始記号が表示される")
 assert_match(text, "%]", "進行バーの終了記号が表示される")
 assert_match(text, "▰", "バー表示は塗りつぶしインジケータを使う")
 assert_not_match(text, "#", "バー表示に#を使わない")
 assert_true(#items > 8, "状態タブの項目数が不足しない")
+
+local hp_line = nil
+local exp_line = nil
+for _, item in ipairs(items) do
+  local label = (item and item.label) or ""
+  if not hp_line and string.find(label, "HP", 1, true) then
+    hp_line = label
+  end
+  if not exp_line and string.find(label, "Exp", 1, true) then
+    exp_line = label
+  end
+end
+assert_true(hp_line ~= nil, "HP行が存在する")
+assert_true(exp_line ~= nil, "EXP行が存在する")
+assert_true(prefix_width(hp_line, "[") == prefix_width(exp_line, "["), "HPとEXPのバー開始位置が揃う")
 
 print("OK")

@@ -2,6 +2,7 @@
 
 local frame = require("idle_dungeon.menu.frame")
 local menu_locale = require("idle_dungeon.menu.locale")
+local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view_util = require("idle_dungeon.menu.view_util")
 local window = require("idle_dungeon.menu.window")
 
@@ -21,13 +22,17 @@ local ui_state = {
   config = {},
   on_choice = nil,
   meta = nil,
+  selection_fx = {},
 }
 local shared_context = { get_state = nil, config = nil }
 
 local function close()
+  selection_fx.stop(ui_state.selection_fx)
   window.close_window(ui_state.win, ui_state.prev_win)
   ui_state.win = nil
   ui_state.buf = nil
+  ui_state.items = {}
+  ui_state.labels = {}
 end
 
 local function is_back_item(item)
@@ -89,7 +94,7 @@ local function render()
     selected = ui_state.selected,
     offset = ui_state.offset,
     visible = visible,
-    prefix = config.item_prefix or "≫ ",
+    prefix = config.item_prefix or "󰜴 ",
     render_line = function(label, item, mark)
       if is_back_item(item) then
         return mark .. "↩ " .. label
@@ -97,6 +102,11 @@ local function render()
       return mark .. label
     end,
   })
+  local width_lines = { title, tabs_line, table.concat(hints or {}, "   ") }
+  for _, line in ipairs(left_lines or {}) do
+    table.insert(width_lines, line)
+  end
+  width = menu_view_util.resolve_display_width(config, width, width_lines)
   local shell = frame.compose({
     title = title,
     top_lines = top_lines,
@@ -118,10 +128,10 @@ local function render()
     table.insert(highlights, { line = shell.tabs_line_index, group = "IdleDungeonMenuTabs" })
   end
   if selected_row then
-    local marker_width = string.len(config.item_prefix or "≫ ")
+    local marker_width = string.len(config.item_prefix or "󰜴 ")
     table.insert(highlights, {
       line = shell.body_start + selected_row - 1,
-      group = "IdleDungeonMenuSelected",
+      group = selection_fx.selected_group(ui_state.selection_fx),
       start_col = shell.left_col - 1,
       end_col = (shell.left_col - 1) + marker_width,
     })
@@ -139,6 +149,7 @@ end
 local function move(delta)
   ui_state.selected = menu_view_util.clamp_selected(ui_state.selected + delta, #ui_state.labels)
   render()
+  selection_fx.start(ui_state.selection_fx, render)
 end
 
 local function cancel()
@@ -176,8 +187,16 @@ local function set_keymaps(buf)
     { "k", function() move(-1) end },
     { "<Down>", function() move(1) end },
     { "<Up>", function() move(-1) end },
-    { "gg", function() ui_state.selected = menu_view_util.clamp_selected(1, #ui_state.items) render() end },
-    { "G", function() ui_state.selected = menu_view_util.clamp_selected(#ui_state.items, #ui_state.items) render() end },
+    { "gg", function()
+      ui_state.selected = menu_view_util.clamp_selected(1, #ui_state.items)
+      render()
+      selection_fx.start(ui_state.selection_fx, render)
+    end },
+    { "G", function()
+      ui_state.selected = menu_view_util.clamp_selected(#ui_state.items, #ui_state.items)
+      render()
+      selection_fx.start(ui_state.selection_fx, render)
+    end },
     { "<CR>", select_current },
     { "b", cancel },
     { "<BS>", cancel },
@@ -204,6 +223,7 @@ local function select(items, opts, on_choice, config)
   ui_state.selected = menu_view_util.clamp_selected(selected, #rows)
   ui_state.offset = 0
   ui_state.meta = { lang = lang }
+  ui_state.selection_fx = {}
   render()
   if ui_state.buf then
     set_keymaps(ui_state.buf)

@@ -42,8 +42,9 @@ local function resolve_content_height(opts)
   local height = math.max(tonumber(opts.height) or 1, 1)
   local has_tabs = type(opts.tabs_line) == "string" and opts.tabs_line ~= ""
   local top_count = type(opts.top_lines) == "table" and #opts.top_lines or 0
+  local top_gap = (top_count > 0 and has_tabs) and 1 or 0
   -- title/top/tabs/divider/footer を除いた本文高さを返す。
-  local fixed = 3 + top_count + (has_tabs and 1 or 0)
+  local fixed = 3 + top_count + top_gap + (has_tabs and 1 or 0)
   return math.max(height - fixed, 1)
 end
 
@@ -81,6 +82,9 @@ local function compose(opts)
   end
   local tabs_line_index = nil
   if tabs_line ~= "" then
+    if #top_lines > 0 then
+      table.insert(lines, fixed_text("", width))
+    end
     table.insert(lines, fixed_text(tabs_line, width))
     tabs_line_index = #lines
   end

@@ -100,10 +100,12 @@ local function menu_config(config)
     border = menu.border or "rounded",
     tabs_position = menu.tabs_position or "top",
     tabs_style = menu.tabs or {},
-    item_prefix = menu.item_prefix or "≫ ",
-    section_prefix = menu.section_prefix or "◆ ",
-    empty_prefix = menu.empty_prefix or "  · ",
+    item_prefix = menu.item_prefix or "󰜴 ",
+    section_prefix = menu.section_prefix or "󰉖 ",
+    empty_prefix = menu.empty_prefix or "󰇘 ",
     theme = theme.resolve(config),
+    -- 上部表示の可読性を保つため、現在画面で使える最大幅を保持する。
+    available_width = screen_width,
   }
 end
 
@@ -120,12 +122,25 @@ end
 local function resolve_compact_width(config, top_lines, tabs_line)
   local min_width = tonumber(config.min_width) or 64
   local max_width = tonumber(config.max_width) or tonumber(config.width) or min_width
-  local base_width = tonumber(config.width) or max_width
+  local available_width = tonumber(config.available_width) or max_width
   local top_width = max_line_width(top_lines)
   local tabs_width = util.display_width(tabs_line or "")
   local target = math.max(top_width, tabs_width) + 6
-  local clamped = clamp_number(target, min_width, max_width)
-  return math.min(clamped, base_width)
+  local expandable_max = max_width
+  -- 上部ライブ表示が長い場合は折り返しを避けるため、画面上限まで幅を広げる。
+  if target > max_width then
+    expandable_max = math.max(max_width, available_width)
+  end
+  return clamp_number(target, min_width, expandable_max)
+end
+
+-- 実際に表示する行の長さへ合わせて幅を再計算する。
+local function resolve_display_width(config, base_width, lines)
+  local min_width = tonumber(config.min_width) or 64
+  local available_width = tonumber(config.available_width) or tonumber(base_width) or min_width
+  local baseline = clamp_number(tonumber(base_width) or min_width, min_width, available_width)
+  local required = max_line_width(lines) + 2
+  return clamp_number(math.max(baseline, required), min_width, available_width)
 end
 
 -- 行数に応じて高さを詰め、下方向の空白を減らす。
@@ -133,7 +148,9 @@ local function resolve_compact_height(config, screen_height, visible_rows, top_l
   local min_height = tonumber(config.min_height) or 16
   local max_height = tonumber(config.max_height) or tonumber(config.height) or min_height
   local top_count = #(top_lines or {})
-  local fixed = 5 + top_count + (top_count > 0 and 1 or 0) + (has_tabs and 1 or 0)
+  local top_gap = (top_count > 0 and has_tabs) and 1 or 0
+  -- title + divider + footer + top行 + top/tabs間の余白 + tabs行
+  local fixed = 3 + top_count + top_gap + (has_tabs and 1 or 0)
   local body = clamp_number(visible_rows or 0, 6, 14)
   local target = fixed + body
   local clamped = clamp_number(target, min_height, max_height)
@@ -182,6 +199,7 @@ M.adjust_offset = adjust_offset
 M.menu_config = menu_config
 M.max_line_width = max_line_width
 M.resolve_compact_width = resolve_compact_width
+M.resolve_display_width = resolve_display_width
 M.resolve_compact_height = resolve_compact_height
 M.build_select_lines = build_select_lines
 

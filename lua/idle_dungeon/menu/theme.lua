@@ -8,14 +8,15 @@ local function default_theme()
   return {
     -- 既定配色はgruvbox-material系の落ち着いたコントラストに寄せる。
     inherit = true,
-    accent = "#a9b665",
+    accent = "#7daea3",
     title = "#d8a657",
-    text = "#ddc7a1",
-    muted = "#7c6f64",
+    text = "#e2cca9",
+    muted = "#928374",
     border = "#3c3836",
     divider = "#504945",
-    background = "#1d2021",
-    selected_bg = "#32302f",
+    background = "#202324",
+    selected_bg = "#32363a",
+    selected_bg_alt = "#40464b",
     selected_fg = "#f5e6c8",
   }
 end

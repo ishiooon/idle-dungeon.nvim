@@ -6,9 +6,9 @@ local M = {}
 
 -- タブ表示の既定スタイルを定義して統一感を保つ。
 local DEFAULT_STYLE = {
-  separator = "  ",
-  active_prefix = "",
-  active_suffix = "",
+  separator = " 󰇙 ",
+  active_prefix = "󰐊",
+  active_suffix = "",
   show_index = false,
   icons = {},
 }

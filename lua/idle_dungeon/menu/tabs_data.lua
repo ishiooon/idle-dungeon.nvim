@@ -6,6 +6,7 @@ local menu_locale = require("idle_dungeon.menu.locale")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local render_stage = require("idle_dungeon.ui.render_stage")
 local stage_progress = require("idle_dungeon.game.stage_progress")
+local util = require("idle_dungeon.util")
 
 local M = {}
 
@@ -27,7 +28,20 @@ local function resolve_meter_style(config)
   }
 end
 
-local function build_meter(label, current, total, width, suffix, meter_style)
+local function align_label(label, label_width)
+  local text = label or ""
+  local width = math.max(tonumber(label_width) or 0, 0)
+  if width <= 0 then
+    return text
+  end
+  local gap = width - util.display_width(text)
+  if gap <= 0 then
+    return text
+  end
+  return text .. string.rep(" ", gap)
+end
+
+local function build_meter(label, current, total, width, suffix, meter_style, label_width)
   local bar_width = math.max(tonumber(width) or 14, 6)
   local ratio = clamp_ratio(current, total)
   local filled = math.floor(ratio * bar_width + 0.5)
@@ -35,7 +49,7 @@ local function build_meter(label, current, total, width, suffix, meter_style)
   local style = meter_style or { on = "▰", off = "▱" }
   local bar = string.format("[%s%s]", string.rep(style.on, filled), string.rep(style.off, empty))
   local tail = suffix or string.format("%d/%d", math.floor(current or 0), math.floor(total or 0))
-  return string.format("%s %s %s", label, bar, tail)
+  return string.format("%s %s %s", align_label(label, label_width), bar, tail)
 end
 
 local function with_icon(icon, text)
@@ -127,6 +141,9 @@ local function build_status_items(state, config, lang)
   local stage_info = resolve_stage_info(state, config, lang)
   local actor = state.actor or {}
   local meter_style = resolve_meter_style(config)
+  local hp_label = with_icon("󰓣", i18n.t("label_hp", lang))
+  local exp_label = with_icon("", i18n.t("label_exp", lang))
+  local meter_label_width = math.max(util.display_width(hp_label), util.display_width(exp_label))
   table.insert(items, { id = "header", label = with_icon("󰀘", lang == "ja" and "ヒーロー" or "Hero") })
   table.insert(items, {
     id = "entry",
@@ -134,11 +151,11 @@ local function build_status_items(state, config, lang)
   })
   table.insert(items, {
     id = "entry",
-    label = build_meter(with_icon("󰓣", i18n.t("label_hp", lang)), actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style),
+    label = build_meter(hp_label, actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style, meter_label_width),
   })
   table.insert(items, {
     id = "entry",
-    label = build_meter(with_icon("", i18n.t("label_exp", lang)), actor.exp or 0, actor.next_level or 0, 14, nil, meter_style),
+    label = build_meter(exp_label, actor.exp or 0, actor.next_level or 0, 14, nil, meter_style, meter_label_width),
   })
   table.insert(items, {
     id = "entry",

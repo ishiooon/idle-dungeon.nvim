@@ -85,9 +85,9 @@ local function default_ui()
       tabs_position = "top",
       -- タブ表示のスタイルを調整する。
       tabs = {
-        separator = "  ",
-        active_prefix = "",
-        active_suffix = "",
+        separator = " 󰇙 ",
+        active_prefix = "󰐊",
+        active_suffix = "",
         show_index = false,
         icons = {
           status = "󰍉",
