@@ -515,7 +515,14 @@ local function tick_reward(state, config)
   if pending_drop and pending_drop.id then
     -- ペット枠のドロップは保持中ペットとして登録する。
     if pending_drop.rarity == "pet" then
-      next_state = pets.add_pet(next_state, pending_drop.id, content.enemies, content.jobs, companion_icon)
+      next_state = pets.add_pet(
+        next_state,
+        pending_drop.id,
+        content.enemies,
+        content.jobs,
+        companion_icon,
+        state.combat and state.combat.enemy or nil
+      )
     else
       -- 通常の戦利品は所持品へ追加する。
       next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)

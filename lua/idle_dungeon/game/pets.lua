@@ -26,29 +26,46 @@ local function find_enemy_def(enemy_defs, enemy_id)
 end
 
 -- 敵定義を戦闘用の保持データへ変換する。
-local function build_pet_from_enemy(enemy_def, fallback_icon)
-  if not enemy_def then
+local function build_pet_from_enemy(enemy_source, enemy_defs, fallback_icon)
+  if not enemy_source then
     return nil
   end
-  local stats = enemy_def.stats or {}
-  local max_hp = math.max(tonumber(enemy_def.hp) or tonumber(stats.hp) or 1, 1)
-  local atk = math.max(tonumber(enemy_def.atk) or tonumber(stats.atk) or 1, 1)
-  local def = math.max(tonumber(enemy_def.def) or tonumber(stats.def) or 0, 0)
-  local accuracy = math.max(tonumber(enemy_def.accuracy) or tonumber(stats.accuracy) or 90, 0)
-  local element = enemy_def.element
-  if (not element or element == "") and type(enemy_def.elements) == "table" and #enemy_def.elements > 0 then
+  local enemy_def = find_enemy_def(enemy_defs, enemy_source.id or "")
+  local source_stats = enemy_source.stats or {}
+  local default_stats = (enemy_def and enemy_def.stats) or {}
+  local max_hp = math.max(
+    tonumber(enemy_source.max_hp) or tonumber(enemy_source.hp) or tonumber(source_stats.hp) or tonumber(default_stats.hp) or 1,
+    1
+  )
+  local atk = math.max(tonumber(enemy_source.atk) or tonumber(source_stats.atk) or tonumber(default_stats.atk) or 1, 1)
+  local def = math.max(tonumber(enemy_source.def) or tonumber(source_stats.def) or tonumber(default_stats.def) or 0, 0)
+  local accuracy = math.max(
+    tonumber(enemy_source.accuracy) or tonumber(source_stats.accuracy) or tonumber(default_stats.accuracy) or 90,
+    0
+  )
+  local speed = math.max(tonumber(enemy_source.speed) or tonumber(source_stats.speed) or tonumber(default_stats.speed) or 1, 1)
+  local element = enemy_source.element
+  if (not element or element == "") and type(enemy_source.elements) == "table" and #enemy_source.elements > 0 then
+    element = enemy_source.elements[1]
+  end
+  if (not element or element == "") and enemy_def then
+    element = enemy_def.element
+  end
+  if (not element or element == "") and enemy_def and type(enemy_def.elements) == "table" and #enemy_def.elements > 0 then
     element = enemy_def.elements[1]
   end
   return {
-    id = enemy_def.id,
-    name = enemy_def.name_ja or enemy_def.name or enemy_def.id,
-    name_en = enemy_def.name_en or enemy_def.name or enemy_def.id,
-    icon = enemy_def.icon or fallback_icon or DEFAULT_PET_ICON,
+    id = enemy_source.id or (enemy_def and enemy_def.id) or "pet",
+    name = enemy_source.name_ja or enemy_source.name or (enemy_def and (enemy_def.name_ja or enemy_def.name)) or enemy_source.id or "pet",
+    name_en = enemy_source.name_en or enemy_source.name or (enemy_def and (enemy_def.name_en or enemy_def.name)) or enemy_source.id or "pet",
+    icon = enemy_source.icon or (enemy_def and enemy_def.icon) or fallback_icon or DEFAULT_PET_ICON,
+    -- ペット化時は撃破時点の最大HPで全回復する。
     hp = max_hp,
     max_hp = max_hp,
     atk = atk,
     def = def,
     accuracy = accuracy,
+    speed = speed,
     element = element or "normal",
   }
 end
@@ -60,12 +77,13 @@ local function normalize_pet(entry, enemy_defs, fallback_icon)
   end
   local enemy_def = find_enemy_def(enemy_defs, entry.id)
   if enemy_def then
-    local built = build_pet_from_enemy(enemy_def, fallback_icon)
+    local built = build_pet_from_enemy(entry, enemy_defs, fallback_icon)
     built.max_hp = math.max(tonumber(entry.max_hp) or built.max_hp, 1)
     built.hp = math.max(math.min(tonumber(entry.hp) or built.hp, built.max_hp), 0)
     built.atk = math.max(tonumber(entry.atk) or built.atk, 1)
     built.def = math.max(tonumber(entry.def) or built.def, 0)
     built.accuracy = math.max(tonumber(entry.accuracy) or built.accuracy, 0)
+    built.speed = math.max(tonumber(entry.speed) or built.speed, 1)
     if type(entry.icon) == "string" and entry.icon ~= "" then
       built.icon = entry.icon
     end
@@ -82,6 +100,7 @@ local function normalize_pet(entry, enemy_defs, fallback_icon)
     atk = math.max(tonumber(entry.atk) or 1, 1),
     def = math.max(tonumber(entry.def) or 0, 0),
     accuracy = math.max(tonumber(entry.accuracy) or 90, 0),
+    speed = math.max(tonumber(entry.speed) or 1, 1),
     element = entry.element or "normal",
   }
 end
@@ -139,9 +158,12 @@ local function enforce_capacity(state, jobs, enemy_defs, fallback_icon)
 end
 
 -- 新しいペットを追加し、保持上限を超えた分は古い順に外す。
-local function add_pet(state, pet_id, enemy_defs, jobs, fallback_icon)
-  local enemy_def = find_enemy_def(enemy_defs, pet_id)
-  local pet = build_pet_from_enemy(enemy_def, fallback_icon)
+local function add_pet(state, pet_id, enemy_defs, jobs, fallback_icon, enemy_snapshot)
+  local source = enemy_snapshot
+  if not source or source.id ~= pet_id then
+    source = find_enemy_def(enemy_defs, pet_id)
+  end
+  local pet = build_pet_from_enemy(source, enemy_defs, fallback_icon)
   if not pet then
     return state
   end
