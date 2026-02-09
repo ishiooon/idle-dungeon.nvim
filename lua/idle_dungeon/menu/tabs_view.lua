@@ -233,8 +233,10 @@ local function render()
   if shell.tabs_line_index then
     table.insert(highlights, { line = shell.tabs_line_index, group = "IdleDungeonMenuTabs" })
   end
+  local selected_marker_width = 0
   if selected_row then
     local marker_width = string.len(config.item_prefix or "󰜴 ")
+    selected_marker_width = marker_width
     table.insert(highlights, {
       line = shell.body_start + selected_row - 1,
       group = selection_fx.selected_group(ui_state.selection_fx),
@@ -243,7 +245,8 @@ local function render()
     })
   end
   local cursor_row = shell.body_start + (ui_state.selected - ui_state.offset) - 1
-  vim.api.nvim_win_set_cursor(win, { math.max(cursor_row, shell.body_start), shell.left_col - 1 })
+  local cursor_col = (shell.left_col - 1) + math.max(selected_marker_width, 2)
+  vim.api.nvim_win_set_cursor(win, { math.max(cursor_row, shell.body_start), cursor_col })
   ui_state.labels = labels
   ui_state.visible_items = visible_items
   ui_state.tabs_line_index = shell.tabs_line_index

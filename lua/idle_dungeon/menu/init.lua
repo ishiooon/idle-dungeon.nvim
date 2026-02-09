@@ -47,55 +47,55 @@ local function format_item_with_state(item, get_state, config, lang)
   end
   return with_item_icon(item, i18n.t(item.key, lang))
 end
-local function handle_action_choice(action, get_state, set_state, config, lang)
+local function handle_action_choice(action, get_state, set_state, config, lang, handlers)
   if not action then
     return
   end
   if action.id == "equip" then
     -- 装備メニューのキャンセル時に状態画面へ戻す。
     return actions.open_equip_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "stage" then
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return actions.open_stage_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "purchase" then
     return shop.open_purchase_menu(get_state, set_state, lang, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "sell" then
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return shop.open_sell_menu(get_state, set_state, lang, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "job" then
     -- ジョブ変更メニューを開く。
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return actions.open_job_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "skills" then
     -- スキル一覧と有効/無効切り替えを表示する。
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return actions.open_skills_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
   if action.id == "job_levels" then
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return actions.open_job_levels_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config)
+      open_status_root(get_state, set_state, config, handlers)
     end)
   end
 end
-local function handle_config_choice(action, get_state, set_state, config)
+local function handle_config_choice(action, get_state, set_state, config, handlers)
   if not action then
     return
   end
@@ -114,6 +114,9 @@ local function handle_config_choice(action, get_state, set_state, config)
   if action.id == "battle_hp_show_max" then
     return settings.toggle_battle_hp_show_max(get_state, set_state, config)
   end
+  if action.id == "reload_plugin" and handlers and type(handlers.on_reload) == "function" then
+    return handlers.on_reload()
+  end
   if action.id == "language" then
     return settings.open_language_menu(get_state, set_state, config)
   end
@@ -130,7 +133,7 @@ local function mark_closed()
   end
 end
 
-local function build_tabs(get_state, set_state, config)
+local function build_tabs(get_state, set_state, config, handlers)
   local state = get_state()
   local lang = menu_locale.resolve_lang(state, config)
   return {
@@ -153,7 +156,7 @@ local function build_tabs(get_state, set_state, config)
         return with_item_icon(item, i18n.t(item.key, lang))
       end,
       on_choice = function(action)
-        return handle_action_choice(action, get_state, set_state, config, lang)
+        return handle_action_choice(action, get_state, set_state, config, lang, handlers)
       end,
     },
     {
@@ -164,7 +167,7 @@ local function build_tabs(get_state, set_state, config)
         return format_item_with_state(item, get_state, config, lang)
       end,
       on_choice = function(action)
-        return handle_config_choice(action, get_state, set_state, config)
+        return handle_config_choice(action, get_state, set_state, config, handlers)
       end,
     },
     {
@@ -186,12 +189,12 @@ local function build_tabs(get_state, set_state, config)
   }
 end
 -- メニューの最初のページを再表示するための入口を用意する。
-open_status_root = function(get_state, set_state, config)
+open_status_root = function(get_state, set_state, config, handlers)
   local lang = menu_locale.resolve_lang(get_state(), config)
   -- 全メニュー画面で共通のライブトラック情報を表示するため文脈を共有する。
   menu_view.set_context(get_state, config)
   tabs_view.set_context(get_state, config)
-  local tabs = build_tabs(get_state, set_state, config)
+  local tabs = build_tabs(get_state, set_state, config, handlers)
   -- メニューの最初のページは状態詳細として表示する。
   tabs_view.select(tabs, {
     active = 1,
@@ -201,28 +204,28 @@ open_status_root = function(get_state, set_state, config)
   }, config)
   menu_open = true
 end
-local function open(get_state, set_state, config)
-  return open_status_root(get_state, set_state, config)
+local function open(get_state, set_state, config, handlers)
+  return open_status_root(get_state, set_state, config, handlers)
 end
 
-local function toggle_menu(get_state, set_state, config)
+local function toggle_menu(get_state, set_state, config, handlers)
   local should_open = toggle.toggle_open(menu_open)
   if should_open then
-    return open_status_root(get_state, set_state, config)
+    return open_status_root(get_state, set_state, config, handlers)
   end
   -- すでに開いている場合はメニュー表示を閉じる。
   tabs_view.close()
   menu_open = false
 end
 
-local function update_menu(get_state, set_state, config)
+local function update_menu(get_state, set_state, config, handlers)
   if not menu_open then
     return
   end
   menu_view.set_context(get_state, config)
   tabs_view.set_context(get_state, config)
   -- 開いているメニュー表示を最新の状態に更新する。
-  tabs_view.update(build_tabs(get_state, set_state, config))
+  tabs_view.update(build_tabs(get_state, set_state, config, handlers))
 end
 
 M.open = open

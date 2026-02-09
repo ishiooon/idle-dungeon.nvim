@@ -29,7 +29,12 @@ local config = {
   stages = {
     { id = 1, name = "test-stage", start = 0, length = 10 },
   },
-  ui = { language = "en" },
+  ui = {
+    language = "en",
+    menu = {
+      meter = { on = "▬", off = "▭" },
+    },
+  },
 }
 
 local state = state_module.new_state(config)
@@ -66,7 +71,7 @@ end
 assert_match(text, "HP", "HPの指標が表示される")
 assert_match(text, "%[", "進行バーの開始記号が表示される")
 assert_match(text, "%]", "進行バーの終了記号が表示される")
-assert_match(text, "▰", "バー表示は塗りつぶしインジケータを使う")
+assert_match(text, "▬", "バー表示は設定された塗りつぶしインジケータを使う")
 assert_not_match(text, "#", "バー表示に#を使わない")
 assert_true(#items > 8, "状態タブの項目数が不足しない")
 

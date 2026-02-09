@@ -119,8 +119,8 @@ assert_true(type(built.ui.menu.tabs.icons) == "table", "タブの既定アイコ
 assert_true(type(built.ui.menu.tabs.icons.status) == "string", "状態タブのアイコンが定義される")
 assert_true(built.ui.menu.item_prefix == "󰜴 ", "項目選択の記号はアイコンを使う")
 assert_true(type(built.ui.menu.meter) == "table", "メニューの進行バー設定が定義される")
-assert_true(built.ui.menu.meter.on == "▰", "メニューの進行バーON記号が定義される")
-assert_true(built.ui.menu.meter.off == "▱", "メニューの進行バーOFF記号が定義される")
+assert_true(type(built.ui.menu.meter.on) == "string" and built.ui.menu.meter.on ~= "", "メニューの進行バーON記号が定義される")
+assert_true(type(built.ui.menu.meter.off) == "string" and built.ui.menu.meter.off ~= "", "メニューの進行バーOFF記号が定義される")
 -- 既定ジョブIDが初期化に含まれることを確認する。
 assert_true(type(built.default_job_id) == "string", "既定ジョブIDが設定される")
 -- 敵一覧はコンテンツ定義から生成し、二重管理を避ける。

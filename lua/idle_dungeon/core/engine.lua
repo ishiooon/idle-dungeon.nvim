@@ -17,7 +17,8 @@ local i18n = require("idle_dungeon.i18n")
 local M = {}
 local current_config = nil
 local current_tick_seconds = nil
-local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current, takeover_owner
+local menu_handlers = nil
+local apply_unlocks, handle_metrics, handle_choice, tick, sync_tick, start_owner_mode, start_follower_mode, set_state_and_render, notify_read_only, open_menu, toggle_menu, render_current, takeover_owner, reload_plugin
 
 local function resolve_lang()
   local state = session.get_state()
@@ -47,6 +48,11 @@ end
 local function configure(user_config)
   current_config = config_module.build(user_config)
   session.set_config(current_config)
+  menu_handlers = {
+    on_reload = function()
+      return reload_plugin()
+    end,
+  }
   -- メニューを閉じた直後に右下表示を即時で復帰する。
   menu.set_on_close(function()
     render_current(session.get_state())
@@ -66,7 +72,7 @@ render_current = function(state)
     ui.render(display_state, current_config)
   end
   -- 開いているメニューがあれば最新状態へ更新する。
-  menu.update(session.get_state, set_state_and_render, current_config)
+  menu.update(session.get_state, set_state_and_render, current_config, menu_handlers)
 end
 local function start()
   if not current_config then configure({}) end
@@ -92,7 +98,7 @@ end
 open_menu = function()
   if not current_config then start() end
   if not session.is_owner() then return notify_read_only() end
-  menu.open(session.get_state, set_state_and_render, current_config)
+  menu.open(session.get_state, set_state_and_render, current_config, menu_handlers)
   -- メニュー表示中は右下表示を閉じる。
   ui.close()
 end
@@ -101,7 +107,7 @@ toggle_menu = function()
   if not session.is_owner() then return notify_read_only() end
   local was_open = menu.is_open and menu.is_open() or false
   -- クリック操作でメニュー表示を開閉する。
-  menu.toggle(session.get_state, set_state_and_render, current_config)
+  menu.toggle(session.get_state, set_state_and_render, current_config, menu_handlers)
   if menu.is_open and menu.is_open() then
     ui.close()
     return
@@ -227,6 +233,15 @@ takeover_owner = function()
   end
   vim.notify(i18n.t("notify_takeover_failed", resolve_lang()), vim.log.levels.WARN)
   return false
+end
+reload_plugin = function()
+  local was_open = menu.is_open and menu.is_open() or false
+  local idle = require("idle_dungeon")
+  if type(idle.reload) == "function" then
+    return idle.reload({ open_menu = was_open })
+  end
+  stop()
+  start()
 end
 M.configure = configure
 M.start = start

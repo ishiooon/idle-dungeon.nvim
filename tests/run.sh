@@ -82,6 +82,12 @@ lua tests/test_menu_live_header_no_wrap.lua
 lua tests/test_menu_live_header.lua
 # メニュー選択アニメーションの位相切替を確認する。
 lua tests/test_menu_selection_fx.lua
+# アクティブタブの背景色を使わない強調表示を確認する。
+lua tests/test_menu_tab_active_highlight.lua
+# メニュー表示中はカーソルを隠し、終了時に復元することを確認する。
+lua tests/test_menu_cursor_hidden.lua
+# メニューのカーソルが選択記号の上に重ならないことを確認する。
+lua tests/test_menu_cursor_position.lua
 # メインメニューの横幅拡張と折り返し無効を確認する。
 lua tests/test_menu_tabs_width_expand.lua
 # タブ更新時にメニューの表示サイズが縮まないことを確認する。
@@ -98,6 +104,8 @@ lua tests/test_menu_toggle.lua
 lua tests/test_menu_open_state.lua
 # メニューのサブ画面から戻れることを確認する。
 lua tests/test_menu_action_back.lua
+# 設定タブの再読み込み項目がハンドラを呼ぶことを確認する。
+lua tests/test_menu_config_reload.lua
 # Read-only表示の単体テストを確認する。
 lua tests/test_read_only.lua
 # 閲覧専用状態から主導権を奪取できることを確認する。

@@ -92,6 +92,7 @@ local found_language = false
 local found_display_lines = false
 local found_battle_hp = false
 local found_game_speed = false
+local found_reload_plugin = false
 for _, item in ipairs(config_items) do
   if item.id == "language" then
     found_language = true
@@ -105,6 +106,10 @@ for _, item in ipairs(config_items) do
     found_game_speed = true
     assert_true(item.keep_open == true, "ゲーム速度の設定はメニューを閉じずに開ける")
   end
+  if item.id == "reload_plugin" then
+    found_reload_plugin = true
+    assert_true(item.keep_open == true, "再読み込みはメニューを閉じずに実行できる")
+  end
   -- 戦闘時のHP分母表示を切り替える項目が含まれることを確認する。
   if item.id == "battle_hp_show_max" then
     found_battle_hp = true
@@ -115,6 +120,8 @@ assert_true(found_language, "言語設定の項目が含まれる")
 assert_true(found_display_lines, "表示行数の項目が含まれる")
 assert_true(found_game_speed, "ゲーム速度の項目が含まれる")
 assert_true(found_battle_hp, "戦闘HP表示の項目が含まれる")
+assert_true(found_reload_plugin, "再読み込みの項目が含まれる")
+assert_true((config_items[#config_items] or {}).id == "reload_plugin", "再読み込みの項目は設定メニューの最下段にある")
 
 local credits_items = menu_data.build_credits_items("en")
 assert_true(#credits_items > 0, "クレジットタブの項目が生成される")

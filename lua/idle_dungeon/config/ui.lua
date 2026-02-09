@@ -99,8 +99,8 @@ local function default_ui()
       },
       -- 進行バーはtriforce風に縦棒を使って視認性を上げる。
       meter = {
-        on = "▰",
-        off = "▱",
+        on = "▬",
+        off = "▭",
       },
       -- 項目表示の見た目を整える記号を定義する。
       item_prefix = "󰜴 ",

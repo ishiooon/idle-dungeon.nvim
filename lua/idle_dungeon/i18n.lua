@@ -24,6 +24,7 @@ local translations = {
   menu_action_display_lines = { en = "Display Lines", jp = "表示行数" },
   -- 戦闘時のHP分母表示を切り替える文言を追加する。
   menu_action_battle_hp_show_max = { en = "Battle HP Max", jp = "戦闘HP分母表示" },
+  menu_action_reload_plugin = { en = "Reload Plugin", jp = "プラグイン再読み込み" },
   menu_action_language = { en = "Language", jp = "言語設定" },
   menu_action_status = { en = "Status", jp = "状態確認" },
   menu_status_metrics = { en = "Input Metrics (Detail)", jp = "入力統計(詳細)" },

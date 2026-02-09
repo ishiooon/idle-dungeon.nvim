@@ -5,6 +5,8 @@ local M = {}
 local namespace = vim.api.nvim_create_namespace("IdleDungeonMenu")
 local MAIN_ZINDEX = 50
 local DETAIL_ZINDEX = 60
+local HIDDEN_CURSOR = "a:IdleDungeonMenuHiddenCursor"
+local cursor_state = { hidden_count = 0, previous = nil }
 
 local function resolve_wrap_lines(opts)
   if opts == nil then
@@ -47,21 +49,64 @@ local function ensure_highlights(theme)
   -- triforce風に役割ごとに色を分け、未指定時はテーマ側の代表グループへ委譲する。
   apply_highlight("IdleDungeonMenuTitle", { fg = safe.title or safe.accent, bold = true }, "Keyword", inherit)
   apply_highlight("IdleDungeonMenuTabs", { fg = safe.muted }, "Comment", inherit)
-  apply_highlight("IdleDungeonMenuTabActive", { fg = safe.background, bg = safe.accent, bold = true }, "PmenuSel", inherit)
+  apply_highlight("IdleDungeonMenuTabActive", { fg = safe.text, bold = true }, "PmenuSel", inherit)
   apply_highlight("IdleDungeonMenuTabInactive", { fg = safe.text }, "Pmenu", inherit)
   apply_highlight("IdleDungeonMenuDivider", { fg = safe.divider or safe.border }, "Comment", inherit)
-  apply_highlight("IdleDungeonMenuSelected", { fg = safe.selected_fg, bg = safe.selected_bg, bold = true }, "PmenuSel", inherit)
+  apply_highlight("IdleDungeonMenuSelected", { fg = safe.selected_fg, bold = true }, "PmenuSel", inherit)
   apply_highlight(
     "IdleDungeonMenuSelectedPulse",
-    { fg = safe.selected_fg, bg = safe.selected_bg_alt or safe.selected_bg, bold = true },
+    { fg = safe.title or safe.accent or safe.selected_fg, bold = true },
     "PmenuSel",
     inherit
   )
   apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "String", inherit)
   apply_highlight("IdleDungeonMenuNormal", { fg = safe.text, bg = safe.background }, "NormalFloat", inherit)
-  apply_highlight("IdleDungeonMenuCursor", { fg = safe.background, bg = safe.background }, "NormalFloat", inherit)
+  -- カーソル色は背景を持たせず透過寄りにして、選択記号の見た目を崩さない。
+  apply_highlight("IdleDungeonMenuCursor", { fg = "NONE", bg = "NONE", blend = 100, nocombine = true }, "NormalFloat", inherit)
+  apply_highlight(
+    "IdleDungeonMenuHiddenCursor",
+    { fg = "NONE", bg = "NONE", blend = 100, nocombine = true },
+    "NormalFloat",
+    inherit
+  )
   apply_highlight("IdleDungeonMenuMuted", { fg = safe.muted }, "Comment", inherit)
   apply_highlight("IdleDungeonMenuSection", { fg = safe.accent or safe.title, bold = true }, "Question", inherit)
+end
+
+local function get_guicursor()
+  if vim.api.nvim_get_option_value then
+    return vim.api.nvim_get_option_value("guicursor", {})
+  end
+  return vim.o.guicursor
+end
+
+local function set_guicursor(value)
+  if vim.api.nvim_set_option_value then
+    vim.api.nvim_set_option_value("guicursor", value, {})
+    return
+  end
+  vim.o.guicursor = value
+end
+
+local function hide_cursor()
+  -- メニュー表示中はカーソルの見た目を隠し、選択記号だけで現在位置を示す。
+  if cursor_state.hidden_count == 0 then
+    cursor_state.previous = get_guicursor()
+    set_guicursor(HIDDEN_CURSOR)
+  end
+  cursor_state.hidden_count = cursor_state.hidden_count + 1
+end
+
+local function restore_cursor()
+  -- すべてのメニューを閉じた時点で元のカーソル設定へ戻す。
+  if cursor_state.hidden_count <= 0 then
+    return
+  end
+  cursor_state.hidden_count = cursor_state.hidden_count - 1
+  if cursor_state.hidden_count == 0 then
+    set_guicursor(cursor_state.previous or "")
+    cursor_state.previous = nil
+  end
 end
 
 local function calculate_center(height, width)
@@ -76,6 +121,7 @@ end
 local function open_window(height, width, border, theme, opts)
   -- 新しいバッファと浮動ウィンドウを作成してメニューを表示する。
   ensure_highlights(theme)
+  hide_cursor()
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
@@ -224,6 +270,9 @@ local function apply_highlights(buf, highlights)
 end
 
 local function close_window(win, prev_win)
+  if win then
+    restore_cursor()
+  end
   if is_valid_window(win) then
     -- メニュー表示を終了し、開く前のウィンドウへ戻す。
     vim.api.nvim_win_close(win, true)

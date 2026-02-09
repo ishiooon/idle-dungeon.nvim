@@ -119,6 +119,7 @@ local function build_config_items()
     -- 設定系は閉じずに選択できるようkeep_openで維持する。
     { id = "language", key = "menu_action_language", keep_open = true, icon = "󰗊" },
     { id = "reset", key = "menu_action_reset", keep_open = true, icon = "󰑐" },
+    { id = "reload_plugin", key = "menu_action_reload_plugin", keep_open = true, icon = "󰓭" },
   }
 end
 
