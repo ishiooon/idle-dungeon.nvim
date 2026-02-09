@@ -139,7 +139,7 @@ local function build_formatted_lines(tab, config)
 end
 
 local function build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, all_tabs, config)
-  local lines = { title, tabs_line, table.concat(footer_hints or {}, "   ") }
+  local lines = { title, tabs_line }
   for _, line in ipairs(top_lines or {}) do
     table.insert(lines, line)
   end
@@ -330,6 +330,11 @@ local function open_detail_page(tab, choice)
     prompt = detail.title or "",
     lang = lang,
     keep_open = true,
+    static_view = true,
+    add_back_item = false,
+    item_prefix = "",
+    non_select_prefix = "",
+    wrap_lines = false,
     footer_hints = menu_locale.submenu_footer_hints(lang),
     format_item = function(line)
       return tostring(line)

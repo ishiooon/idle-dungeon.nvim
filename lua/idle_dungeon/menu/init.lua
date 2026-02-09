@@ -16,6 +16,11 @@ local open_status_root
 local on_close_callback = nil
 local view_state = {
   dex = {
+    mode = "enemy",
+    sort_mode = "encounter",
+    filter_element = "all",
+    filter_keyword = "",
+    show_controls = false,
     show_all_enemies = false,
     show_all_items = false,
   },
@@ -24,6 +29,11 @@ local view_state = {
 local function reset_view_state()
   view_state = {
     dex = {
+      mode = "enemy",
+      sort_mode = "encounter",
+      filter_element = "all",
+      filter_keyword = "",
+      show_controls = false,
       show_all_enemies = false,
       show_all_items = false,
     },
@@ -153,6 +163,23 @@ local function handle_dex_choice(action)
   if not action or action.id ~= "dex_control" then
     return
   end
+  if action.action == "cycle_mode" then
+    if view_state.dex.mode == "enemy" then
+      view_state.dex.mode = "item"
+    elseif view_state.dex.mode == "item" then
+      view_state.dex.mode = "all"
+    else
+      view_state.dex.mode = "enemy"
+    end
+    -- 表示対象を切り替える際は展開状態を初期化して一覧の高さを抑える。
+    view_state.dex.show_all_enemies = false
+    view_state.dex.show_all_items = false
+    return
+  end
+  if action.action == "toggle_controls" then
+    view_state.dex.show_controls = not (view_state.dex.show_controls == true)
+    return
+  end
   if action.action == "expand_enemy" then
     view_state.dex.show_all_enemies = true
     return
@@ -166,6 +193,46 @@ local function handle_dex_choice(action)
     return
   end
   if action.action == "collapse_item" then
+    view_state.dex.show_all_items = false
+    return
+  end
+  if action.action == "cycle_sort" then
+    if view_state.dex.sort_mode == "encounter" then
+      view_state.dex.sort_mode = "count"
+    elseif view_state.dex.sort_mode == "count" then
+      view_state.dex.sort_mode = "rarity"
+    else
+      view_state.dex.sort_mode = "encounter"
+    end
+    return
+  end
+  if action.action == "cycle_filter_element" then
+    local current = view_state.dex.filter_element or "all"
+    local order = { "all", "normal", "fire", "water", "grass", "light", "dark" }
+    local next_value = "all"
+    for index, value in ipairs(order) do
+      if value == current then
+        next_value = order[(index % #order) + 1]
+        break
+      end
+    end
+    view_state.dex.filter_element = next_value
+    view_state.dex.show_all_enemies = false
+    view_state.dex.show_all_items = false
+    return
+  end
+  if action.action == "cycle_filter_keyword" then
+    local current = tostring(view_state.dex.filter_keyword or "")
+    local keywords = action.keywords or { "" }
+    local next_value = keywords[1] or ""
+    for index, token in ipairs(keywords) do
+      if token == current then
+        next_value = keywords[(index % #keywords) + 1] or ""
+        break
+      end
+    end
+    view_state.dex.filter_keyword = next_value
+    view_state.dex.show_all_enemies = false
     view_state.dex.show_all_items = false
   end
 end

@@ -132,24 +132,67 @@ assert_match(credits_items[1].label or "", "IdleDungeon", "クレジットのア
 local dex_state = util.merge_tables(state, {
   dex = dex.record_enemy(dex.new_dex(), "dust_slime", "normal", 10),
 })
-local dex_items = menu_data.build_dex_items(dex_state, config, "en")
+local dex_items = menu_data.build_dex_items(dex_state, config, "en", {
+  show_controls = true,
+})
 local highlighted = nil
 local found_dex_summary = false
 local found_dex_toggle = false
+local found_dex_hint = false
+local found_mastery_badge = false
+local found_mastery_legend = false
+local found_sort_control = false
+local found_element_control = false
+local found_keyword_control = false
+local found_danger_detail = false
+local found_drop_band_detail = false
 for _, item in ipairs(dex_items) do
   if item.id == "header" and (item.label or ""):match("Enemies") and (item.label or ""):match("Items") and (item.label or ""):match("%[") then
     found_dex_summary = true
   end
+  if item.id == "header" and (item.label or ""):match("NEW=") then
+    found_mastery_legend = true
+  end
   if item.id == "dex_control" and (item.label or ""):match("Expand") then
     found_dex_toggle = true
   end
+  if item.id == "dex_control" and (item.label or ""):match("Sort:") then
+    found_sort_control = true
+  end
+  if item.id == "dex_control" and (item.label or ""):match("Element:") then
+    found_element_control = true
+  end
+  if item.id == "dex_control" and (item.label or ""):match("Search:") then
+    found_keyword_control = true
+  end
+  if item.id == "header" and (item.label or ""):match("Enter:") then
+    found_dex_hint = true
+  end
   if item.id == "dex_entry" and item.highlight_key then
     highlighted = item
+    if (item.label or ""):match("NEW") or (item.label or ""):match("★") then
+      found_mastery_badge = true
+    end
+    local detail_joined = table.concat(item.detail_lines or {}, " ")
+    if detail_joined:match("Danger:") then
+      found_danger_detail = true
+    end
+    if detail_joined:match("Drop Band:") then
+      found_drop_band_detail = true
+    end
   end
 end
 assert_true(found_dex_summary, "図鑑の概要行に進捗メーターが含まれる")
+assert_true(found_mastery_legend, "図鑑の達成バッジ説明が含まれる")
 assert_true(found_dex_toggle, "図鑑の展開トグルが含まれる")
+assert_true(found_sort_control, "図鑑の並び替えトグルが含まれる")
+assert_true(found_element_control, "図鑑の属性フィルタが含まれる")
+assert_true(found_keyword_control, "図鑑の検索フィルタが含まれる")
+assert_true(found_dex_hint, "図鑑の操作ヒント行が含まれる")
 assert_true(highlighted ~= nil, "図鑑の敵エントリが見つかる")
+assert_true(found_mastery_badge, "図鑑のエントリに達成バッジが表示される")
+assert_true(found_danger_detail, "図鑑の敵詳細に危険度が表示される")
+assert_true(found_drop_band_detail, "図鑑の敵詳細にドロップ帯が表示される")
 assert_match(highlighted.highlight_icon or "", "%S", "図鑑の敵アイコンが保持される")
 
 print("OK")

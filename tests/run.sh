@@ -74,6 +74,8 @@ lua tests/test_menu_layout.lua
 lua tests/test_menu_frame.lua
 # サブメニューでは上部進捗を表示しないことを確認する。
 lua tests/test_menu_submenu_header.lua
+# 詳細画面が静的カード表示で描画されることを確認する。
+lua tests/test_menu_static_detail_view.lua
 # 横幅超過の文字列が省略されないことを確認する。
 lua tests/test_menu_wrap.lua
 # メニュー上部表示が折り返し回避のため幅を優先拡張することを確認する。
@@ -124,6 +126,14 @@ lua tests/test_menu_tabs_data.lua
 lua tests/test_menu_status_widgets.lua
 # 図鑑データの単体テストを確認する。
 lua tests/test_dex.lua
+# 図鑑の表示モード切り替えを確認する。
+lua tests/test_dex_view_mode.lua
+# 図鑑の並び替えと検索フィルタを確認する。
+lua tests/test_dex_sort_filter.lua
+# 図鑑の達成率がドロップ解放率で更新されることを確認する。
+lua tests/test_dex_drop_progress.lua
+# 図鑑詳細がカード形式で表示されることを確認する。
+lua tests/test_dex_detail_card.lua
 # 購入メニューの分類と解錠判定を確認する。
 lua tests/test_shop_purchase.lua
 # スプライト表示の単体テストを確認する。

@@ -74,6 +74,8 @@ local translations = {
   dex_detail_flavor = { en = "Flavor:", jp = "説明:" },
   dex_detail_slot = { en = "Slot:", jp = "装備枠:" },
   dex_detail_rarity = { en = "Rarity:", jp = "レアリティ:" },
+  dex_detail_danger = { en = "Danger:", jp = "危険度:" },
+  dex_detail_drop_band = { en = "Drop Band:", jp = "ドロップ帯:" },
   dex_rarity_common = { en = "Common", jp = "コモン" },
   dex_rarity_rare = { en = "Rare", jp = "レア" },
   dex_rarity_pet = { en = "Pet", jp = "ペット" },

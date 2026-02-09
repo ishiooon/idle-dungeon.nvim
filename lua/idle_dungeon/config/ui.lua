@@ -97,7 +97,6 @@ local function default_ui()
           credits = "󰨭",
         },
       },
-      -- 進行バーはtriforce風に縦棒を使って視認性を上げる。
       meter = {
         on = "▬",
         off = "▭",

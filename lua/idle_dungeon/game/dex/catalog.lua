@@ -107,6 +107,15 @@ local function build_drop_entries(enemy, dex_items, item_map, lang, unknown_labe
   return entries
 end
 
+local function build_drop_tiers(enemy)
+  local drops = enemy and enemy.drops or {}
+  return {
+    common = #(drops.common or {}),
+    rare = #(drops.rare or {}),
+    pet = #(drops.pet or {}),
+  }
+end
+
 local function build_drop_text_from_entries(entries, lang)
   if not entries or #entries == 0 then
     return ""
@@ -155,6 +164,10 @@ local function build_enemy_entries(state, lang)
           flavor = resolve_text(enemy.flavor, lang),
           known = true,
           drops = drop_entries,
+          stats = enemy.stats,
+          is_boss = enemy.is_boss == true,
+          exp_multiplier = tonumber(enemy.exp_multiplier) or 1,
+          drop_tiers = build_drop_tiers(enemy),
           first_time = record.first_time or 0,
           order_index = order_index,
         })
@@ -169,6 +182,10 @@ local function build_enemy_entries(state, lang)
           flavor = "",
           known = false,
           drops = {},
+          stats = enemy.stats,
+          is_boss = enemy.is_boss == true,
+          exp_multiplier = tonumber(enemy.exp_multiplier) or 1,
+          drop_tiers = build_drop_tiers(enemy),
           first_time = nil,
           order_index = order_index,
         })
@@ -207,6 +224,7 @@ local function build_item_entries(state, lang)
         id = item.id,
         name = name,
         icon = resolve_icon(item),
+        element_id = item.element or "normal",
         element_label = element_label,
         count = record.count or 0,
         flavor = flavor,
@@ -221,6 +239,7 @@ local function build_item_entries(state, lang)
         id = item.id,
         name = unknown_label,
         icon = "",
+        element_id = item.element or "normal",
         element_label = unknown_label,
         count = 0,
         flavor = "",

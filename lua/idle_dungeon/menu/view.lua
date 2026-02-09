@@ -71,22 +71,59 @@ local function build_labels(items, opts)
   return labels
 end
 
+-- 静的詳細表示では本文を優先し、通常メニューより縦幅を広く使う。
+local function resolve_static_height(config, screen_height, line_count)
+  local safe_screen = math.max(tonumber(screen_height) or 0, 12)
+  local min_height = math.max(tonumber(config.min_height) or 16, 12)
+  local configured_max = tonumber(config.max_static_height) or safe_screen
+  local max_height = math.max(math.min(configured_max, safe_screen), min_height)
+  -- 詳細画面は通常メニューの高さ制約より本文を優先して広く確保する。
+  local desired_visible = math.max(tonumber(line_count) or 0, math.floor(safe_screen * 0.6), 22)
+  local desired_height = desired_visible + 1 -- フッター行を1行確保する。
+  return math.max(math.min(desired_height, max_height), min_height)
+end
+
+-- 静的詳細表示では内容幅へ寄せ、余白で左寄りに見える状態を防ぐ。
+local function resolve_static_width(config, width_lines)
+  local available = math.max(tonumber(config.available_width) or tonumber(config.width) or 48, 24)
+  local min_width = math.max(tonumber(config.static_min_width) or 36, 24)
+  local max_width = math.max(math.min(tonumber(config.static_max_width) or available, available), min_width)
+  -- 詳細カードの見た目を揃えるため、余分な右側余白を足さず本文幅へ合わせる。
+  local content_width = menu_view_util.max_line_width(width_lines)
+  return math.max(math.min(content_width, max_width), min_width)
+end
+
 local function render()
   local config = menu_view_util.menu_config(ui_state.config)
   local lang = ui_state.meta.lang
+  local static_view = ui_state.opts.static_view == true
   -- サブメニューでは上部の進捗表示を省き、選択操作へ集中できるようにする。
   local top_lines = {}
   local labels = build_labels(ui_state.items, ui_state.opts)
   local title = ui_state.opts.prompt_provider and ui_state.opts.prompt_provider()
     or ui_state.opts.prompt
     or (lang == "ja" and "メニュー" or "Menu")
+  if static_view then
+    title = ""
+  end
   local hints = ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang)
-  local tabs_line = ui_state.opts.tabs_line or (lang == "ja" and "Sub Menu" or "Sub Menu")
+  local tabs_line = ui_state.opts.tabs_line or ""
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels)
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)
-  local height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
-  local visible = frame.resolve_content_height({ height = height, tabs_line = tabs_line, top_lines = top_lines })
+  local height
+  if static_view then
+    height = resolve_static_height(config, screen_height, #labels)
+  else
+    height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
+  end
+  local visible = frame.resolve_content_height({
+    height = height,
+    tabs_line = tabs_line,
+    top_lines = top_lines,
+    hide_title = static_view,
+    hide_divider = static_view,
+  })
   ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
   local left_lines, selected_row = menu_view_util.build_select_lines({
     labels = labels,
@@ -94,19 +131,34 @@ local function render()
     selected = ui_state.selected,
     offset = ui_state.offset,
     visible = visible,
-    prefix = config.item_prefix or "󰜴 ",
+    prefix = ui_state.opts.item_prefix or config.item_prefix or "󰜴 ",
+    non_select_prefix = ui_state.opts.non_select_prefix or "  ",
+    is_selectable = function(item)
+      if static_view then
+        return false
+      end
+      return not is_back_item(item)
+    end,
     render_line = function(label, item, mark)
+      if static_view then
+        return label
+      end
       if is_back_item(item) then
         return mark .. "↩ " .. label
       end
       return mark .. label
     end,
   })
-  local width_lines = { title, tabs_line, table.concat(hints or {}, "   ") }
+  local width_lines = { title, tabs_line }
   for _, line in ipairs(left_lines or {}) do
     table.insert(width_lines, line)
   end
-  width = menu_view_util.resolve_display_width(config, width, width_lines)
+  if static_view then
+    -- ヒント行は長くなりやすいため、詳細カード本体の幅へ合わせる。
+    width = resolve_static_width(config, left_lines or {})
+  else
+    width = menu_view_util.resolve_display_width(config, width, width_lines)
+  end
   local shell = frame.compose({
     title = title,
     top_lines = top_lines,
@@ -116,8 +168,10 @@ local function render()
     footer_hints = hints,
     width = width,
     height = height,
+    hide_title = static_view,
+    hide_divider = static_view,
   })
-  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border, config.theme)
+  local win, buf = window.ensure_window(ui_state.win, ui_state.buf, height, width, config.border, config.theme, ui_state.opts)
   window.update_window(win, height, width)
   window.set_lines(buf, shell.lines)
   local highlights = {
@@ -139,7 +193,7 @@ local function render()
     })
   end
   window.apply_highlights(buf, highlights)
-  if ui_state.selected > 0 then
+  if ui_state.selected > 0 and not static_view then
     local cursor_row = shell.body_start + (ui_state.selected - ui_state.offset) - 1
     local cursor_col = (shell.left_col - 1) + math.max(selected_marker_width, 2)
     vim.api.nvim_win_set_cursor(win, { math.max(cursor_row, shell.body_start), cursor_col })
@@ -164,6 +218,10 @@ local function cancel()
 end
 
 local function select_current()
+  if ui_state.opts.static_view == true then
+    cancel()
+    return
+  end
   local choice = current_choice()
   if is_back_item(choice) then
     cancel()

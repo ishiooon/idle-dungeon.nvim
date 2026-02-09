@@ -4,11 +4,29 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
-local function join_hints(hints)
-  if not hints or #hints == 0 then
+local function build_hint_line(hints, width)
+  local safe_width = math.max(tonumber(width) or 0, 0)
+  if safe_width == 0 then
     return ""
   end
-  return table.concat(hints, "   ")
+  local tokens = hints or {}
+  local line = ""
+  for _, token in ipairs(tokens) do
+    local safe_token = tostring(token or "")
+    local candidate = line == "" and safe_token or (line .. "   " .. safe_token)
+    if util.display_width(candidate) <= safe_width then
+      line = candidate
+    else
+      break
+    end
+  end
+  if line == "" and tokens[1] then
+    line = util.clamp_line(tostring(tokens[1]), safe_width)
+  end
+  -- Nerd Fontの幅差で溢れにくいよう、少しだけ余白を残して丸める。
+  local safety_margin = math.min(#tokens, 3)
+  local clamped_width = math.max(safe_width - safety_margin, 0)
+  return util.clamp_line(line, clamped_width)
 end
 
 local function fixed_text(text, width)
@@ -20,6 +38,13 @@ local function fixed_text(text, width)
   end
   local gap = math.max(safe_width - util.display_width(safe_text), 0)
   return safe_text .. string.rep(" ", gap)
+end
+
+local function fixed_hint_text(text, width)
+  local safe_width = math.max(tonumber(width) or 0, 0)
+  local clamped = util.clamp_line(text or "", safe_width)
+  local gap = math.max(safe_width - util.display_width(clamped), 0)
+  return clamped .. string.rep(" ", gap)
 end
 
 local function resolve_panel_width(width)
@@ -42,9 +67,11 @@ local function resolve_content_height(opts)
   local height = math.max(tonumber(opts.height) or 1, 1)
   local has_tabs = type(opts.tabs_line) == "string" and opts.tabs_line ~= ""
   local top_count = type(opts.top_lines) == "table" and #opts.top_lines or 0
+  local hide_title = opts.hide_title == true
+  local hide_divider = opts.hide_divider == true
   local top_gap = (top_count > 0 and has_tabs) and 1 or 0
   -- title/top/tabs/divider/footer を除いた本文高さを返す。
-  local fixed = 3 + top_count + top_gap + (has_tabs and 1 or 0)
+  local fixed = 1 + top_count + top_gap + (has_tabs and 1 or 0) + (hide_title and 0 or 1) + (hide_divider and 0 or 1)
   return math.max(height - fixed, 1)
 end
 
@@ -74,9 +101,21 @@ local function compose(opts)
     left_width = resolve_single_width(width)
     right_width = 0
   end
-  local body_height = resolve_content_height({ height = height, tabs_line = tabs_line, top_lines = top_lines })
+  local hide_title = opts.hide_title == true
+  local hide_divider = opts.hide_divider == true
+  local body_height = resolve_content_height({
+    height = height,
+    tabs_line = tabs_line,
+    top_lines = top_lines,
+    hide_title = hide_title,
+    hide_divider = hide_divider,
+  })
   local lines = {}
-  table.insert(lines, fixed_text(title, width))
+  local title_line_index = nil
+  if not hide_title then
+    table.insert(lines, fixed_text(title, width))
+    title_line_index = #lines
+  end
   for _, line in ipairs(top_lines) do
     table.insert(lines, fixed_text(line, width))
   end
@@ -89,7 +128,9 @@ local function compose(opts)
     tabs_line_index = #lines
   end
   -- 境界線は細い点線にして情報を分断しすぎない見た目にする。
-  table.insert(lines, fixed_text(string.rep("·", width), width))
+  if not hide_divider then
+    table.insert(lines, fixed_text(string.rep("·", width), width))
+  end
   local body_start = #lines + 1
   for index = 1, body_height do
     local left = fixed_text((opts.left_lines or {})[index] or "", left_width)
@@ -101,11 +142,12 @@ local function compose(opts)
     end
   end
   local footer_hint_line = #lines + 1
-  table.insert(lines, fixed_text(join_hints(opts.footer_hints or {}), width))
+  -- フッター案内は横幅を超えないように丸め、レイアウト崩れを防ぐ。
+  table.insert(lines, fixed_hint_text(build_hint_line(opts.footer_hints or {}, width), width))
   local normalized = trim_lines(lines, height)
   return {
     lines = normalized,
-    title_line_index = 1,
+    title_line_index = title_line_index,
     tabs_line_index = tabs_line_index,
     body_start = body_start,
     left_col = 1,
