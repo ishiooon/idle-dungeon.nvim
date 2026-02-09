@@ -90,12 +90,15 @@ local function trim_lines(lines, height)
 end
 
 local function compose(opts)
-  local width = math.max(tonumber(opts.width) or 96, 72)
+  local show_right = opts.show_right ~= false
+  local default_width = show_right and 96 or 36
+  local min_width = show_right and 72 or 20
+  -- 単一ペイン表示は指定幅を優先し、不要な横余白を作らない。
+  local width = math.max(tonumber(opts.width) or default_width, min_width)
   local height = math.max(tonumber(opts.height) or 30, 16)
   local title = opts.title or "Idle Dungeon"
   local top_lines = opts.top_lines or {}
   local tabs_line = opts.tabs_line or ""
-  local show_right = opts.show_right ~= false
   local left_width, right_width = resolve_panel_width(width)
   if not show_right then
     left_width = resolve_single_width(width)

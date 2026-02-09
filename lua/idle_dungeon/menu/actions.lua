@@ -272,7 +272,7 @@ end
 
 local function open_equip_menu(get_state, set_state, config, on_close)
   local lang = menu_locale.resolve_lang(get_state(), config)
-  local slots = { "weapon", "armor", "accessory", "companion" }
+  local slots = { "weapon", "armor", "accessory" }
   local function open_slot_menu()
     -- 装備枠を選択するためのメニューを表示する。
     menu_view.select(slots, {

@@ -120,6 +120,8 @@ lua tests/test_takeover_api.lua
 lua tests/test_setup_skip_auto_start.lua
 # reloadが二重起動せず再読込後の起動を1回だけ行うことを確認する。
 lua tests/test_reload_single_start.lua
+# 停止処理でメニューをサイレントに閉じることを確認する。
+lua tests/test_engine_stop_menu_close.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
 # メニューの状態タブに指標と進行バーが表示されることを確認する。
@@ -140,6 +142,8 @@ lua tests/test_shop_purchase.lua
 lua tests/test_sprites.lua
 # 右下表示のクリック判定を確認する。
 lua tests/test_ui_click.lua
+# 右下表示を閉じる際にステージイントロも閉じることを確認する。
+lua tests/test_ui_close_stage_intro.lua
 # 進行トラックの単体テストを確認する。
 lua tests/test_track.lua
 # メニューの入力統計表示を確認する。

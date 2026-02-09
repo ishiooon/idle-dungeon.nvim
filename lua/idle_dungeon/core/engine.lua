@@ -90,6 +90,10 @@ local function stop()
   loop.stop_all()
   input.stop()
   current_tick_seconds = nil
+  if type(menu.close) == "function" then
+    -- 再読み込み時の残像を避けるため、コールバックを抑止してメニューを閉じる。
+    menu.close({ silent = true })
+  end
   if session.is_owner() then
     session.release_owner()
   end

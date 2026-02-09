@@ -145,7 +145,7 @@ local function normalize_state(state)
     ui = util.merge_tables(next_state.ui or {}, { game_speed = ((next_state.ui or {}).game_speed or "1x") }),
   })
   -- 旧データ互換のためペット保持情報も正規化する。
-  return pets.enforce_capacity(normalized, content.jobs, content.items, nil)
+  return pets.enforce_capacity(normalized, content.jobs, content.enemies, nil)
 end
 local function set_render_mode(state, mode)
   return helpers.update_section(state, "ui", { render_mode = mode })
@@ -224,7 +224,7 @@ local function tick(state, config)
   local next_state = transition.tick(state, config)
   local applied = apply_ui_timers(next_state)
   -- スキル切り替え後も保持上限を常に満たすよう補正する。
-  return pets.enforce_capacity(applied, content.jobs, content.items, ((config.ui or {}).icons or {}).companion)
+  return pets.enforce_capacity(applied, content.jobs, content.enemies, ((config.ui or {}).icons or {}).companion)
 end
 local function change_job(state, job_id)
   local job = helpers.find_job(job_id)
@@ -262,7 +262,7 @@ local function change_job(state, job_id)
     skill_settings = skill_settings,
   })
   -- ジョブ変更で保持上限が変わるため保持ペット数を補正する。
-  local adjusted = pets.enforce_capacity(next_state, content.jobs, content.items, nil)
+  local adjusted = pets.enforce_capacity(next_state, content.jobs, content.enemies, nil)
   -- 新たに追加された所持品だけ図鑑へ記録する。
   return state_dex.apply_inventory_delta(adjusted, state.inventory, next_inventory)
 end

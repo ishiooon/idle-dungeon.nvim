@@ -20,17 +20,17 @@ local config_module = require("idle_dungeon.config")
 local items = {
   { id = "common_item", slot = "weapon", rarity = "common" },
   { id = "rare_item", slot = "weapon", rarity = "rare" },
-  { id = "pet_item", slot = "companion", rarity = "pet" },
 }
 
 -- 敵ごとのドロッププールを指定して抽選が反映されることを確認する。
 -- ドロップ定義が敵データ内に統合されても挙動が変わらないことを意図する。
 local enemy = {
+  id = "enemy_test",
   is_boss = false,
   drops = {
     common = { "common_item" },
     rare = { "rare_item" },
-    pet = { "pet_item" },
+    pet = {},
     gold = { min = 2, max = 4 },
   },
 }
@@ -38,7 +38,7 @@ local enemy = {
 local config_pet = { battle = { drop_rates = { common = 0, rare = 0, pet = 100 } } }
 local drop_pet = loot.roll_drop(1, config_pet, items, enemy)
 assert_true(drop_pet ~= nil, "ペットのドロップが発生する")
-assert_equal(drop_pet.id, "pet_item", "ペットのドロップはペット枠から選ばれる")
+assert_equal(drop_pet.id, "enemy_test", "ペットのドロップは撃破した敵IDになる")
 assert_equal(drop_pet.rarity, "pet", "ペットのレアリティが記録される")
 
 local config_common = { battle = { drop_rates = { common = 100, rare = 0, pet = 0 } } }

@@ -26,9 +26,6 @@ local function resolve_rarity(item)
   if item and item.rarity then
     return item.rarity
   end
-  if item and item.slot == "companion" then
-    return "pet"
-  end
   return "common"
 end
 
@@ -56,7 +53,7 @@ local function build_pools(items)
   for _, item in ipairs(items or {}) do
     if should_drop(item) then
       local rarity = resolve_rarity(item)
-      if pools[rarity] then
+      if rarity == "common" or rarity == "rare" then
         table.insert(pools[rarity], item.id)
       end
     end
@@ -88,7 +85,8 @@ local function build_enemy_pools(items, enemy)
   local pools = {
     common = filter_drop_ids(drops.common, item_map),
     rare = filter_drop_ids(drops.rare, item_map),
-    pet = filter_drop_ids(drops.pet, item_map),
+    -- ペットは「戦った敵そのもの」が候補になる。
+    pet = {},
   }
   if (#pools.common + #pools.rare + #pools.pet) == 0 then
     return build_pools(items)
@@ -134,10 +132,8 @@ local function roll_drop(seed, config, items, enemy)
   local roll, next_seed = rng.next_int(seed or 1, 1, 100)
   local pools = build_enemy_pools(items, enemy)
   if roll <= rates.pet then
-    local id
-    id, next_seed = pick_from_pool(next_seed, pools.pet)
-    if id then
-      return { id = id, rarity = "pet" }, next_seed
+    if enemy and enemy.id and enemy.id ~= "" then
+      return { id = enemy.id, rarity = "pet" }, next_seed
     end
   end
   if roll <= (rates.pet + rates.rare) then

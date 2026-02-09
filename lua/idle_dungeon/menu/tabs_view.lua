@@ -31,7 +31,7 @@ local ui_state = {
 }
 local shared_context = { get_state = nil, config = nil }
 
-local function close()
+local function close(silent)
   local callback = ui_state.on_close
   ui_state.on_close = nil
   selection_fx.stop(ui_state.selection_fx)
@@ -40,7 +40,7 @@ local function close()
   ui_state.buf = nil
   ui_state.tabs = {}
   ui_state.tab_segments = {}
-  if callback then
+  if (not silent) and callback then
     callback()
   end
 end

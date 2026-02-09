@@ -7,8 +7,12 @@ local function assert_true(value, message)
 end
 
 local function text_width(text)
+  local safe = tostring(text or "")
+  if _G.vim and vim.fn and vim.fn.strdisplaywidth then
+    return vim.fn.strdisplaywidth(safe)
+  end
   local count = 0
-  for _ in tostring(text or ""):gmatch("[\1-\127\194-\244][\128-\191]*") do
+  for _ in safe:gmatch("[\1-\127\194-\244][\128-\191]*") do
     count = count + 1
   end
   return count
@@ -94,6 +98,7 @@ local ok, err = pcall(function()
   local joined = table.concat(rendered_lines or {}, "\n")
   local first_line = (rendered_lines or {})[1] or ""
   assert_true(first_line:find("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓", 1, true) == 1, "静的詳細画面は先頭行からカードを描画する")
+  assert_true((tonumber(ensure_width) or 0) == text_width(first_line), "静的詳細画面の幅はカード実幅に一致する")
   assert_true(joined:find("Sub Menu", 1, true) == nil, "静的詳細画面ではSub Menuを表示しない")
   assert_true(joined:find("┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓", 1, true) ~= nil, "カード上枠が描画される")
   assert_true(joined:find("󰜴", 1, true) == nil, "静的詳細画面では選択記号を描画しない")

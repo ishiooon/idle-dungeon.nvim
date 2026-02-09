@@ -75,7 +75,7 @@ local function build_entry_line(name, count, flavor, icon_text, element_label, d
 end
 
 -- 敵のドロップ候補を一覧に整形する。
-local function build_drop_entries(enemy, dex_items, item_map, lang, unknown_label)
+local function build_drop_entries(enemy, dex_items, item_map, enemy_map, lang, unknown_label)
   local drops = enemy and enemy.drops or nil
   if not drops then
     return {}
@@ -86,7 +86,7 @@ local function build_drop_entries(enemy, dex_items, item_map, lang, unknown_labe
     if not item_id or item_id == "" or seen[item_id] then
       return
     end
-    local item = item_map[item_id]
+    local item = item_map[item_id] or enemy_map[item_id]
     if not item then
       return
     end
@@ -101,8 +101,9 @@ local function build_drop_entries(enemy, dex_items, item_map, lang, unknown_labe
   for _, item_id in ipairs(drops.rare or {}) do
     push_item(item_id)
   end
-  for _, item_id in ipairs(drops.pet or {}) do
-    push_item(item_id)
+  -- ペットは敵自身が加入候補になる。
+  if enemy and enemy.id then
+    push_item(enemy.id)
   end
   return entries
 end
@@ -112,7 +113,8 @@ local function build_drop_tiers(enemy)
   return {
     common = #(drops.common or {}),
     rare = #(drops.rare or {}),
-    pet = #(drops.pet or {}),
+    -- ペットは敵ごとに1枠として扱う。
+    pet = (enemy and enemy.id) and 1 or 0,
   }
 end
 
@@ -137,6 +139,7 @@ local function build_enemy_entries(state, lang)
   local dex_items = (state.dex or {}).items or {}
   local unknown_label = i18n.t("dex_unknown", lang)
   local item_map = build_map(content.items or {})
+  local enemy_map = build_map(content.enemies or {})
   local recorded = {}
   for entry_id, info in pairs(dex_entries) do
     if entry_id then
@@ -152,7 +155,7 @@ local function build_enemy_entries(state, lang)
       local record_key = build_enemy_key(enemy.id, element_id)
       local record = record_key and recorded[record_key] or nil
       if record then
-        local drop_entries = build_drop_entries(enemy, dex_items, item_map, lang, unknown_label)
+        local drop_entries = build_drop_entries(enemy, dex_items, item_map, enemy_map, lang, unknown_label)
         local element_label = element_id and element.label(element_id, lang) or nil
         table.insert(entries, {
           id = enemy.id,

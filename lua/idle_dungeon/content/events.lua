@@ -159,7 +159,7 @@ M.hidden_events = {
     id = "hidden_pet_crossing",
     title = { en = "Curious Companion", ja = "好奇心の相棒" },
     message = { en = "A small companion decides to follow you.", ja = "小さな相棒があなたについてくる。" },
-    effect = { kind = "pet", item_id = "wind_bird" },
+    effect = { kind = "pet", item_id = "dust_slime" },
     appear = { min = 3, max = 8 },
     weight = 1,
   },

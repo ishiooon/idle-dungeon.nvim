@@ -26,4 +26,18 @@ assert_true(string.find(built.lines[2] or "", "7890", 1, true) ~= nil, "上部�
 assert_true(string.find(built.lines[2] or "", "...", 1, true) == nil, "省略記号で切り詰めない")
 assert_true(string.find(built.lines[built.body_start] or "", "7890", 1, true) ~= nil, "本文テキストを切り詰めない")
 
+local compact = frame.compose({
+  title = "Idle",
+  top_lines = { "A" },
+  tabs_line = "T",
+  left_lines = { "B" },
+  footer_hints = { "C" },
+  width = 24,
+  height = 10,
+  show_right = false,
+})
+
+assert_true(#(compact.lines[1] or "") <= 24, "単一ペイン表示は幅を72へ強制拡張しない")
+assert_true(#(compact.lines[compact.footer_hint_line or #compact.lines] or "") <= 24, "単一ペイン表示のフッターは指定幅に収まる")
+
 print("OK")

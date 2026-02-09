@@ -322,8 +322,7 @@ local function toggle_menu(get_state, set_state, config, handlers)
     return open_status_root(get_state, set_state, config, handlers)
   end
   -- すでに開いている場合はメニュー表示を閉じる。
-  tabs_view.close()
-  menu_open = false
+  M.close()
 end
 
 local function update_menu(get_state, set_state, config, handlers)
@@ -339,6 +338,24 @@ end
 M.open = open
 M.toggle = toggle_menu
 M.update = update_menu
+M.close = function(options)
+  local opts = options or {}
+  local silent = opts.silent == true
+  local saved_callback = nil
+  if silent then
+    -- 再読込時は画面更新コールバックを抑止して残像を防ぐ。
+    saved_callback = on_close_callback
+    on_close_callback = nil
+  end
+  -- 子メニューとタブメニューを順に閉じて表示を完全に解放する。
+  menu_view.close()
+  tabs_view.close(silent)
+  menu_open = false
+  reset_view_state()
+  if silent then
+    on_close_callback = saved_callback
+  end
+end
 M.is_open = function()
   return menu_open
 end

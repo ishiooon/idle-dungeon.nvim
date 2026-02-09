@@ -12,7 +12,6 @@ local unlock_rules = {
   repeat_cloak = { kind = "time_sec", value = 36000 },
   edge_shield = { kind = "filetype_chars", filetype = "lua", value = 4000 },
   focus_bracelet = { kind = "chars", value = 12000 },
-  wind_bird = { kind = "time_sec", value = 18000 },
   lua_sigil_blade = { kind = "filetype_chars", filetype = "lua", value = 8000 },
   vim_focus_ring = { kind = "filetype_chars", filetype = "vim", value = 6000 },
   c_forge_spear = { kind = "filetype_chars", filetype = "c", value = 7000 },
@@ -143,10 +142,6 @@ local base_items = {
   { id = "toml_anchor_band", name = "TOMLアンカーバンド", name_en = "TOML Anchor Band", slot = "accessory", hp = 1, def = 2, element = "normal", price = 74, rarity = "rare", flavor = { en = "A band that anchors wandering thoughts in place.", ja = "揺らぐ意識を錨のように留めるバンド。" } },
   { id = "sql_depth_spear", name = "SQL深層の槍", name_en = "SQL Depth Spear", slot = "weapon", atk = 7, element = "dark", price = 92, rarity = "rare", flavor = { en = "A spear that plunges straight into the deepest layer.", ja = "最深部へまっすぐ突き通す槍。" } },
   { id = "markdown_quill_pendant", name = "Markdown羽根ペンダント", name_en = "Markdown Quill Pendant", slot = "accessory", atk = 1, hp = 1, element = "light", price = 70, rarity = "rare", flavor = { en = "A pendant that keeps notes light and easy to read.", ja = "軽やかな筆致を保つ羽根のペンダント。" } },
-  { id = "white_slime", name = "白いスライム", name_en = "White Slime", slot = "companion", hp = 2, price = 10, rarity = "pet", flavor = { en = "It quietly absorbs dust and spits out clean pebbles.", ja = "埃を吸い込み、綺麗な小石を吐き出す静かな相棒。" } },
-  { id = "stone_spirit", name = "小石の精霊", name_en = "Stone Spirit", slot = "companion", def = 2, price = 15, rarity = "pet", flavor = { en = "A pebble spirit that insists on standing between danger and you.", ja = "危険とあなたの間に立ちたがる小石の精霊。" } },
-  { id = "wind_bird", name = "風の小鳥", name_en = "Wind Bird", slot = "companion", atk = 2, price = 18, rarity = "pet", flavor = { en = "It circles ahead to bring back the smell of battle.", ja = "戦いの匂いを先に運んでくる小鳥。" } },
-  { id = "tiny_familiar", name = "小さな使い魔", name_en = "Tiny Familiar", slot = "companion", hp = 1, def = 1, price = 20, rarity = "pet", flavor = { en = "A whisper-sized helper that remembers every shortcut.", ja = "ささやきほど小さく、近道を覚えている使い魔。" } },
 }
 
 -- 解放条件を統合した装備定義を公開する。

@@ -337,7 +337,7 @@ local function tick_battle(state, config)
   local attack_step_frames = resolve_attack_step_frames(battle_config, battle_tick_seconds)
   local next_actor = state.actor
   local next_enemy = enemy
-  local next_pet_party = pets.normalize_party(state.pet_party, content.items, companion_icon)
+  local next_pet_party = pets.normalize_party(state.pet_party, content.enemies, companion_icon)
   local last_turn
   local next_progress = util.merge_tables(state.progress, { rng_seed = seed })
   local enemy_skill_rate = battle_config.enemy_skill_rate or battle_config.skill_active_rate or 0
@@ -427,7 +427,7 @@ local function tick_battle(state, config)
         util.merge_tables(state, { pet_party = next_pet_party }),
         enemy_result.damage,
         target_index,
-        content.items,
+        content.enemies,
         companion_icon
       )
       next_pet_party = damaged_state.pet_party or {}
@@ -515,7 +515,7 @@ local function tick_reward(state, config)
   if pending_drop and pending_drop.id then
     -- ペット枠のドロップは保持中ペットとして登録する。
     if pending_drop.rarity == "pet" then
-      next_state = pets.add_pet(next_state, pending_drop.id, content.items, content.jobs, companion_icon)
+      next_state = pets.add_pet(next_state, pending_drop.id, content.enemies, content.jobs, companion_icon)
     else
       -- 通常の戦利品は所持品へ追加する。
       next_inventory = inventory.add_item(state.inventory, pending_drop.id, 1)
@@ -524,7 +524,7 @@ local function tick_reward(state, config)
     next_state = state_dex.record_item(next_state, pending_drop.id, 1)
   end
   -- スキル変化後の保持上限を超えないように補正する。
-  next_state = pets.enforce_capacity(next_state, content.jobs, content.items, companion_icon)
+  next_state = pets.enforce_capacity(next_state, content.jobs, content.enemies, companion_icon)
   local updated_progress = floor_state.mark_enemy_defeated(state.progress, source_enemy)
   next_state = util.merge_tables(next_state, { combat = nil, progress = updated_progress })
   return util.merge_tables(next_state, { ui = util.merge_tables(state.ui, { mode = "move", event_id = nil, battle_message = nil }) })

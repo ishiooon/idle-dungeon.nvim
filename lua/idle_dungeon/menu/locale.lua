@@ -28,7 +28,6 @@ local function slot_label(slot, lang)
     weapon = "slot_weapon",
     armor = "slot_armor",
     accessory = "slot_accessory",
-    companion = "slot_companion",
   }
   return i18n.t(map[slot] or slot, lang)
 end

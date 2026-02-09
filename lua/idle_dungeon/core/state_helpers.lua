@@ -19,7 +19,6 @@ local function ensure_equipment(starter_items)
     weapon = starter_items.weapon,
     armor = starter_items.armor,
     accessory = starter_items.accessory,
-    companion = starter_items.companion,
   }
 end
 

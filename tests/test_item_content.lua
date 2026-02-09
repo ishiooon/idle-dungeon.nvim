@@ -24,9 +24,6 @@ for _, enemy in ipairs(enemies) do
   for _, item_id in ipairs(drops.rare or {}) do
     drop_ids[item_id] = true
   end
-  for _, item_id in ipairs(drops.pet or {}) do
-    drop_ids[item_id] = true
-  end
 end
 
 for _, item in ipairs(items) do
@@ -34,6 +31,7 @@ for _, item in ipairs(items) do
   assert_true(item.name ~= nil and item.name ~= "", "装備の日本語名が必須である")
   assert_true(item.name_en ~= nil and item.name_en ~= "", "装備の英語名が必須である")
   assert_true(item.slot ~= nil and item.slot ~= "", "装備スロットが必須である")
+  assert_true(item.slot ~= "companion", "ペットは装備定義に含めない")
   assert_true(item.rarity ~= nil and item.rarity ~= "", "装備の希少度が必須である")
   assert_true(type(item.flavor) == "table", "装備のフレーバーテキストが必須である")
   assert_true(drop_ids[item.id] == true, "装備は敵ドロップに紐付く: " .. item.id)

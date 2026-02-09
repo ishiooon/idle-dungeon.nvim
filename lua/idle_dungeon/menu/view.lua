@@ -86,7 +86,8 @@ end
 -- 静的詳細表示では内容幅へ寄せ、余白で左寄りに見える状態を防ぐ。
 local function resolve_static_width(config, width_lines)
   local available = math.max(tonumber(config.available_width) or tonumber(config.width) or 48, 24)
-  local min_width = math.max(tonumber(config.static_min_width) or 36, 24)
+  -- 詳細画面はカード実幅を優先し、不要な右余白を作らない。
+  local min_width = math.max(tonumber(config.static_min_width) or 20, 20)
   local max_width = math.max(math.min(tonumber(config.static_max_width) or available, available), min_width)
   -- 詳細カードの見た目を揃えるため、余分な右側余白を足さず本文幅へ合わせる。
   local content_width = menu_view_util.max_line_width(width_lines)

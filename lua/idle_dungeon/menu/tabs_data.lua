@@ -262,9 +262,6 @@ local function slot_icon(slot)
   if slot == "accessory" then
     return "󰓒"
   end
-  if slot == "companion" then
-    return "󰠳"
-  end
   return "󰏫"
 end
 

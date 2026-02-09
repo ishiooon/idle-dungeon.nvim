@@ -94,7 +94,7 @@ local function apply_pet(state, effect, config)
     return state
   end
   local companion_icon = ((config.ui or {}).icons or {}).companion
-  local next_state = pets.add_pet(state, item_id, content.items, content.jobs, companion_icon)
+  local next_state = pets.add_pet(state, item_id, content.enemies, content.jobs, companion_icon)
   return state_dex.record_item(next_state, item_id, 1)
 end
 

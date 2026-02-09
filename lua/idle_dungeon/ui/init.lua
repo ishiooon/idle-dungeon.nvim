@@ -129,6 +129,8 @@ local function render_ui(state, config)
 end
 
 close = function()
+  -- 右下表示を閉じる際はステージイントロ表示も必ず閉じる。
+  stage_intro.close()
   if is_valid_window(ui_state.win) then
     -- 表示を終了するためにウィンドウを閉じる。
     vim.api.nvim_win_close(ui_state.win, true)

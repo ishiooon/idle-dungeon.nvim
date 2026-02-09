@@ -46,19 +46,19 @@ assert_equal(#(st0.pet_party or {}), 0, "初期状態ではペットを保持し
 -- 通常ジョブでは保持上限1で、後から得たペットが残る。
 local reward1 = util.merge_tables(st0, {
   ui = util.merge_tables(st0.ui, { mode = "reward" }),
-  combat = { pending_drop = { id = "white_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+  combat = { pending_drop = { id = "dust_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
 })
 local st1 = battle_flow.tick_reward(reward1, config)
 assert_equal(#(st1.pet_party or {}), 1, "ペットドロップで1匹保持する")
-assert_equal(st1.pet_party[1].id, "white_slime", "取得したペットが保持される")
+assert_equal(st1.pet_party[1].id, "dust_slime", "取得した敵が保持される")
 
 local reward2 = util.merge_tables(st1, {
   ui = util.merge_tables(st1.ui, { mode = "reward" }),
-  combat = { pending_drop = { id = "wind_bird", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+  combat = { pending_drop = { id = "tux_penguin", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
 })
 local st2 = battle_flow.tick_reward(reward2, config)
 assert_equal(#(st2.pet_party or {}), 1, "保持上限を超えた場合でも1匹のみ保持する")
-assert_equal(st2.pet_party[1].id, "wind_bird", "上限超過時は後から得たペットが残る")
+assert_equal(st2.pet_party[1].id, "tux_penguin", "上限超過時は後から得たペットが残る")
 
 -- 猛獣使いは保持上限が増え、複数保持できる。
 local st_tamer_seed = util.merge_tables(st0, {
@@ -69,12 +69,12 @@ local st_tamer_seed = util.merge_tables(st0, {
 local st_tamer = state_module.change_job(st_tamer_seed, "beast_tamer")
 local reward3 = util.merge_tables(st_tamer, {
   ui = util.merge_tables(st_tamer.ui, { mode = "reward" }),
-  combat = { pending_drop = { id = "white_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+  combat = { pending_drop = { id = "dust_slime", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
 })
 local st3 = battle_flow.tick_reward(reward3, config)
 local reward4 = util.merge_tables(st3, {
   ui = util.merge_tables(st3.ui, { mode = "reward" }),
-  combat = { pending_drop = { id = "wind_bird", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
+  combat = { pending_drop = { id = "tux_penguin", rarity = "pet" }, pending_exp = 0, pending_gold = 0, source = nil },
 })
 local st4 = battle_flow.tick_reward(reward4, config)
 assert_true(#(st4.pet_party or {}) >= 2, "猛獣使いはペット保持上限が増える")

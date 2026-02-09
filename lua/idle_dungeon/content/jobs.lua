@@ -45,7 +45,7 @@ M.jobs = {
     -- ジョブ固有の成長値を定義する。
     growth = { hp = 1, atk = 2, def = 1, speed = 0 },
     dialogue_ratio = 0.95,
-    starter_items = { weapon = "wood_sword", armor = "cloth_armor", accessory = "record_ring", companion = "white_slime" },
+    starter_items = { weapon = "wood_sword", armor = "cloth_armor", accessory = "record_ring" },
     -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
     sprite_palette = "recorder",
     -- アクティブ/パッシブのスキル効果は戦闘計算で反映する。
@@ -67,7 +67,7 @@ M.jobs = {
     -- ジョブ固有の成長値を定義する。
     growth = { hp = 2, atk = 1, def = 2, speed = 0 },
     dialogue_ratio = 1.0,
-    starter_items = { weapon = "round_shield", armor = "thick_cloak", accessory = "guard_amulet", companion = "stone_spirit" },
+    starter_items = { weapon = "round_shield", armor = "thick_cloak", accessory = "guard_amulet" },
     -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
     sprite_palette = "guardian",
     -- ジョブごとに習得する技を定義する。
@@ -88,7 +88,7 @@ M.jobs = {
     -- ジョブ固有の成長値を定義する。
     growth = { hp = 1, atk = 2, def = 0, speed = 0 },
     dialogue_ratio = 1.0,
-    starter_items = { weapon = "short_bow", armor = "leather_armor", accessory = "swift_ring", companion = "wind_bird" },
+    starter_items = { weapon = "short_bow", armor = "leather_armor", accessory = "swift_ring" },
     -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
     sprite_palette = "hunter",
     -- ジョブごとに習得する技を定義する。
@@ -109,7 +109,7 @@ M.jobs = {
     -- ジョブ固有の成長値を定義する。
     growth = { hp = 1, atk = 1, def = 1, speed = 0 },
     dialogue_ratio = 1.0,
-    starter_items = { weapon = "sand_staff", armor = "light_robe", accessory = "sleep_pendant", companion = "tiny_familiar" },
+    starter_items = { weapon = "sand_staff", armor = "light_robe", accessory = "sleep_pendant" },
     -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
     sprite_palette = "alchemist",
     -- ジョブごとに習得する技を定義する。
@@ -172,7 +172,7 @@ M.jobs = {
     -- ジョブ固有の成長値を定義する。
     growth = { hp = 1, atk = 1, def = 1, speed = 0 },
     dialogue_ratio = 1.0,
-    starter_items = { weapon = "wood_sword", armor = "leather_armor", accessory = "steady_band", companion = "white_slime" },
+    starter_items = { weapon = "wood_sword", armor = "leather_armor", accessory = "steady_band" },
     -- 表示アイコンの強調色としてジョブごとの色味を割り当てる。
     sprite_palette = "hunter",
     -- パッシブで保持可能なペット数を増やす。
