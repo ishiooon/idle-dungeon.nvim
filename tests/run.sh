@@ -104,6 +104,8 @@ lua tests/test_menu_toggle.lua
 lua tests/test_menu_open_state.lua
 # メニューのサブ画面から戻れることを確認する。
 lua tests/test_menu_action_back.lua
+# 図鑑タブの展開/折りたたみトグルを確認する。
+lua tests/test_menu_dex_toggle.lua
 # 設定タブの再読み込み項目がハンドラを呼ぶことを確認する。
 lua tests/test_menu_config_reload.lua
 # Read-only表示の単体テストを確認する。
@@ -112,6 +114,10 @@ lua tests/test_read_only.lua
 lua tests/test_session_takeover.lua
 # 公開APIの主導権奪取委譲を確認する。
 lua tests/test_takeover_api.lua
+# setupの自動開始抑止オプションを確認する。
+lua tests/test_setup_skip_auto_start.lua
+# reloadが二重起動せず再読込後の起動を1回だけ行うことを確認する。
+lua tests/test_reload_single_start.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
 # メニューの状態タブに指標と進行バーが表示されることを確認する。

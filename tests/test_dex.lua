@@ -46,12 +46,20 @@ assert_true(#dex_items > 0, "図鑑タブの表示項目が生成される")
 local found_header = false
 local found_entry = false
 local found_detail = false
+local found_stylish_row = false
+local found_toggle = false
 for _, entry in ipairs(dex_items) do
   if entry.id == "header" and (entry.label or ""):match("Enemies") then
     found_header = true
   end
+  if entry.id == "dex_control" and (entry.label or ""):match("Expand") then
+    found_toggle = true
+  end
   if entry.id == "dex_entry" then
     found_entry = true
+    if (entry.label or ""):match("№%d%d%d") then
+      found_stylish_row = true
+    end
     if entry.detail_lines and #entry.detail_lines > 0 then
       found_detail = true
     end
@@ -59,6 +67,20 @@ for _, entry in ipairs(dex_items) do
 end
 assert_true(found_header, "敵の見出しが含まれる")
 assert_true(found_entry, "図鑑のタイル項目が生成される")
+assert_true(found_stylish_row, "図鑑の行に番号付きデザインが適用される")
+assert_true(found_toggle, "図鑑の展開トグルが含まれる")
 assert_true(found_detail, "図鑑の詳細行が生成される")
+
+local expanded_items = menu_data.build_dex_items(item_state, config, "en", {
+  show_all_enemies = true,
+  show_all_items = true,
+})
+local found_collapse_toggle = false
+for _, entry in ipairs(expanded_items) do
+  if entry.id == "dex_control" and (entry.label or ""):match("Collapse") then
+    found_collapse_toggle = true
+  end
+end
+assert_true(found_collapse_toggle, "図鑑の展開後に折りたたみトグルが含まれる")
 
 print("OK")

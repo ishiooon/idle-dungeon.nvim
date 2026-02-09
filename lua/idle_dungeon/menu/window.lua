@@ -8,6 +8,11 @@ local DETAIL_ZINDEX = 60
 local HIDDEN_CURSOR = "a:IdleDungeonMenuHiddenCursor"
 local cursor_state = { hidden_count = 0, previous = nil }
 
+local function palette_group_name(key)
+  local safe = tostring(key or "default"):gsub("[^%w_]", "_")
+  return "IdleDungeonMenuPalette_" .. safe
+end
+
 local function resolve_wrap_lines(opts)
   if opts == nil then
     return true
@@ -71,6 +76,15 @@ local function ensure_highlights(theme)
   )
   apply_highlight("IdleDungeonMenuMuted", { fg = safe.muted }, "Comment", inherit)
   apply_highlight("IdleDungeonMenuSection", { fg = safe.accent or safe.title, bold = true }, "Question", inherit)
+end
+
+local function ensure_palette_highlights(palette)
+  -- 図鑑で使う属性色をメニュー上でも再利用できるよう、動的ハイライトを定義する。
+  for key, spec in pairs(palette or {}) do
+    if type(spec) == "table" and spec.fg then
+      apply_highlight(palette_group_name(key), { fg = spec.fg, bg = "NONE" }, nil, false)
+    end
+  end
 end
 
 local function get_guicursor()
@@ -291,5 +305,7 @@ M.apply_highlights = apply_highlights
 M.close_window = close_window
 M.is_valid_window = is_valid_window
 M.is_valid_buffer = is_valid_buffer
+M.ensure_palette_highlights = ensure_palette_highlights
+M.palette_group_name = palette_group_name
 
 return M

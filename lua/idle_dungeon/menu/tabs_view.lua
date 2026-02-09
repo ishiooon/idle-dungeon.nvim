@@ -95,8 +95,12 @@ local function build_tab_lines(tab, config)
     local format_item = tab and tab.format_item or nil
     local label = format_item and format_item(item) or (item and item.label) or ""
     if item and item.id == "header" then
-      table.insert(lines, string.format("  %s", config.section_prefix or "󰉖 "))
-      lines[#lines] = lines[#lines] .. label
+      local prefix = config.section_prefix or ""
+      if prefix ~= "" then
+        table.insert(lines, string.format("  %s%s", prefix, label))
+      else
+        table.insert(lines, "  " .. label)
+      end
       table.insert(visible_items, item)
     elseif item and item.id == "empty" then
       table.insert(lines, string.format("  %s%s", config.empty_prefix or "󰇘 ", label))
@@ -118,7 +122,12 @@ local function build_formatted_lines(tab, config)
     local format_item = tab and tab.format_item or nil
     local label = format_item and format_item(item) or (item and item.label) or ""
     if item and item.id == "header" then
-      label = string.format("  %s%s", config.section_prefix or "󰉖 ", label)
+      local prefix = config.section_prefix or ""
+      if prefix ~= "" then
+        label = string.format("  %s%s", prefix, label)
+      else
+        label = "  " .. label
+      end
     elseif item and item.id == "empty" then
       label = string.format("  %s%s", config.empty_prefix or "󰇘 ", label)
     elseif item and item.id == "spacer" then
@@ -165,6 +174,28 @@ local function has_detail_lines(lines)
   return false
 end
 
+local function append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
+  if type(window.palette_group_name) ~= "function" then
+    return
+  end
+  local base_col = (shell.left_col or 1) - 1
+  for row, line in ipairs(left_lines or {}) do
+    local absolute = ui_state.offset + row
+    local item = (visible_items or {})[absolute]
+    if item and item.id == "dex_entry" and item.highlight_key and item.highlight_icon and item.highlight_icon ~= "" then
+      local icon_start = string.find(line, item.highlight_icon, 1, true)
+      if icon_start then
+        table.insert(highlights, {
+          line = shell.body_start + row - 1,
+          group = window.palette_group_name(item.highlight_key),
+          start_col = base_col + icon_start - 1,
+          end_col = base_col + icon_start - 1 + #item.highlight_icon,
+        })
+      end
+    end
+  end
+end
+
 local function render()
   local tab = current_tab()
   if not tab then
@@ -186,6 +217,10 @@ local function render()
   local footer_hints = (ui_state.opts and ui_state.opts.footer_hints) or {}
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   local labels, visible_items = build_tab_lines(tab, config)
+  if type(window.ensure_palette_highlights) == "function" then
+    local palette = ((ui_state.config or {}).ui or {}).sprite_palette or {}
+    window.ensure_palette_highlights(palette)
+  end
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)
   local height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
   local visible = frame.resolve_content_height({ height = height, tabs_line = tabs_line, top_lines = top_lines })
@@ -266,6 +301,7 @@ local function render()
       })
     end
   end
+  append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
   window.apply_highlights(buf, highlights)
   ui_state.win = win
   ui_state.buf = buf

@@ -211,37 +211,155 @@ local function build_credits_items(lang)
   return items
 end
 
--- 見出しと項目をまとめて並べるための補助関数。
-local function append_section(items, title, lines, empty_label)
-  table.insert(items, { id = "header", label = title })
-  if #lines == 0 then
-    table.insert(items, { id = "empty", label = empty_label })
-    return items
+local function count_known(entries)
+  local known = 0
+  local total = #entries
+  for _, entry in ipairs(entries or {}) do
+    if entry and entry.known then
+      known = known + 1
+    end
   end
-  for _, line in ipairs(lines) do
-    table.insert(items, { id = "entry", label = line })
-  end
-  return items
+  return known, total
 end
 
--- 図鑑のタイル表示に使う1行テキストを組み立てる。
-local function build_tile_label(entry, kind, lang, unknown_label)
-  local is_known = entry and entry.known ~= false
-  local base_name = entry and entry.name or ""
-  if not is_known then
-    base_name = unknown_label
+local function pad_right(text, width)
+  local safe_text = text or ""
+  local safe_width = math.max(tonumber(width) or 0, 0)
+  local gap = safe_width - util.display_width(safe_text)
+  if gap <= 0 then
+    return safe_text
   end
-  local icon = (entry and entry.icon) or ""
-  local base = icon ~= "" and (icon .. " " .. base_name) or base_name
-  local element_label = entry and entry.element_label or nil
-  if not is_known then
-    element_label = unknown_label
+  return safe_text .. string.rep(" ", gap)
+end
+
+local function build_inline_meter(current, total, width, meter_style)
+  local ratio = clamp_ratio(current, total)
+  local bar_width = math.max(tonumber(width) or 10, 6)
+  local filled = math.floor(ratio * bar_width + 0.5)
+  local empty = math.max(bar_width - filled, 0)
+  local style = meter_style or { on = "▰", off = "▱" }
+  return string.rep(style.on, filled) .. string.rep(style.off, empty)
+end
+
+local function rarity_icon(rarity)
+  if rarity == "rare" then
+    return "󰎵"
   end
-  if element_label and element_label ~= "" then
-    base = string.format("%s [%s]", base, element_label)
+  if rarity == "pet" then
+    return "󰚩"
   end
-  local count_text = is_known and tostring(tonumber(entry and entry.count) or 0) or unknown_label
-  return string.format("%s x%s", base, count_text)
+  return "󰄴"
+end
+
+local function slot_icon(slot)
+  if slot == "weapon" then
+    return "󰓥"
+  end
+  if slot == "armor" then
+    return ""
+  end
+  if slot == "accessory" then
+    return "󰓒"
+  end
+  if slot == "companion" then
+    return "󰠳"
+  end
+  return "󰏫"
+end
+
+local function build_enemy_tile_label(entry, index, unknown_label)
+  local known = entry and entry.known ~= false
+  local icon = known and ((entry and entry.icon) or "") or ""
+  if icon == "" then
+    icon = known and "󰆈" or "󰇘"
+  end
+  local name = known and (entry.name or unknown_label) or unknown_label
+  local element_text = known and (entry.element_label or unknown_label) or unknown_label
+  local count_text = known and tostring(tonumber(entry and entry.count) or 0) or "?"
+  local index_text = string.format("%03d", tonumber(index) or 0)
+  local name_col = pad_right(util.clamp_line(name, 16), 16)
+  local element_col = pad_right(util.clamp_line(element_text, 8), 8)
+  return string.format("№%s  %s %s [%s] ×%s", index_text, icon, name_col, element_col, count_text)
+end
+
+local function build_item_tile_label(entry, index, unknown_label)
+  local known = entry and entry.known ~= false
+  local icon = known and ((entry and entry.icon) or "") or ""
+  if icon == "" then
+    icon = known and "󰏫" or "󰇘"
+  end
+  local name = known and (entry.name or unknown_label) or unknown_label
+  local count_text = known and tostring(tonumber(entry and entry.count) or 0) or "?"
+  local index_text = string.format("%03d", tonumber(index) or 0)
+  local slot_mark = slot_icon(entry and entry.slot)
+  local rarity_mark = rarity_icon(entry and entry.rarity)
+  local name_col = pad_right(util.clamp_line(name, 16), 16)
+  return string.format("№%s  %s %s %s%s ×%s", index_text, icon, name_col, slot_mark, rarity_mark, count_text)
+end
+
+local function build_dex_summary_line(icon, title, known, total, meter_style)
+  local meter = build_inline_meter(known, total, 10, meter_style)
+  local title_col = pad_right(util.clamp_line(title, 8), 8)
+  local count_col = string.format("%3d/%-3d", tonumber(known) or 0, tonumber(total) or 0)
+  return string.format("%s %s %s [%s]", icon, title_col, count_col, pad_right(meter, 10))
+end
+
+local function build_dex_summary_pair(lang, known_enemy, total_enemy, known_item, total_item, meter_style)
+  local enemy = build_dex_summary_line("󰆧", i18n.t("dex_title_enemies", lang), known_enemy, total_enemy, meter_style)
+  local item = build_dex_summary_line("󰓥", i18n.t("dex_title_items", lang), known_item, total_item, meter_style)
+  return enemy .. "   " .. item
+end
+
+local function pick_dex_entries(entries, known_limit, unknown_limit)
+  local visible = {}
+  local known_count = 0
+  local unknown_count = 0
+  local hidden = 0
+  for index, entry in ipairs(entries or {}) do
+    local known = entry and entry.known == true
+    if known then
+      if known_count < known_limit then
+        table.insert(visible, { entry = entry, index = index })
+      else
+        hidden = hidden + 1
+      end
+      known_count = known_count + 1
+    else
+      if unknown_count < unknown_limit then
+        table.insert(visible, { entry = entry, index = index })
+      else
+        hidden = hidden + 1
+      end
+      unknown_count = unknown_count + 1
+    end
+  end
+  return visible, hidden
+end
+
+local function build_more_label(hidden_count, lang)
+  local safe_hidden = math.max(tonumber(hidden_count) or 0, 0)
+  if safe_hidden <= 0 then
+    return ""
+  end
+  if lang == "ja" then
+    return string.format("󰇘 さらに %d 件は省略表示中", safe_hidden)
+  end
+  return string.format("󰇘 %d more entries are collapsed", safe_hidden)
+end
+
+local function build_dex_toggle_label(lang, kind, expand, hidden_count)
+  local safe_hidden = math.max(tonumber(hidden_count) or 0, 0)
+  local target = kind == "enemy" and i18n.t("dex_title_enemies", lang) or i18n.t("dex_title_items", lang)
+  if lang == "ja" then
+    if expand then
+      return string.format("▶ %sを展開表示 (%d件)", target, safe_hidden)
+    end
+    return string.format("▼ %sを折りたたむ", target)
+  end
+  if expand then
+    return string.format("▶ Expand %s (%d hidden)", target, safe_hidden)
+  end
+  return string.format("▼ Collapse %s", target)
 end
 
 -- レアリティの表示名を整形する。
@@ -309,22 +427,43 @@ local function build_detail_lines(entry, kind, lang, unknown_label)
 end
 
 -- 図鑑タブで表示する敵と装備の一覧を生成する。
-local function build_dex_items(state, config, lang)
+local function build_dex_items(state, config, lang, view_state)
   local items = {}
   local enemy_entries = dex_catalog.build_enemy_entries(state, lang)
   local item_entries = dex_catalog.build_item_entries(state, lang)
   local unknown_label = i18n.t("dex_unknown", lang)
-  table.insert(items, { id = "header", label = i18n.t("dex_title_enemies", lang) })
+  local meter_style = resolve_meter_style(config)
+  local dex_view = view_state or {}
+  local show_all_enemies = dex_view.show_all_enemies == true
+  local show_all_items = dex_view.show_all_items == true
+  local menu_config = ((config or {}).ui or {}).menu or {}
+  local dex_known_limit = math.max(tonumber(menu_config.dex_known_limit) or 10, 4)
+  local dex_unknown_limit = math.max(tonumber(menu_config.dex_unknown_limit) or 2, 0)
+  local known_enemy, total_enemy = count_known(enemy_entries)
+  local known_item, total_item = count_known(item_entries)
+  table.insert(items, {
+    id = "header",
+    label = build_dex_summary_pair(lang, known_enemy, total_enemy, known_item, total_item, meter_style),
+  })
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = string.format("— %s —", i18n.t("dex_title_enemies", lang)) })
   if #enemy_entries == 0 then
     table.insert(items, { id = "empty", label = i18n.t("dex_empty_enemies", lang) })
   else
-    for _, entry in ipairs(enemy_entries) do
+    local enemy_visible, enemy_hidden = pick_dex_entries(
+      enemy_entries,
+      show_all_enemies and #enemy_entries or dex_known_limit,
+      show_all_enemies and #enemy_entries or dex_unknown_limit
+    )
+    for _, picked in ipairs(enemy_visible) do
+      local entry = picked.entry
+      local index = picked.index
       local element_key = entry.known and ("element_" .. (entry.element_id or "normal")) or nil
       table.insert(items, {
         id = "dex_entry",
         kind = "enemy",
-        label = build_tile_label(entry, "enemy", lang, unknown_label),
-        tile_label = build_tile_label(entry, "enemy", lang, unknown_label),
+        label = build_enemy_tile_label(entry, index, unknown_label),
+        tile_label = build_enemy_tile_label(entry, index, unknown_label),
         detail_title = entry.known and entry.name or unknown_label,
         detail_lines = build_detail_lines(entry, "enemy", lang, unknown_label),
         highlight_key = element_key,
@@ -332,21 +471,53 @@ local function build_dex_items(state, config, lang)
         keep_open = true,
       })
     end
+    if enemy_hidden > 0 or show_all_enemies then
+      table.insert(items, {
+        id = "dex_control",
+        kind = "enemy",
+        action = show_all_enemies and "collapse_enemy" or "expand_enemy",
+        label = build_dex_toggle_label(lang, "enemy", not show_all_enemies, enemy_hidden),
+        keep_open = true,
+      })
+      if enemy_hidden > 0 and not show_all_enemies then
+        table.insert(items, { id = "header", label = build_more_label(enemy_hidden, lang) })
+      end
+    end
   end
-  table.insert(items, { id = "header", label = i18n.t("dex_title_items", lang) })
+  table.insert(items, { id = "spacer", label = "" })
+  table.insert(items, { id = "header", label = string.format("— %s —", i18n.t("dex_title_items", lang)) })
   if #item_entries == 0 then
     table.insert(items, { id = "empty", label = i18n.t("dex_empty_items", lang) })
   else
-    for _, entry in ipairs(item_entries) do
+    local item_visible, item_hidden = pick_dex_entries(
+      item_entries,
+      show_all_items and #item_entries or dex_known_limit,
+      show_all_items and #item_entries or dex_unknown_limit
+    )
+    for _, picked in ipairs(item_visible) do
+      local entry = picked.entry
+      local index = picked.index
       table.insert(items, {
         id = "dex_entry",
         kind = "item",
-        label = build_tile_label(entry, "item", lang, unknown_label),
-        tile_label = build_tile_label(entry, "item", lang, unknown_label),
+        label = build_item_tile_label(entry, index, unknown_label),
+        tile_label = build_item_tile_label(entry, index, unknown_label),
         detail_title = entry.known and entry.name or unknown_label,
         detail_lines = build_detail_lines(entry, "item", lang, unknown_label),
         keep_open = true,
       })
+    end
+    if item_hidden > 0 or show_all_items then
+      table.insert(items, {
+        id = "dex_control",
+        kind = "item",
+        action = show_all_items and "collapse_item" or "expand_item",
+        label = build_dex_toggle_label(lang, "item", not show_all_items, item_hidden),
+        keep_open = true,
+      })
+      if item_hidden > 0 and not show_all_items then
+        table.insert(items, { id = "header", label = build_more_label(item_hidden, lang) })
+      end
     end
   end
   return items

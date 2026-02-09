@@ -26,9 +26,13 @@ local function clear_idle_dungeon_cache()
   end
 end
 
-local function setup(user_config)
+local function setup(user_config, options)
+  local opts = options or {}
   last_user_config = deep_copy(user_config or {})
   local config = engine.configure(user_config or {})
+  if opts.skip_auto_start == true then
+    return config
+  end
   -- 保存済みの設定を読み取り、必要なら保存ディレクトリを作成して自動開始の可否を判定する。
   local saved_state = store_state.load_state()
   if auto_start.resolve(user_config, config, saved_state) then
@@ -65,7 +69,7 @@ local function reload(options)
   stop()
   clear_idle_dungeon_cache()
   local reloaded = require("idle_dungeon")
-  reloaded.setup(config_copy)
+  reloaded.setup(config_copy, { skip_auto_start = true })
   reloaded.start()
   if open_menu_after then
     reloaded.open_menu()

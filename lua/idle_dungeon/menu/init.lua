@@ -14,6 +14,21 @@ local M = {}
 local menu_open = false
 local open_status_root
 local on_close_callback = nil
+local view_state = {
+  dex = {
+    show_all_enemies = false,
+    show_all_items = false,
+  },
+}
+
+local function reset_view_state()
+  view_state = {
+    dex = {
+      show_all_enemies = false,
+      show_all_items = false,
+    },
+  }
+end
 
 local function with_item_icon(item, text)
   if not item or not item.icon or item.icon == "" then
@@ -128,8 +143,30 @@ end
 -- メニューの開閉状態を閉じる側へ更新する。
 local function mark_closed()
   menu_open = false
+  reset_view_state()
   if on_close_callback then
     on_close_callback()
+  end
+end
+
+local function handle_dex_choice(action)
+  if not action or action.id ~= "dex_control" then
+    return
+  end
+  if action.action == "expand_enemy" then
+    view_state.dex.show_all_enemies = true
+    return
+  end
+  if action.action == "collapse_enemy" then
+    view_state.dex.show_all_enemies = false
+    return
+  end
+  if action.action == "expand_item" then
+    view_state.dex.show_all_items = true
+    return
+  end
+  if action.action == "collapse_item" then
+    view_state.dex.show_all_items = false
   end
 end
 
@@ -173,9 +210,12 @@ local function build_tabs(get_state, set_state, config, handlers)
     {
       id = "dex",
       label = i18n.t("menu_tab_dex", lang),
-      items = tabs_data.build_dex_items(state, config, lang),
+      items = tabs_data.build_dex_items(state, config, lang, view_state.dex),
       format_item = function(item)
         return item.label
+      end,
+      on_choice = function(action)
+        return handle_dex_choice(action)
       end,
     },
     {
@@ -190,6 +230,7 @@ local function build_tabs(get_state, set_state, config, handlers)
 end
 -- メニューの最初のページを再表示するための入口を用意する。
 open_status_root = function(get_state, set_state, config, handlers)
+  reset_view_state()
   local lang = menu_locale.resolve_lang(get_state(), config)
   -- 全メニュー画面で共通のライブトラック情報を表示するため文脈を共有する。
   menu_view.set_context(get_state, config)

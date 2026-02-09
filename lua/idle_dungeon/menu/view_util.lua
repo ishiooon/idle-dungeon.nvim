@@ -101,7 +101,7 @@ local function menu_config(config)
     tabs_position = menu.tabs_position or "top",
     tabs_style = menu.tabs or {},
     item_prefix = menu.item_prefix or "󰜴 ",
-    section_prefix = menu.section_prefix or "󰉖 ",
+    section_prefix = menu.section_prefix or "",
     empty_prefix = menu.empty_prefix or "󰇘 ",
     theme = theme.resolve(config),
     -- 上部表示の可読性を保つため、現在画面で使える最大幅を保持する。

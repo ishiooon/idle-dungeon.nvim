@@ -104,7 +104,7 @@ local function default_ui()
       },
       -- 項目表示の見た目を整える記号を定義する。
       item_prefix = "󰜴 ",
-      section_prefix = "󰉖 ",
+      section_prefix = "",
       empty_prefix = "󰇘 ",
       theme = menu_theme.default_theme(),
     },

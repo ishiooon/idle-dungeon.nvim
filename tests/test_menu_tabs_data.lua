@@ -134,12 +134,21 @@ local dex_state = util.merge_tables(state, {
 })
 local dex_items = menu_data.build_dex_items(dex_state, config, "en")
 local highlighted = nil
+local found_dex_summary = false
+local found_dex_toggle = false
 for _, item in ipairs(dex_items) do
+  if item.id == "header" and (item.label or ""):match("Enemies") and (item.label or ""):match("Items") and (item.label or ""):match("%[") then
+    found_dex_summary = true
+  end
+  if item.id == "dex_control" and (item.label or ""):match("Expand") then
+    found_dex_toggle = true
+  end
   if item.id == "dex_entry" and item.highlight_key then
     highlighted = item
-    break
   end
 end
+assert_true(found_dex_summary, "図鑑の概要行に進捗メーターが含まれる")
+assert_true(found_dex_toggle, "図鑑の展開トグルが含まれる")
 assert_true(highlighted ~= nil, "図鑑の敵エントリが見つかる")
 assert_match(highlighted.highlight_icon or "", "%S", "図鑑の敵アイコンが保持される")
 
