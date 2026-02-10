@@ -6,6 +6,17 @@ local function assert_true(value, message)
   end
 end
 
+local function assert_equal(actual, expected, message)
+  if actual ~= expected then
+    error((message or "assert_equal failed") .. ": " .. tostring(actual) .. " ~= " .. tostring(expected))
+  end
+end
+
+local function leading_spaces(text)
+  local matched = (tostring(text or "")):match("^(%s*)") or ""
+  return #matched
+end
+
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local original_vim = _G.vim
@@ -99,8 +110,13 @@ local ok, err = pcall(function()
   assert_true(first_width > 68, "初回描画で内容幅に応じて拡張する")
   assert_true(second_width >= first_width, "更新後も横幅が縮まない")
   assert_true(second_height >= first_height, "更新後も高さが縮まない")
-  assert_true((rendered[2] or "") ~= "", "上部ゲーム表示の1行目が表示される")
-  assert_true((rendered[3] or "") ~= "", "上部ゲーム表示の2行目が表示される")
+  local top_line_1 = rendered[2] or ""
+  local top_line_2 = rendered[3] or ""
+  assert_true(top_line_1 ~= "", "上部ゲーム表示の1行目が表示される")
+  assert_true(top_line_2 ~= "", "上部ゲーム表示の2行目が表示される")
+  -- 上部のゲーム表示はメニュー幅の中央に来るよう、左余白が計算されることを確認する。
+  assert_equal(leading_spaces(top_line_1), math.floor((second_width - #"short") / 2), "1行目が中央寄せされる")
+  assert_equal(leading_spaces(top_line_2), math.floor((second_width - #"HP 100") / 2), "2行目が中央寄せされる")
   tabs_view.close()
 end)
 

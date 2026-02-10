@@ -7,6 +7,7 @@ local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view = require("idle_dungeon.menu.view")
 local menu_tabs = require("idle_dungeon.menu.tabs")
 local menu_view_util = require("idle_dungeon.menu.view_util")
+local util = require("idle_dungeon.util")
 local window = require("idle_dungeon.menu.window")
 
 local M = {}
@@ -155,6 +156,29 @@ local function build_width_lines(title, tabs_line, footer_hints, top_lines, left
   return lines
 end
 
+local function center_line(line, width)
+  local safe_width = math.max(tonumber(width) or 0, 0)
+  local safe_line = tostring(line or "")
+  if safe_width <= 0 then
+    return safe_line
+  end
+  local content_width = util.display_width(safe_line)
+  if content_width >= safe_width then
+    return safe_line
+  end
+  -- メニュー全体の左右中央に上部ゲーム画面を置くため、左側の余白だけ先に付ける。
+  local left_padding = math.floor((safe_width - content_width) / 2)
+  return string.rep(" ", math.max(left_padding, 0)) .. safe_line
+end
+
+local function center_lines(lines, width)
+  local centered = {}
+  for _, line in ipairs(lines or {}) do
+    table.insert(centered, center_line(line, width))
+  end
+  return centered
+end
+
 local function resolve_stable_layout(config, width, height)
   local max_width = tonumber(config.available_width) or width
   local max_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 10)
@@ -244,9 +268,10 @@ local function render()
   local width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
   width = menu_view_util.resolve_display_width(config, width, width_lines)
   width, height = resolve_stable_layout(config, width, height)
+  local centered_top_lines = center_lines(top_lines, width)
   local shell = frame.compose({
     title = title,
-    top_lines = top_lines,
+    top_lines = centered_top_lines,
     tabs_line = tabs_line,
     left_title = "MENU",
     left_lines = left_lines,
