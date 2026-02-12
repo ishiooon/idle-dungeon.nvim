@@ -31,37 +31,6 @@ local function build_status_line(state, config)
   return string.format("%s HP%d/%d Lv%d G%d", summary, actor.hp or 0, actor.max_hp or 0, actor.level or 1, gold)
 end
 
--- 移動中に必要な情報を1行でまとめる。
-local function build_scrolling_text(text, max_width, time_sec)
-  local width = math.max(tonumber(max_width) or 0, 0)
-  if width <= 0 then
-    return ""
-  end
-  if util.display_width(text) <= width then
-    return text
-  end
-  -- 表示に余白を入れてスクロールの切れ目を作る。
-  local spacer = "   "
-  local base = util.split_utf8(text .. spacer)
-  local stream = util.split_utf8(text .. spacer .. text)
-  local offset_base = #base
-  local offset = ((math.floor(time_sec or 0) % offset_base) + 1)
-  local parts = {}
-  local used = 0
-  local index = offset
-  while used < width and #parts < #stream do
-    local chunk = stream[((index - 1) % #stream) + 1]
-    local w = util.display_width(chunk)
-    if used + w > width then
-      break
-    end
-    used = used + w
-    table.insert(parts, chunk)
-    index = index + 1
-  end
-  return table.concat(parts, "")
-end
-
 -- 移動中の情報を切り替え表示できるように候補をまとめる。
 local function build_move_info_variants(state, lang, icons)
   local actor = state.actor or {}
@@ -96,7 +65,6 @@ local function build_move_info_line(state, config)
   -- 移動時はダンジョン名を表示せず、階層トークンだけを出す。
   return string.format("%s %s", token, info_text)
 end
-
 
 -- 会話イベントの文言を優先順で返す。
 local function build_dialogue_info_line(state, lang)

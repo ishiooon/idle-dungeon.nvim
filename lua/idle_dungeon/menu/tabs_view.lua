@@ -319,26 +319,6 @@ local function normalize_detail(detail)
   return { title = title, lines = lines }
 end
 
--- メインタブで比較プレビューを表示可能かどうかを判定する。
-local function should_show_detail_panel(tab)
-  if not tab or is_credits_tab(tab) then
-    return false
-  end
-  if tab.id == "dex" then
-    -- 図鑑は詳細画面との重複を避けるため、常に1カラムで表示する。
-    return false
-  end
-  if type(tab.detail_provider) == "function" then
-    return true
-  end
-  for _, item in ipairs((tab.items or {})) do
-    if type(item) == "table" and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
-      return true
-    end
-  end
-  return false
-end
-
 -- タブの選択項目から詳細プレビューを生成する。
 local function resolve_tab_detail(tab, item)
   if not item then

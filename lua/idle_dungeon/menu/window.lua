@@ -151,7 +151,7 @@ local function open_window(height, width, border, theme, opts)
     border = border,
     focusable = true,
     noautocmd = true,
-    -- 詳細表示より下に配置して重なり順を安定させる。
+    -- メニュー本体の重なり順を固定して表示を安定させる。
     zindex = MAIN_ZINDEX,
   })
   local wrap_lines = resolve_wrap_lines(opts)
