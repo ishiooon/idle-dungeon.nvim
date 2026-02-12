@@ -69,8 +69,8 @@ assert_true(type(built.floor_encounters.min) == "number", "階層遭遇数の最
 assert_true(type(built.floor_encounters.max) == "number", "階層遭遇数の最大値が定義される")
 assert_true(type(built.boss_every) == "number", "ボスの出現間隔が定義される")
 assert_true(type(built.battle) == "table", "戦闘設定が定義される")
--- 経験値の既定値は調整後の値と一致する。
-assert_true(built.battle.reward_exp == 30, "経験値の既定値が引き上げられている")
+-- 経験値の既定値は中盤以降の進行テンポを維持する値である。
+assert_true(built.battle.reward_exp == 8, "経験値の既定値が定義通りである")
 assert_true(type(built.battle.skill_active_rate) == "number", "スキル発動率が定義される")
 -- 会話待機の既定値は0秒で停止時間を発生させない。
 assert_true(built.dialogue_seconds == 0, "会話待機の既定値は0秒である")

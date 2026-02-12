@@ -5,6 +5,7 @@ local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
 local i18n = require("idle_dungeon.i18n")
 local inventory = require("idle_dungeon.game.inventory")
+local choice_style = require("idle_dungeon.menu.choice_style")
 local equip_detail = require("idle_dungeon.menu.equip_detail")
 local menu_detail = require("idle_dungeon.menu.detail")
 local menu_locale = require("idle_dungeon.menu.locale")
@@ -18,6 +19,11 @@ local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
+local item_by_id = {}
+local apply_equipment
+for _, item in ipairs(content.items or {}) do
+  item_by_id[item.id] = item
+end
 
 -- 言語設定に応じてスキル名を切り替える。
 local function resolve_skill_name(skill, lang)
@@ -41,20 +47,46 @@ local function resolve_skill_description(skill, lang)
   return skill.description or ""
 end
 
+-- 言語設定に応じて表示文言を切り替える。
+local function localized_text(lang, ja_text, en_text)
+  if lang == "ja" or lang == "jp" then
+    return ja_text
+  end
+  return en_text
+end
+
+-- ジョブ固有の成長値を1行で比較しやすい形式に整える。
+local function build_job_growth_line(job, lang)
+  local growth = (job and job.growth) or {}
+  local head = "LvUp"
+  return string.format(
+    "%s HP+%d ATK+%d DEF+%d SPD+%d",
+    head,
+    tonumber(growth.hp) or 0,
+    tonumber(growth.atk) or 0,
+    tonumber(growth.def) or 0,
+    tonumber(growth.speed) or 0
+  )
+end
+
 -- ジョブ詳細の表示内容を構築する。
 local function build_job_detail(job, state, lang)
   if not job then
     return nil
   end
   local progress = (state.job_levels or {})[job.id] or player.default_progress()
-  local growth = job.growth or {}
   local lines = {
     string.format("%s %d", i18n.t("label_job_level", lang), progress.level or 1),
     string.format("%s %d/%d", i18n.t("label_job_exp", lang), progress.exp or 0, progress.next_level or 0),
-    string.format("%s HP+%d ATK+%d DEF+%d SPD+%d", i18n.t("label_job_growth", lang), growth.hp or 0, growth.atk or 0, growth.def or 0, growth.speed or 0),
+    "",
+    localized_text(lang, "Level Up Growth", "Level Up Growth"),
+    build_job_growth_line(job, lang),
+    localized_text(lang, "ジョブ切替直後にステータスは変わりません。", "No immediate stat change on switch."),
+    localized_text(lang, "勇者レベルが上がる時だけこの成長が反映されます。", "Growth applies only when hero levels up."),
   }
   if job.skills and #job.skills > 0 then
-    table.insert(lines, i18n.t("label_job_skills", lang))
+    table.insert(lines, "")
+    table.insert(lines, localized_text(lang, "スキル習得一覧", "Skill Unlocks"))
     for _, skill in ipairs(job.skills) do
       local learned = skills.is_learned(state.skills, skill.id)
       local status = learned and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
@@ -74,17 +106,103 @@ local function build_job_detail(job, state, lang)
 end
 
 -- 装備名の先頭にスロットアイコンを付けて識別しやすくする。
-local function format_item_label(item, config)
+local function format_item_label(item, config, lang)
+  if not item then
+    return ""
+  end
   local icons = icon_module.config(config)
   local icon = icon_module.resolve_slot_icon(item.slot, icons)
+  local base_name = (lang == "en" and (item.name_en or item.name)) or (item.name or item.name_en or item.id)
   if icon == "" then
-    return item.name
+    return base_name
   end
-  return string.format("%s %s", icon, item.name)
+  return string.format("%s %s", icon, base_name)
+end
+
+-- スロットに属する所持装備数を返す。
+local function count_owned_items_by_slot(state, slot)
+  local total = 0
+  local bag = (state and state.inventory) or {}
+  for _, item in ipairs(content.items or {}) do
+    if item.slot == slot and inventory.has_item(bag, item.id) then
+      total = total + 1
+    end
+  end
+  return total
+end
+
+-- スロット選択行を、現在装備と候補数が分かる形で整形する。
+local function format_slot_line(slot, state, config, lang)
+  local icons = icon_module.config(config)
+  local icon = icon_module.resolve_slot_icon(slot, icons)
+  local slot_label = menu_locale.slot_label(slot, lang)
+  local equipped_id = ((state or {}).equipment or {})[slot]
+  local equipped_item = item_by_id[equipped_id]
+  local equipped_name = equipped_item and ((lang == "en" and (equipped_item.name_en or equipped_item.name)) or equipped_item.name)
+    or localized_text(lang, "なし", "None")
+  local owned = count_owned_items_by_slot(state, slot)
+  local equipped_label = localized_text(lang, "装備中", "Equipped")
+  local choices_label = localized_text(lang, "候補", "Choices")
+  if icon == "" then
+    return string.format("%s | %s: %s | %s: %d", slot_label, equipped_label, equipped_name, choices_label, owned)
+  end
+  return string.format("%s %s | %s: %s | %s: %d", icon, slot_label, equipped_label, equipped_name, choices_label, owned)
+end
+
+-- 装備候補行を、現在装備との能力差分が見える形式へ整形する。
+local function format_equip_choice_line(item, state, slot, config, lang)
+  local equipped_id = ((state or {}).equipment or {})[slot]
+  local marker = item.id == equipped_id and "◆EQUIPPED" or "◇CANDIDATE"
+  local next_state = apply_equipment(state, slot, item.id)
+  local delta = choice_style.build_actor_delta(state.actor or {}, (next_state.actor or {}))
+  local delta_text = choice_style.format_actor_delta(delta)
+  local owned = ((state.inventory or {})[item.id]) or 0
+  return string.format("%s %-20s x%-2d | %s", marker, format_item_label(item, config, lang), owned, delta_text)
+end
+
+-- ジョブ一覧の行を、主要スキルの解放情報が見える形式で整形する。
+local function build_job_skill_unlock_line(job, lang)
+  local entries = {}
+  for _, skill in ipairs((job and job.skills) or {}) do
+    local skill_name = resolve_skill_name(skill, lang)
+    table.insert(entries, string.format("Lv%d %s", skill.level or 1, skill_name))
+  end
+  local label = localized_text(lang, "Skill", "Skill")
+  if #entries == 0 then
+    return string.format("%s:%s", label, localized_text(lang, "None", "None"))
+  end
+  return string.format("%s:%s", label, table.concat(entries, " / "))
+end
+
+-- ジョブ一覧の行を、成長方針とスキル解放レベルが見える形式で整形する。
+local function format_job_line(job, state, lang)
+  local progress = (state.job_levels or {})[job.id] or player.default_progress()
+  local is_active = ((state.actor or {}).id == job.id)
+  local marker = is_active and "◆ACTIVE" or "◇CANDIDATE"
+  local growth_text = build_job_growth_line(job, lang)
+  local skill_line = build_job_skill_unlock_line(job, lang)
+  return string.format(
+    "%s %-12s Lv%-2d %s | %s | %s",
+    marker,
+    job.name or "",
+    progress.level or 1,
+    job.role or "",
+    growth_text,
+    skill_line
+  )
+end
+
+-- スキル一覧の行を、現在の有効状態と効果要点が見える形式で整形する。
+local function format_skill_line(item, state, lang)
+  local enabled = skills.is_enabled(state.skill_settings, item.id, item.kind)
+  local marker = enabled and "◆ON" or "◇OFF"
+  local kind_label = item.kind == "active" and i18n.t("skill_kind_active", lang) or i18n.t("skill_kind_passive", lang)
+  local summary = choice_style.format_skill_summary(item)
+  return string.format("%s %s [%s] | %s", marker, resolve_skill_name(item, lang), kind_label, summary)
 end
 
 -- 設定系の操作は別モジュールへ委譲する。
-local function apply_equipment(state, slot, item_id)
+apply_equipment = function(state, slot, item_id)
   local next_equipment = util.merge_tables(state.equipment, { [slot] = item_id })
   local next_actor = player.apply_equipment(state.actor, next_equipment, content.items)
   return state_module.with_actor(state_module.with_equipment(state, next_equipment), next_actor)
@@ -98,15 +216,18 @@ local function open_job_menu(get_state, set_state, config, on_close)
   end
   -- ジョブ選択のメニューを表示する。
   menu_view.select(entries, {
-    prompt = i18n.t("prompt_job", lang),
+    prompt_provider = function()
+      local title = i18n.t("prompt_job", lang)
+      local legend = localized_text(lang, "◆現在  ◇候補  LvUp成長と習得スキルを比較", "◆ACTIVE  ◇CANDIDATE  Compare LvUp growth and unlocks")
+      return string.format("%s | %s", title, legend)
+    end,
     lang = lang,
     footer_hints = menu_locale.submenu_footer_hints(lang),
     keep_open = true,
+    -- ジョブ選択は左一覧と右詳細を同時に見られる2カラム表示にする。
+    detail_layout = "split",
     format_item = function(item)
-      local current = get_state()
-      local active = (current.actor or {}).id == item.id and "●" or " "
-      local progress = (current.job_levels or {})[item.id] or player.default_progress()
-      return string.format("%s %-20s Lv%-3d %s", active, item.name, progress.level or 1, item.role or "")
+      return format_job_line(item, get_state(), lang)
     end,
     detail_provider = function(item)
       -- ジョブの成長と習得技を詳細に表示する。
@@ -139,17 +260,16 @@ local function open_skills_menu(get_state, set_state, config, on_close)
     table.insert(entries, util.merge_tables(skill, { kind = "passive" }))
   end
   menu_view.select(entries, {
-    prompt = i18n.t("prompt_skills", lang),
+    prompt_provider = function()
+      local title = i18n.t("prompt_skills", lang)
+      local legend = localized_text(lang, "◆ON  ◇OFF  Enterで切替", "◆ON  ◇OFF  Enter to toggle")
+      return string.format("%s | %s", title, legend)
+    end,
     lang = lang,
     footer_hints = menu_locale.submenu_footer_hints(lang),
     keep_open = true,
     format_item = function(item)
-      local current = get_state()
-      local enabled = skills.is_enabled(current.skill_settings, item.id, item.kind)
-      local status = enabled and i18n.t("status_on", lang) or i18n.t("status_off", lang)
-      local kind_label = item.kind == "active" and i18n.t("skill_kind_active", lang) or i18n.t("skill_kind_passive", lang)
-      local skill_name = resolve_skill_name(item, lang)
-      return string.format("%s (%s) [%s]", skill_name, kind_label, status)
+      return format_skill_line(item, get_state(), lang)
     end,
     detail_provider = function(item)
       if not item then
@@ -195,29 +315,38 @@ local function open_skills_menu(get_state, set_state, config, on_close)
   end, config)
 end
 
--- ジョブごとのレベル一覧を表示する。
-local function open_job_levels_menu(get_state, set_state, config, on_close)
-  local lang = menu_locale.resolve_lang(get_state(), config)
-  local state = get_state()
-  local lines = menu_locale.build_job_level_lines(state, lang, content.jobs or {})
-  local entries = {}
-  for _, line in ipairs(lines) do
-    table.insert(entries, { label = line })
+-- ステージ選択時に、適用後の開始条件を右ペインへ表示する。
+local function build_stage_detail(stage, state, config, lang)
+  if not stage then
+    return nil
   end
-  menu_view.select(entries, {
-    prompt = i18n.t("menu_job_levels_title", lang),
-    lang = lang,
-    footer_hints = menu_locale.submenu_footer_hints(lang),
-    keep_open = true,
-    format_item = function(item)
-      return item.label
-    end,
-  }, function(choice)
-    if not choice and on_close then
-      -- キャンセル時は状態画面へ戻る。
-      on_close()
+  local stage_name = render_stage.resolve_stage_name(stage, nil, lang)
+  local current_stage_id = (state.progress or {}).stage_id
+  local lines = {}
+  if lang == "ja" or lang == "jp" then
+    table.insert(lines, string.format("開始地点: %d", tonumber(stage.start) or 0))
+    table.insert(lines, string.format("区間長: %d", tonumber(stage.length) or 0))
+    table.insert(lines, string.format("無限ステージ: %s", (stage.infinite == true) and "有効" or "無効"))
+    table.insert(lines, string.format("ボス間隔: %d", tonumber(stage.boss_every or config.boss_every) or 0))
+    table.insert(lines, string.format("マイルストーン数: %d", #((stage.boss_milestones or {}))))
+    table.insert(lines, "")
+    table.insert(lines, string.format("選択後は %s から開始します。", stage_name))
+    if stage.id == current_stage_id then
+      table.insert(lines, "現在の開始ダンジョンです。")
     end
-  end, config)
+  else
+    table.insert(lines, string.format("Start Distance: %d", tonumber(stage.start) or 0))
+    table.insert(lines, string.format("Segment Length: %d", tonumber(stage.length) or 0))
+    table.insert(lines, string.format("Infinite Stage: %s", (stage.infinite == true) and "On" or "Off"))
+    table.insert(lines, string.format("Boss Interval: %d", tonumber(stage.boss_every or config.boss_every) or 0))
+    table.insert(lines, string.format("Milestone Count: %d", #((stage.boss_milestones or {}))))
+    table.insert(lines, "")
+    table.insert(lines, string.format("After select, run starts at %s.", stage_name))
+    if stage.id == current_stage_id then
+      table.insert(lines, "This is your current starting dungeon.")
+    end
+  end
+  return { title = stage_name, lines = lines }
 end
 
 local function open_stage_menu(get_state, set_state, config, on_close)
@@ -239,6 +368,9 @@ local function open_stage_menu(get_state, set_state, config, on_close)
       local label = unlocked and i18n.t("status_unlocked", lang) or i18n.t("status_locked", lang)
       local stage_name = render_stage.resolve_stage_name(item, nil, lang)
       return string.format("%s [%s]", stage_name, label)
+    end,
+    detail_provider = function(item)
+      return build_stage_detail(item, get_state(), config, lang)
     end,
   }, function(choice)
     if not choice then
@@ -276,12 +408,16 @@ local function open_equip_menu(get_state, set_state, config, on_close)
   local function open_slot_menu()
     -- 装備枠を選択するためのメニューを表示する。
     menu_view.select(slots, {
-      prompt = i18n.t("prompt_slot", lang),
+      prompt_provider = function()
+        local title = i18n.t("prompt_slot", lang)
+        local legend = localized_text(lang, "現在装備と候補数を確認", "Check equipped item and choices")
+        return string.format("%s | %s", title, legend)
+      end,
       lang = lang,
       footer_hints = menu_locale.submenu_footer_hints(lang),
       keep_open = true,
       format_item = function(item)
-        return menu_locale.slot_label(item, lang)
+        return format_slot_line(item, get_state(), config, lang)
       end,
     }, function(slot)
       if not slot then
@@ -299,13 +435,18 @@ local function open_equip_menu(get_state, set_state, config, on_close)
       end
       -- 選択可能な装備を表示し、差分を詳細で確認できるようにする。
       menu_view.select(choices, {
-        prompt = i18n.t("prompt_equipment", lang),
+        prompt_provider = function()
+          local title = i18n.t("prompt_equipment", lang)
+          local slot_name = menu_locale.slot_label(slot, lang)
+          local legend = localized_text(lang, "◆装備中  ◇候補  Δ=変更差分", "◆EQUIPPED  ◇CANDIDATE  Δ=Change")
+          return string.format("%s [%s] | %s", title, slot_name, legend)
+        end,
         lang = lang,
         footer_hints = menu_locale.submenu_footer_hints(lang),
         -- 装備確定後もメニューを閉じずに連続で選択できるようにする。
         keep_open = true,
         format_item = function(item)
-          return format_item_label(item, config)
+          return format_equip_choice_line(item, get_state(), slot, config, lang)
         end,
         detail_provider = function(item)
           -- 装備差分と解放条件をまとめて表示する。
@@ -317,7 +458,7 @@ local function open_equip_menu(get_state, set_state, config, on_close)
           -- 装備枠の選択へ戻る。
           return open_slot_menu()
         end
-        local next_state = apply_equipment(state, slot, item.id)
+        local next_state = apply_equipment(get_state(), slot, item.id)
         set_state(next_state)
       end, config)
     end, config)
@@ -327,7 +468,6 @@ end
 
 M.open_job_menu = open_job_menu
 M.open_skills_menu = open_skills_menu
-M.open_job_levels_menu = open_job_levels_menu
 M.open_stage_menu = open_stage_menu
 M.open_equip_menu = open_equip_menu
 

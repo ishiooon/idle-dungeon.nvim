@@ -1,4 +1,5 @@
 -- このモジュールはステージの既定設定を提供する。
+-- 数値バランスは game/balance.lua へ集約し、ここでは構成情報のみ持つ。
 
 local M = {}
 
@@ -11,19 +12,18 @@ local function default_stages()
       boss_every = 10,
       boss_id = "boss_ice_regent",
       -- 初期は固定枠を多めにして基礎敵を覚えやすくする。
-      -- 低階層はペンギンとマンティスの派生を中心にして役割を学びやすくする。
+      -- 低階層はスライムと動物系の派生を中心にして視認性と学習導線を揃える。
+      -- 種類不足を避けるため、序盤向きの動物系を2種先行配置する。
       enemy_pool = {
-        fixed = { "dust_slime", "tux_penguin", "vim_mantis", "penguin_tide", "mantis_mist" },
+        fixed = { "dust_slime", "tux_penguin", "penguin_tide", "penguin_moss", "go_gopher" },
         mixed = {
+          "dust_slime",
+          "tux_penguin",
           "penguin_ember",
-          "penguin_moss",
           "penguin_lumen",
           "penguin_umbral",
-          "mantis_blaze",
-          "mantis_verdant",
-          "mantis_radiant",
-          "mantis_gloom",
-          "c_sentinel",
+          "penguin_tide",
+          "bash_hound",
         },
         fixed_ratio = 85,
       },
@@ -81,14 +81,7 @@ local function default_stages()
       boss_every = 10,
       boss_id = "boss_python_prime",
       enemy_pool = {
-        fixed = {
-          "python_serpent",
-          "kotlin_fox",
-          "serpent_verdant",
-          "serpent_radiant",
-          "fox_sprout",
-          "fox_halo",
-        },
+        fixed = { "python_serpent", "kotlin_fox", "serpent_verdant", "serpent_radiant", "fox_sprout", "fox_halo" },
         mixed = {
           "serpent_blaze",
           "serpent_mist",

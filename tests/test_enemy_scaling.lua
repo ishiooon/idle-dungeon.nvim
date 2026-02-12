@@ -52,8 +52,8 @@ assert_true(enemy_start.hp < enemy_floor2.hp, "同一ステージ内でHPが増�
 assert_true(enemy_floor2.hp < enemy_stage2.hp, "次ステージでHPが増加する")
 assert_true(enemy_start.atk <= enemy_floor2.atk, "同一ステージ内で攻撃力が増加する")
 assert_true(enemy_floor2.atk <= enemy_stage2.atk, "次ステージで攻撃力が増加する")
-assert_true(enemy_start.speed >= enemy_floor2.speed, "同一ステージ内で攻撃速度が速くなる")
-assert_true(enemy_floor2.speed >= enemy_stage2.speed, "次ステージで攻撃速度が速くなる")
+assert_true(enemy_start.speed <= enemy_floor2.speed, "同一ステージ内で攻撃速度が速くなる")
+assert_true(enemy_floor2.speed <= enemy_stage2.speed, "次ステージで攻撃速度が速くなる")
 assert_equal(type(enemy_stage2.level), "number", "敵の成長レベルが数値で保持される")
 
 print("OK")

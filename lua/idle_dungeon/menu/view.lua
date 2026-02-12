@@ -71,6 +71,109 @@ local function build_labels(items, opts)
   return labels
 end
 
+-- 詳細表示オブジェクトを安全な形式へ正規化する。
+local function normalize_detail(detail)
+  if type(detail) ~= "table" then
+    return nil
+  end
+  local title = tostring(detail.title or "")
+  local lines = {}
+  for _, line in ipairs(detail.lines or {}) do
+    table.insert(lines, tostring(line or ""))
+  end
+  if title == "" and #lines == 0 then
+    return nil
+  end
+  return { title = title, lines = lines }
+end
+
+-- 項目から詳細プレビューを生成する。比較情報がない場合でも説明文を補う。
+local function resolve_detail(item, opts, lang)
+  if not item then
+    return nil
+  end
+  if is_back_item(item) then
+    if lang == "ja" then
+      return {
+        title = "戻る",
+        lines = {
+          "この選択で前の画面に戻ります。",
+          "現在の変更内容は保持されます。",
+        },
+      }
+    end
+    return {
+      title = "Back",
+      lines = {
+        "Return to the previous menu.",
+        "Current changes remain applied.",
+      },
+    }
+  end
+  local detail = nil
+  if type(opts.detail_provider) == "function" then
+    detail = normalize_detail(opts.detail_provider(item))
+  end
+  if (not detail) and type(item) == "table" and type(item.detail_lines) == "table" then
+    detail = normalize_detail({
+      title = item.detail_title or item.label or "",
+      lines = item.detail_lines,
+    })
+  end
+  if detail then
+    return detail
+  end
+  if lang == "ja" then
+    return {
+      title = tostring((item and item.label) or "項目"),
+      lines = {
+        "Enterでこの項目を適用します。",
+        "変化がない場合はそのまま閉じます。",
+      },
+    }
+  end
+  return {
+    title = tostring((item and item.label) or "Item"),
+    lines = {
+      "Press Enter to apply this item.",
+      "If nothing changes, the view stays as-is.",
+    },
+  }
+end
+
+-- 右ペインへ表示するプレビュー行を本文高さに合わせて構築する。
+local function build_detail_preview_lines(detail, visible)
+  local rows = {}
+  if detail and detail.title and detail.title ~= "" then
+    table.insert(rows, detail.title)
+    table.insert(rows, string.rep("·", 24))
+  end
+  for _, line in ipairs((detail and detail.lines) or {}) do
+    table.insert(rows, line)
+  end
+  local filled = {}
+  for index = 1, math.max(visible, 0) do
+    filled[index] = rows[index] or ""
+  end
+  return filled
+end
+
+-- サブメニューで詳細比較を表示すべきかを判定する。
+local function should_show_detail_panel(opts, items, static_view)
+  if static_view then
+    return false
+  end
+  if type((opts or {}).detail_provider) == "function" then
+    return true
+  end
+  for _, item in ipairs(items or {}) do
+    if type(item) == "table" and type(item.detail_lines) == "table" then
+      return true
+    end
+  end
+  return false
+end
+
 -- 静的詳細表示では本文を優先し、通常メニューより縦幅を広く使う。
 local function resolve_static_height(config, screen_height, line_count)
   local safe_screen = math.max(tonumber(screen_height) or 0, 12)
@@ -106,6 +209,9 @@ local function render()
     or (lang == "ja" and "メニュー" or "Menu")
   if static_view then
     title = ""
+  elseif title ~= "" then
+    -- サブメニューはゲーム風の見出しアイコンを付けて画面としての統一感を出す。
+    title = string.format("󰮫 %s", title)
   end
   local hints = ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang)
   local tabs_line = ui_state.opts.tabs_line or ""
@@ -150,8 +256,21 @@ local function render()
       return mark .. label
     end,
   })
+  local right_lines = {}
   local width_lines = { title, tabs_line }
+  local show_detail = false
+  if ui_state.opts.detail_layout == "split" then
+    -- 2カラム指定時のみ右側に詳細を描画し、通常サブメニューは1カラムを維持する。
+    show_detail = should_show_detail_panel(ui_state.opts, ui_state.items, static_view)
+  end
+  if show_detail then
+    local detail = resolve_detail(current_choice(), ui_state.opts, lang)
+    right_lines = build_detail_preview_lines(detail, visible)
+  end
   for _, line in ipairs(left_lines or {}) do
+    table.insert(width_lines, line)
+  end
+  for _, line in ipairs(right_lines or {}) do
     table.insert(width_lines, line)
   end
   if static_view then
@@ -160,12 +279,17 @@ local function render()
   else
     width = menu_view_util.resolve_display_width(config, width, width_lines)
   end
+  if show_detail then
+    -- 2カラム時は左右ペインを成立させる最小幅を確保する。
+    width = math.max(width, 72)
+  end
   local shell = frame.compose({
     title = title,
     top_lines = top_lines,
     tabs_line = tabs_line,
     left_lines = left_lines,
-    show_right = false,
+    right_lines = right_lines,
+    show_right = show_detail,
     footer_hints = hints,
     width = width,
     height = height,
@@ -205,7 +329,12 @@ local function render()
 end
 
 local function move(delta)
-  ui_state.selected = menu_view_util.clamp_selected(ui_state.selected + delta, #ui_state.labels)
+  local total = #ui_state.labels
+  if total <= 0 then
+    return
+  end
+  -- 項目選択は上下端で循環させ、連続入力でも移動方向を維持する。
+  ui_state.selected = menu_view_util.wrap_selected(ui_state.selected + delta, total)
   render()
   selection_fx.start(ui_state.selection_fx, render)
 end

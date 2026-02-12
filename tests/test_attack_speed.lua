@@ -6,12 +6,6 @@ local function assert_true(value, message)
   end
 end
 
-local function assert_equal(actual, expected, message)
-  if actual ~= expected then
-    error((message or "assert_equal failed") .. ": " .. tostring(actual) .. " ~= " .. tostring(expected))
-  end
-end
-
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local content = require("idle_dungeon.content")
@@ -35,40 +29,64 @@ local function run_ticks(state, config, ticks)
   local current = state
   local hero_attacks = 0
   local enemy_attacks = 0
+  local last_time = nil
+  local last_attacker = nil
   for _ = 1, ticks do
     current = battle_flow.tick_battle(current, config)
-    local attacker = current.combat and current.combat.last_turn and current.combat.last_turn.attacker or nil
-    if attacker == "hero" then
-      hero_attacks = hero_attacks + 1
-    elseif attacker == "enemy" then
-      enemy_attacks = enemy_attacks + 1
+    local last_turn = current.combat and current.combat.last_turn or nil
+    local attacker = last_turn and last_turn.attacker or nil
+    local turn_time = last_turn and last_turn.time_sec or nil
+    -- 攻撃演出中は同じlast_turnが残るため、時刻と攻撃者が変わった時だけ1回として数える。
+    if attacker and (turn_time ~= last_time or attacker ~= last_attacker) then
+      if attacker == "hero" then
+        hero_attacks = hero_attacks + 1
+      elseif attacker == "enemy" then
+        enemy_attacks = enemy_attacks + 1
+      end
+      last_time = turn_time
+      last_attacker = attacker
     end
   end
   return current, hero_attacks, enemy_attacks
 end
 
--- speed値は小さいほど速く、同じ時間内に行動回数が増える。
+-- speed値は大きいほど速く、同じ時間内に行動回数が増える。
 local fast_hero_state = {
-  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 1 },
+  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 3 },
   metrics = { time_sec = 0 },
   progress = { rng_seed = 1 },
   ui = { mode = "battle" },
   combat = {
-    enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 3 },
+    enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 1 },
     turn = nil,
     turn_wait = 0,
     last_turn = nil,
   },
 }
 local st1, hero_count_1, enemy_count_1 = run_ticks(fast_hero_state, config, 6)
-assert_equal(st1.combat.last_turn.attacker, "enemy", "同時行動可能なタイミングでは直前行動者と逆側が選ばれる")
+assert_true(st1.combat.last_turn ~= nil, "戦闘行動が1回以上発生する")
 assert_true(hero_count_1 > enemy_count_1, "勇者が速いと敵より多く攻撃する")
 
 local fast_enemy_state = util.merge_tables(fast_hero_state, {
-  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 3 },
-  combat = { enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 1 }, turn = nil, turn_wait = 0, last_turn = nil },
+  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 1 },
+  combat = { enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 3 }, turn = nil, turn_wait = 0, last_turn = nil },
 })
 local _, hero_count_2, enemy_count_2 = run_ticks(fast_enemy_state, config, 6)
 assert_true(enemy_count_2 > hero_count_2, "敵が速いと勇者より多く攻撃する")
+
+-- speedの絶対値が同倍率で増えても、全体テンポは大きく変化しない。
+local balanced_base = util.merge_tables(fast_hero_state, {
+  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 2 },
+  combat = { enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 2 }, turn = nil, turn_wait = 0, last_turn = nil },
+})
+local _, hero_count_3, enemy_count_3 = run_ticks(balanced_base, config, 40)
+local total_base = hero_count_3 + enemy_count_3
+local balanced_scaled = util.merge_tables(fast_hero_state, {
+  actor = { hp = 20, max_hp = 20, atk = 1, def = 0, speed = 6 },
+  combat = { enemy = { hp = 20, max_hp = 20, atk = 1, def = 0, accuracy = 100, speed = 6 }, turn = nil, turn_wait = 0, last_turn = nil },
+})
+local _, hero_count_4, enemy_count_4 = run_ticks(balanced_scaled, config, 40)
+local total_scaled = hero_count_4 + enemy_count_4
+assert_true(math.abs(total_scaled - total_base) <= 1, "双方のspeedが同倍率で増えても全体の行動テンポはほぼ一定")
 
 print("OK")

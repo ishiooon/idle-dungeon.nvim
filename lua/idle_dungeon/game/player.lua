@@ -1,14 +1,15 @@
 -- このモジュールはジョブと装備による能力値を算出する。
 
 local util = require("idle_dungeon.util")
+local balance = require("idle_dungeon.game.balance")
 
 local M = {}
 
 -- 勇者の成長値は既定値として固定する。
-local HERO_GROWTH = { hp = 1, atk = 1, def = 1, speed = 0 }
+local HERO_GROWTH = (balance.hero_profile() or {}).growth or { hp = 1, atk = 1, def = 1, speed = 0 }
 
 local function default_progress()
-  return { level = 1, exp = 0, next_level = 10 }
+  return balance.default_progress()
 end
 
 local function normalize_progress(progress)
@@ -16,7 +17,7 @@ local function normalize_progress(progress)
   return {
     level = math.max(tonumber(base.level) or 1, 1),
     exp = math.max(tonumber(base.exp) or 0, 0),
-    next_level = math.max(tonumber(base.next_level) or 10, 1),
+    next_level = math.max(tonumber(base.next_level) or (balance.default_progress().next_level or 10), 1),
   }
 end
 
@@ -56,7 +57,7 @@ local function new_actor(job, hero_progress, job_progress, current_hp)
     base_hp = base.hp,
     base_atk = base.atk,
     base_def = base.def,
-    -- 攻撃速度は1以上の整数で管理し、数値が大きいほど行動間隔が長い。
+    -- 攻撃速度は1以上の整数で管理し、相手より高いほど行動間隔が短い。
     base_speed = base.speed,
     max_hp = base.hp,
     hp = next_hp,
@@ -96,9 +97,43 @@ local function apply_progress(exp_state, amount)
   while next_state.exp >= next_state.next_level do
     next_state.exp = next_state.exp - next_state.next_level
     next_state.level = next_state.level + 1
-    next_state.next_level = math.floor(next_state.next_level * 1.2) + 1
+    next_state.next_level = balance.next_level_requirement(next_state.next_level)
   end
   return next_state
+end
+
+-- レベル上昇分だけ、勇者共通成長とジョブ成長を現在能力値へ加算する。
+local function apply_level_growth(actor, level_gain, job)
+  local gain = math.max(tonumber(level_gain) or 0, 0)
+  if gain <= 0 then
+    return util.merge_tables(actor, {})
+  end
+  local growth = (job or {}).growth or {}
+  local hp_gain = gain * ((HERO_GROWTH.hp or 0) + (tonumber(growth.hp) or 0))
+  local atk_gain = gain * ((HERO_GROWTH.atk or 0) + (tonumber(growth.atk) or 0))
+  local def_gain = gain * ((HERO_GROWTH.def or 0) + (tonumber(growth.def) or 0))
+  local speed_gain = gain * ((HERO_GROWTH.speed or 0) + (tonumber(growth.speed) or 0))
+  local base_hp = tonumber(actor.base_hp) or tonumber(actor.max_hp) or tonumber(actor.hp) or 1
+  local base_atk = tonumber(actor.base_atk) or tonumber(actor.atk) or 0
+  local base_def = tonumber(actor.base_def) or tonumber(actor.def) or 0
+  local base_speed = tonumber(actor.base_speed) or tonumber(actor.speed) or 1
+  local next_base_hp = math.max(base_hp + hp_gain, 1)
+  local next_base_atk = base_atk + atk_gain
+  local next_base_def = base_def + def_gain
+  local next_base_speed = math.max(base_speed + speed_gain, 1)
+  local hp_now = tonumber(actor.hp) or next_base_hp
+  local next_hp = math.min(hp_now, next_base_hp)
+  return util.merge_tables(actor, {
+    base_hp = next_base_hp,
+    base_atk = next_base_atk,
+    base_def = next_base_def,
+    base_speed = next_base_speed,
+    max_hp = next_base_hp,
+    hp = next_hp,
+    atk = next_base_atk,
+    def = next_base_def,
+    speed = next_base_speed,
+  })
 end
 
 local function add_exp_with_job(actor, amount, job_progress, job)
@@ -113,7 +148,20 @@ local function add_exp_with_job(actor, amount, job_progress, job)
     exp = next_hero.exp,
     next_level = next_hero.next_level,
   })
-  local next_actor = new_actor(job, next_hero, next_job, actor.hp)
+  -- ジョブ切替直後のステータス変化を避けるため、現在値を基準に必要な項目だけ更新する。
+  local next_actor = util.merge_tables(actor, {
+    id = job.id,
+    name = job.name,
+    role = job.role,
+    level = next_hero.level,
+    exp = next_hero.exp,
+    next_level = next_hero.next_level,
+    job_level = next_job.level,
+    job_exp = next_job.exp,
+    job_next_level = next_job.next_level,
+    dialogue_ratio = job.dialogue_ratio or 1.0,
+  })
+  next_actor = apply_level_growth(next_actor, level_gain, job)
   return next_actor, next_job
 end
 

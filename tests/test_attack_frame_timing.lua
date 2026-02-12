@@ -32,6 +32,8 @@ local state = {
     enemy = { hp = 4, max_hp = 4, atk = 1, def = 0, accuracy = 100, speed = 1 },
     turn = "hero",
     turn_wait = 0,
+    hero_turn_wait = 0,
+    enemy_turn_wait = 0,
   },
 }
 

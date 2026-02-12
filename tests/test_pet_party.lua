@@ -123,13 +123,15 @@ assert_true(#(st4.pet_party or {}) >= 2, "猛獣使いはペット保持上限�
 
 -- ペットがいる場合、勇者ターンでペット攻撃が加算される。
 local battle_with_pet = util.merge_tables(st1, {
-  actor = util.merge_tables(st1.actor, { atk = 0, speed = 1 }),
+  actor = util.merge_tables(st1.actor, { atk = 0, speed = 3 }),
   progress = { rng_seed = 1 },
   ui = util.merge_tables(st1.ui, { mode = "battle" }),
   combat = {
-    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 1, def = 0, accuracy = 100, speed = 3, element = "normal", drops = {} },
+    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 1, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
     turn = nil,
     turn_wait = 0,
+    hero_turn_wait = 0,
+    enemy_turn_wait = 0,
     last_turn = nil,
   },
 })
@@ -138,13 +140,15 @@ assert_true((st5.combat.enemy.hp or 8) < 8, "勇者ターンでペットが攻�
 
 -- 敵ターンでペットが0になった場合は手放す。
 local battle_pet_defeated = util.merge_tables(st1, {
-  actor = util.merge_tables(st1.actor, { def = 0, speed = 3 }),
+  actor = util.merge_tables(st1.actor, { def = 0, speed = 1 }),
   progress = { rng_seed = 1 },
   ui = util.merge_tables(st1.ui, { mode = "battle" }),
   combat = {
-    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 99, def = 0, accuracy = 100, speed = 1, element = "normal", drops = {} },
+    enemy = { id = "dust_slime", hp = 8, max_hp = 8, atk = 99, def = 0, accuracy = 100, speed = 3, element = "normal", drops = {} },
     turn = nil,
     turn_wait = 0,
+    hero_turn_wait = 0,
+    enemy_turn_wait = 0,
     last_turn = nil,
   },
 })

@@ -23,6 +23,7 @@ REQ_FILE="${DOCS_DIR}/requirements.md"
 REQ_DETAIL_FILE="${DOCS_DIR}/requirements_detail.md"
 CONTENT_FILE="${DOCS_DIR}/content.md"
 DESIGN_FILE="${DOCS_DIR}/design.md"
+BALANCE_GUIDE_FILE="${DOCS_DIR}/game_balance_tuning.md"
 
 if [[ ! -f "${REQ_FILE}" ]]; then
   echo "要件定義が見つかりません: ${REQ_FILE}" >&2
@@ -44,6 +45,11 @@ if [[ ! -f "${DESIGN_FILE}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${BALANCE_GUIDE_FILE}" ]]; then
+  echo "バランス調整ガイドが見つかりません: ${BALANCE_GUIDE_FILE}" >&2
+  exit 1
+fi
+
 grep -q "^# " "${REQ_FILE}" || { echo "要件定義に見出しがありません。" >&2; exit 1; }
 grep -q "## 主要要件" "${REQ_FILE}" || { echo "要件定義に主要要件の見出しがありません。" >&2; exit 1; }
 grep -q "^# " "${REQ_DETAIL_FILE}" || { echo "詳細要件定義に見出しがありません。" >&2; exit 1; }
@@ -56,6 +62,8 @@ grep -q "## 装備一覧" "${CONTENT_FILE}" || { echo "コンテンツ定義に�
 grep -q "## イベント一覧" "${CONTENT_FILE}" || { echo "コンテンツ定義にイベント一覧の見出しがありません。" >&2; exit 1; }
 grep -q "## 全体構成" "${DESIGN_FILE}" || { echo "設計書に全体構成の見出しがありません。" >&2; exit 1; }
 grep -q "## Git連携" "${DESIGN_FILE}" || { echo "設計書にGit連携の見出しがありません。" >&2; exit 1; }
+grep -q "^# " "${BALANCE_GUIDE_FILE}" || { echo "バランス調整ガイドに見出しがありません。" >&2; exit 1; }
+grep -q "## 1. まず編集するファイル" "${BALANCE_GUIDE_FILE}" || { echo "バランス調整ガイドに編集起点の見出しがありません。" >&2; exit 1; }
 
 if ! command -v lua >/dev/null 2>&1; then
   echo "Luaが見つかりません。/usr/bin/lua を用意してください。" >&2
@@ -63,6 +71,7 @@ if ! command -v lua >/dev/null 2>&1; then
 fi
 
 lua tests/test_config.lua
+lua tests/test_balance_profile.lua
 lua tests/test_i18n.lua
 lua tests/test_auto_start.lua
 lua tests/test_state.lua
@@ -82,6 +91,10 @@ lua tests/test_menu_wrap.lua
 lua tests/test_menu_live_header_no_wrap.lua
 # メニュー上部のライブトラック表示を確認する。
 lua tests/test_menu_live_header.lua
+# メニュー上部ライブヘッダのパレット色ハイライト適用を確認する。
+lua tests/test_menu_live_header_highlight.lua
+# クレジット表示が下から上へ流れ、中央寄せされることを確認する。
+lua tests/test_menu_credits_crawl.lua
 # メニュー選択アニメーションの位相切替を確認する。
 lua tests/test_menu_selection_fx.lua
 # アクティブタブの背景色を使わない強調表示を確認する。
@@ -90,12 +103,32 @@ lua tests/test_menu_tab_active_highlight.lua
 lua tests/test_menu_cursor_hidden.lua
 # メニューのカーソルが選択記号の上に重ならないことを確認する。
 lua tests/test_menu_cursor_position.lua
+# メインメニューで先頭から上入力した際に末尾へ循環することを確認する。
+lua tests/test_menu_tabs_wrap_navigation.lua
+# タブ項目の整形関数へ行番号情報が渡されることを確認する。
+lua tests/test_menu_tabs_format_index.lua
+# メインタブが1カラム表示で描画されることを確認する。
+lua tests/test_menu_tabs_detail_preview.lua
+# 図鑑タブは常に1カラムで表示されることを確認する。
+lua tests/test_menu_dex_single_column.lua
+# 詳細プレビューがあってもEnterで項目実行を優先することを確認する。
+lua tests/test_menu_enter_exec_priority.lua
+# サブメニューで先頭から上入力した際に末尾へ循環することを確認する。
+lua tests/test_menu_submenu_wrap_navigation.lua
+# サブメニューが1カラム表示で描画されることを確認する。
+lua tests/test_menu_submenu_style.lua
+# サブメニューで2カラム指定した場合だけ詳細右カラムを表示することを確認する。
+lua tests/test_menu_submenu_split_layout.lua
 # メインメニューの横幅拡張と折り返し無効を確認する。
 lua tests/test_menu_tabs_width_expand.lua
 # タブ更新時にメニューの表示サイズが縮まないことを確認する。
 lua tests/test_menu_tabs_stable_layout.lua
 # ジョブ選択メニューが確定後に閉じないことを確認する。
 lua tests/test_menu_job_keep_open.lua
+# ジョブ選択画面で現在ジョブと変更差分が一覧表示されることを確認する。
+lua tests/test_menu_job_compare_view.lua
+# ジョブ選択メニューの詳細に選択後の比較情報が表示されることを確認する。
+lua tests/test_menu_job_detail_preview.lua
 # ステージ選択メニューが確定後に閉じないことを確認する。
 lua tests/test_menu_stage_keep_open.lua
 # メニュータブの文字列生成を確認する。
@@ -124,6 +157,8 @@ lua tests/test_reload_single_start.lua
 lua tests/test_engine_stop_menu_close.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
+# 操作タブと設定タブがカード風の行ラベルで整形されることを確認する。
+lua tests/test_menu_action_config_style.lua
 # メニューの状態タブに指標と進行バーが表示されることを確認する。
 lua tests/test_menu_status_widgets.lua
 # 図鑑データの単体テストを確認する。
@@ -154,6 +189,12 @@ lua tests/test_metrics_delta.lua
 lua tests/test_enemy_pool.lua
 # ステージ1の敵と初期装備のバランス基準を確認する。
 lua tests/test_stage1_balance.lua
+# ステージ1-2で初期攻撃が一撃になりにくいことを確認する。
+lua tests/test_stage1_floor2_balance.lua
+# ステージ1序盤の経験値が過剰にならないことを確認する。
+lua tests/test_stage1_exp_balance.lua
+# 序盤の手応えと6-1以降の伸び過ぎ抑制を確認する。
+lua tests/test_stage_balance_curve.lua
 # 敵データの件数と必須項目を確認する。
 lua tests/test_enemy_content.lua
 # 敵ごとの経験値倍率を確認する。
@@ -169,10 +210,16 @@ lua tests/test_attack_frame_timing.lua
 lua tests/test_job_content.lua
 # ジョブ経験値とレベル進行の単体テストを確認する。
 lua tests/test_job_progress.lua
+# ジョブ切替直後にステータスが変化しないことを確認する。
+lua tests/test_job_change_no_stat_shift.lua
 # スキル引き継ぎの単体テストを確認する。
 lua tests/test_skill_unlock.lua
 # スキル効果が戦闘計算に反映されることを確認する。
 lua tests/test_skill_battle_effect.lua
+# スキル選択画面で有効状態と効果内容が一覧表示されることを確認する。
+lua tests/test_menu_skills_compare_view.lua
+# 前ターンのスキル名が次ターンの攻撃名へ残らないことを確認する。
+lua tests/test_battle_skill_label_reset.lua
 # パッシブ補正が掛け算で合成されることを確認する。
 lua tests/test_skill_passive_multiplier.lua
 # ジョブごとのレベル一覧が生成されることを確認する。
@@ -198,6 +245,8 @@ lua tests/test_stage_intro_story.lua
 lua tests/test_sprite_highlight.lua
 # 装備変更の詳細表示を確認する。
 lua tests/test_equip_detail.lua
+# 装備選択画面で現在装備と変更差分が一覧表示されることを確認する。
+lua tests/test_menu_equip_compare_view.lua
 # 装備詳細の解放条件表示を確認する。
 lua tests/test_menu_detail_unlock.lua
 # ステージのボス設定が有効であることを確認する。
@@ -222,6 +271,8 @@ lua tests/test_enemy_defeat_icon.lua
 lua tests/test_pet_party.lua
 # ペット追従のトラック表示を確認する。
 lua tests/test_pet_track.lua
+# ペットアイコンの左右反転表示を確認する。
+lua tests/test_pet_icon_mirror.lua
 # 図鑑の未発見表示を確認する。
 lua tests/test_dex_unknown.lua
 # 属性相性の単体テストを確認する。

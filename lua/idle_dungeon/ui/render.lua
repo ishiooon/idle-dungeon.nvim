@@ -3,6 +3,7 @@
 local battle_effect = require("idle_dungeon.ui.battle_effect")
 local render_info = require("idle_dungeon.ui.render_info")
 local icon_module = require("idle_dungeon.ui.icon")
+local icon_mirror = require("idle_dungeon.ui.icon_mirror")
 local sprite = require("idle_dungeon.ui.sprite")
 local track = require("idle_dungeon.ui.track")
 local util = require("idle_dungeon.util")
@@ -95,6 +96,9 @@ local function build_pet_followers(state, config, hero_position, length, occupie
         if not icon or icon == "" then
           icon = icons.companion or "󰠳"
         end
+        -- 敵アイコンをペット表示へ流用する際は、向きを反転して追従方向を揃える。
+        -- 単独グリフは反転で見た目が変わらないため、必要時のみ向き補助を付ける。
+        icon = icon_mirror.horizontal_for_pet(icon)
         table.insert(followers, {
           position = position,
           icon = icon,

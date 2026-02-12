@@ -3,6 +3,7 @@
 local content = require("idle_dungeon.content")
 local stage_defaults = require("idle_dungeon.config.stages")
 local ui_defaults = require("idle_dungeon.config.ui")
+local balance = require("idle_dungeon.game.balance")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local util = require("idle_dungeon.util")
 
@@ -65,6 +66,8 @@ local function build_event_distances()
 end
 
 local function default_config()
+  local enemy_profile = balance.enemy_profile()
+  local reward_profile = balance.reward_profile()
   return {
     -- ゲーム進行の更新間隔は既定で0.5秒とする。
     game_tick_seconds = 0.5,
@@ -107,28 +110,27 @@ local function default_config()
       enemy_hp = 6,
       enemy_atk = 1,
       -- 成長計算はステージとフロアの進行度を基準にする。
-      growth_base = 1,
-      growth_floor = 2,
-      growth_stage = 12,
+      growth_base = enemy_profile.growth_base,
+      growth_floor = enemy_profile.growth_floor,
+      growth_stage = enemy_profile.growth_stage,
       -- 成長レベルに応じて体力・攻撃・防御を上乗せする。
-      growth_hp = 2,
-      growth_atk = 1,
-      growth_def = 0.5,
+      growth_hp = enemy_profile.growth_hp,
+      growth_atk = enemy_profile.growth_atk,
+      growth_def = enemy_profile.growth_def,
       -- 速度の成長は攻撃間隔を短くする方向で作用させる。
-      growth_speed = 0.05,
+      growth_speed = enemy_profile.growth_speed,
       -- ボスは成長レベルを倍率で上げて強さを際立たせる。
-      growth_boss_multiplier = 1.5,
-      -- 攻撃速度は1以上の整数で、数値が大きいほど攻撃間隔が長い。
+      growth_boss_multiplier = enemy_profile.growth_boss_multiplier,
+      -- 攻撃速度は1以上の整数で、相手より高いほど攻撃間隔が短くなる。
       hero_speed = 2,
       enemy_speed = 2,
       -- アクティブスキルの自動発動率を0〜1で設定する。
       skill_active_rate = 0.35,
       -- ペット保持時に敵がペットを狙う確率を0〜1で設定する。
       pet_target_rate = 0.35,
-      -- 経験値の上がり幅を少しだけ増やしてテンポを調整する。
-      -- 敵ごとの倍率と合わせて成長が体感できる基礎値にする。
-      reward_exp = 30,
-      reward_gold = 2,
+      -- 報酬の基礎値はバランス定義から取得する。
+      reward_exp = reward_profile.base_exp,
+      reward_gold = reward_profile.base_gold,
       -- エンカウントは敵の2マス手前で開始する。
       encounter_gap = 2,
       -- 撃破や敗北時の表示は次の更新まで戦闘表示を維持する。

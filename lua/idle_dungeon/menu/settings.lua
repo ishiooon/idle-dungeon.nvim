@@ -21,6 +21,27 @@ local function open_language_menu(get_state, set_state, config)
     format_item = function(item)
       return i18n.language_label(item, lang)
     end,
+    detail_provider = function(item)
+      local current = menu_locale.resolve_lang(get_state(), config)
+      if lang == "ja" or lang == "jp" then
+        return {
+          title = i18n.language_label(item, lang),
+          lines = {
+            "選択すると表示言語を即時反映します。",
+            "現在: " .. i18n.language_label(current, lang),
+            "次: " .. i18n.language_label(item, lang),
+          },
+        }
+      end
+      return {
+        title = i18n.language_label(item, lang),
+        lines = {
+          "Apply language immediately after select.",
+          "Current: " .. i18n.language_label(current, lang),
+          "Next: " .. i18n.language_label(item, lang),
+        },
+      }
+    end,
   }, function(choice)
     if not choice then
       return
@@ -105,6 +126,40 @@ local function open_reset_menu(get_state, set_state, config)
     keep_open = true,
     format_item = function(item)
       return item.label
+    end,
+    detail_provider = function(item)
+      if lang == "ja" or lang == "jp" then
+        if item and item.id == "yes" then
+          return {
+            title = item.label,
+            lines = {
+              "全ての進行データと設定を初期化します。",
+              "この操作は取り消せません。",
+            },
+          }
+        end
+        return {
+          title = item and item.label or "",
+          lines = {
+            "初期化を実行せず設定画面へ戻ります。",
+          },
+        }
+      end
+      if item and item.id == "yes" then
+        return {
+          title = item.label,
+          lines = {
+            "Reset all progress and settings.",
+            "This action cannot be undone.",
+          },
+        }
+      end
+      return {
+        title = item and item.label or "",
+        lines = {
+          "Cancel reset and return to settings.",
+        },
+      }
     end,
   }, function(choice)
     if not choice or choice.id ~= "yes" then

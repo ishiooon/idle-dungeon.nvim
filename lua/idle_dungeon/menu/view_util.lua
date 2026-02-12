@@ -64,6 +64,15 @@ local function clamp_selected(selected, total)
   return math.min(math.max(selected, 1), total)
 end
 
+-- 選択位置を上下入力で循環させ、先頭から上入力した際は末尾へ移動させる。
+local function wrap_selected(selected, total)
+  if total <= 0 then
+    return 0
+  end
+  local current = tonumber(selected) or 1
+  return ((current - 1) % total) + 1
+end
+
 local function adjust_offset(selected, offset, visible, total)
   if total <= visible then
     return 0
@@ -195,6 +204,7 @@ local function build_select_lines(options)
 end
 
 M.clamp_selected = clamp_selected
+M.wrap_selected = wrap_selected
 M.adjust_offset = adjust_offset
 M.menu_config = menu_config
 M.max_line_width = max_line_width

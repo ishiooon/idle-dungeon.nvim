@@ -287,7 +287,8 @@ local enemies = {
     name_en = "Go Gopher",
     name_ja = "ゴーファー",
     icon = "",
-    stats = { hp = 5, atk = 3, def = 1, accuracy = 90 },
+    -- 序盤プールに入れるため、体力を基準値へ合わせて即落ちを防ぐ。
+    stats = { hp = 6, atk = 3, def = 1, accuracy = 90 },
     elements = { "fire", "normal" },
     appear = { min = 2, max = 6 },
     drops = {

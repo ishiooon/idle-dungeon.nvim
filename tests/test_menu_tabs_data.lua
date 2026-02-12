@@ -62,14 +62,14 @@ end
 assert_true(found_metrics, "入力統計の詳細項目が含まれる")
 local normal_entry = nil
 for _, item in ipairs(status_items) do
-  if item.id == "entry" then
+  if item.id == "entry" and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
     normal_entry = item
     break
   end
 end
-assert_true(normal_entry ~= nil, "通常エントリが存在する")
+assert_true(normal_entry ~= nil, "通常エントリに詳細プレビューが付与される")
 local detail_none = menu_data.build_status_detail(normal_entry, state, config, "en")
-assert_true(detail_none == nil, "通常エントリでは詳細を表示しない")
+assert_true(type(detail_none) == "table", "通常エントリでも詳細を表示できる")
 local metrics_entry = nil
 for _, item in ipairs(status_items) do
   if item.id == "metrics_detail" then
@@ -127,6 +127,14 @@ local credits_items = menu_data.build_credits_items("en")
 assert_true(#credits_items > 0, "クレジットタブの項目が生成される")
 -- クレジットの表記は IdleDungeon に統一する。
 assert_match(credits_items[1].label or "", "IdleDungeon", "クレジットのアスキーアートが含まれる")
+local found_creator = false
+for _, item in ipairs(credits_items) do
+  if tostring(item.label or ""):match("ishiooon") then
+    found_creator = true
+    break
+  end
+end
+assert_true(found_creator, "クレジットに作成者ishiooonの表記が含まれる")
 
 -- 図鑑のアイコン色付けはアイコン部分だけに適用するため情報を保持する。
 local dex_state = util.merge_tables(state, {

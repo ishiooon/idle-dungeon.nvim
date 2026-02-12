@@ -4,7 +4,6 @@ local M = {}
 
 local namespace = vim.api.nvim_create_namespace("IdleDungeonMenu")
 local MAIN_ZINDEX = 50
-local DETAIL_ZINDEX = 60
 local HIDDEN_CURSOR = "a:IdleDungeonMenuHiddenCursor"
 local cursor_state = { hidden_count = 0, previous = nil }
 
@@ -169,41 +168,6 @@ local function open_window(height, width, border, theme, opts)
   return win, buf
 end
 
-local function open_window_at(row, col, height, width, border, theme, focusable, opts)
-  -- 任意位置に詳細表示用のウィンドウを作成する。
-  ensure_highlights(theme)
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
-  vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
-  vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
-  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
-  local enter = focusable == true
-  local win = vim.api.nvim_open_win(buf, enter, {
-    relative = "editor",
-    row = row,
-    col = col,
-    width = width,
-    height = height,
-    style = "minimal",
-    border = border,
-    focusable = focusable == true,
-    noautocmd = true,
-    -- 左右どちらに表示しても見えるよう前面に出す。
-    zindex = DETAIL_ZINDEX,
-  })
-  local wrap_lines = resolve_wrap_lines(opts)
-  -- 必要に応じて折り返しを切り替え、行レイアウトを安定させる。
-  vim.api.nvim_set_option_value("wrap", wrap_lines, { win = win })
-  vim.api.nvim_set_option_value("linebreak", wrap_lines, { win = win })
-  vim.api.nvim_set_option_value("cursorline", false, { win = win })
-  vim.api.nvim_set_option_value(
-    "winhl",
-    "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,Cursor:IdleDungeonMenuCursor",
-    { win = win }
-  )
-  return win, buf
-end
-
 local function ensure_window(win, buf, height, width, border, theme, opts)
   local wrap_lines = resolve_wrap_lines(opts)
   if is_valid_window(win) and is_valid_buffer(buf) then
@@ -213,17 +177,6 @@ local function ensure_window(win, buf, height, width, border, theme, opts)
   end
   -- 既存の表示が無い場合は新規ウィンドウを作る。
   return open_window(height, width, border, theme, opts)
-end
-
-local function ensure_window_at(win, buf, row, col, height, width, border, theme, focusable, opts)
-  local wrap_lines = resolve_wrap_lines(opts)
-  if is_valid_window(win) and is_valid_buffer(buf) then
-    vim.api.nvim_set_option_value("wrap", wrap_lines, { win = win })
-    vim.api.nvim_set_option_value("linebreak", wrap_lines, { win = win })
-    return win, buf
-  end
-  -- 既存の表示が無い場合は新規ウィンドウを作る。
-  return open_window_at(row, col, height, width, border, theme, focusable, opts)
 end
 
 local function update_window(win, height, width)
@@ -236,18 +189,6 @@ local function update_window(win, height, width)
     width = width,
     height = height,
     zindex = MAIN_ZINDEX,
-  })
-end
-
-local function update_window_at(win, row, col, height, width)
-  -- 詳細ウィンドウは指定位置を保ったまま更新する。
-  vim.api.nvim_win_set_config(win, {
-    relative = "editor",
-    row = row,
-    col = col,
-    width = width,
-    height = height,
-    zindex = DETAIL_ZINDEX,
   })
 end
 
@@ -297,9 +238,7 @@ local function close_window(win, prev_win)
 end
 
 M.ensure_window = ensure_window
-M.ensure_window_at = ensure_window_at
 M.update_window = update_window
-M.update_window_at = update_window_at
 M.set_lines = set_lines
 M.apply_highlights = apply_highlights
 M.close_window = close_window

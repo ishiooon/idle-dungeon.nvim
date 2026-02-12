@@ -62,6 +62,11 @@ local function with_icon(icon, text)
   return string.format("%s %s", safe_icon, safe_text)
 end
 
+-- 状態タブの見出しをゲーム風のセクションタイトルとして整形する。
+local function status_section_title(icon, text)
+  return string.format("━━ %s ━━", with_icon(icon, text))
+end
+
 local function resolve_stage_info(state, config, lang)
   local progress = state.progress or {}
   local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
@@ -84,8 +89,31 @@ local function resolve_stage_info(state, config, lang)
   }
 end
 
+local function detail_lines_copy(lines)
+  local copied = {}
+  for _, line in ipairs(lines or {}) do
+    table.insert(copied, tostring(line or ""))
+  end
+  return copied
+end
+
+local function status_ratio_text(current, total)
+  local safe_current = math.max(tonumber(current) or 0, 0)
+  local safe_total = math.max(tonumber(total) or 0, 0)
+  if safe_total <= 0 then
+    return "0%"
+  end
+  return string.format("%d%%", math.floor((safe_current / safe_total) * 100 + 0.5))
+end
+
 local function build_status_detail(item, state, config, lang)
-  if item.id == "metrics_detail" then
+  if type(item) == "table" and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
+    return {
+      title = item.detail_title or item.label or "",
+      lines = detail_lines_copy(item.detail_lines),
+    }
+  end
+  if type(item) == "table" and item.id == "metrics_detail" then
     return {
       title = i18n.t("metrics_detail_title", lang),
       lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang),
@@ -105,7 +133,6 @@ local function build_action_items()
     { id = "job", key = "menu_action_job", icon = "󰘧" },
     -- 習得済みスキルの切り替え用メニューを追加する。
     { id = "skills", key = "menu_action_skills", icon = "󰌵" },
-    { id = "job_levels", key = "menu_action_job_levels", icon = "󰁨" },
   }
 end
 
@@ -146,45 +173,160 @@ local function build_status_items(state, config, lang)
   local hp_label = with_icon("󰓣", i18n.t("label_hp", lang))
   local exp_label = with_icon("", i18n.t("label_exp", lang))
   local meter_label_width = math.max(util.display_width(hp_label), util.display_width(exp_label))
-  table.insert(items, { id = "header", label = with_icon("󰀘", lang == "ja" and "ヒーロー" or "Hero") })
+  local hp_ratio = status_ratio_text(actor.hp or 0, actor.max_hp or 0)
+  local exp_ratio = status_ratio_text(actor.exp or 0, actor.next_level or 0)
+  local to_next = math.max((actor.next_level or 0) - (actor.exp or 0), 0)
+  local floor_ratio = status_ratio_text(stage_info.current_floor, stage_info.total_floors)
+  table.insert(items, { id = "header", label = status_section_title("󰀘", lang == "ja" and "ヒーロー" or "Hero") })
   table.insert(items, {
     id = "entry",
-    label = with_icon("󰁨", string.format("%s %d  %s %d", i18n.t("label_level", lang), actor.level or 1, i18n.t("label_job_level", lang), actor.job_level or 1)),
+    label = with_icon(
+      "󰁨",
+      string.format(
+        "%s %d  %s %s",
+        i18n.t("label_level", lang),
+        actor.level or 1,
+        i18n.t("label_job", lang),
+        actor.id or "-"
+      )
+    ),
+    detail_title = lang == "ja" and "ヒーロー情報" or "Hero Overview",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在ジョブ: %s", actor.id or "-"),
+      string.format("現在レベル: %d", actor.level or 1),
+      string.format("次レベルまでEXP: %d", to_next),
+    } or {
+      string.format("Current Job: %s", actor.id or "-"),
+      string.format("Current Level: %d", actor.level or 1),
+      string.format("EXP To Next Level: %d", to_next),
+    },
   })
   table.insert(items, {
     id = "entry",
     label = build_meter(hp_label, actor.hp or 0, actor.max_hp or 0, 14, nil, meter_style, meter_label_width),
+    detail_title = lang == "ja" and "HP詳細" or "HP Detail",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在HP: %d/%d (%s)", actor.hp or 0, actor.max_hp or 0, hp_ratio),
+      string.format("回復必要量: %d", math.max((actor.max_hp or 0) - (actor.hp or 0), 0)),
+      "戦闘開始時はこのHPから処理されます。",
+    } or {
+      string.format("Current HP: %d/%d (%s)", actor.hp or 0, actor.max_hp or 0, hp_ratio),
+      string.format("Recover Needed: %d", math.max((actor.max_hp or 0) - (actor.hp or 0), 0)),
+      "Battle starts from this HP state.",
+    },
   })
   table.insert(items, {
     id = "entry",
     label = build_meter(exp_label, actor.exp or 0, actor.next_level or 0, 14, nil, meter_style, meter_label_width),
+    detail_title = lang == "ja" and "経験値詳細" or "EXP Detail",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在EXP: %d/%d (%s)", actor.exp or 0, actor.next_level or 0, exp_ratio),
+      string.format("次レベルまで: %d", to_next),
+      "ジョブ変更してもプレイヤーレベルEXPは維持されます。",
+    } or {
+      string.format("Current EXP: %d/%d (%s)", actor.exp or 0, actor.next_level or 0, exp_ratio),
+      string.format("EXP To Next: %d", to_next),
+      "Player level EXP is kept across job changes.",
+    },
   })
   table.insert(items, {
     id = "entry",
-    label = with_icon("󰓥", string.format("%s %d  %s %d", i18n.t("label_atk", lang), actor.atk or 0, i18n.t("label_def", lang), actor.def or 0)),
+    label = with_icon(
+      "󰓥",
+      string.format(
+        "%s %d  %s %d  SPD %d  %s %d",
+        i18n.t("label_atk", lang),
+        actor.atk or 0,
+        i18n.t("label_def", lang),
+        actor.def or 0,
+        actor.speed or 0,
+        i18n.t("label_gold", lang),
+        ((state.currency or {}).gold) or 0
+      )
+    ),
+    detail_title = lang == "ja" and "戦闘ステータス" or "Combat Status",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在ATK: %d", actor.atk or 0),
+      string.format("現在DEF: %d", actor.def or 0),
+      string.format("現在SPD: %d", actor.speed or 0),
+      string.format("現在Gold: %d", ((state.currency or {}).gold) or 0),
+    } or {
+      string.format("Current ATK: %d", actor.atk or 0),
+      string.format("Current DEF: %d", actor.def or 0),
+      string.format("Current SPD: %d", actor.speed or 0),
+      string.format("Current Gold: %d", ((state.currency or {}).gold) or 0),
+    },
   })
   table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = with_icon("󰑓", lang == "ja" and "進行" or "Progress") })
+  table.insert(items, { id = "header", label = status_section_title("󰑓", lang == "ja" and "進行" or "Progress") })
   table.insert(items, {
     id = "entry",
-    label = with_icon("󰝰", string.format("%s %s", i18n.t("label_stage", lang), stage_info.name)),
+    label = with_icon(
+      "󰝰",
+      string.format("%s %s  F%d/%d", i18n.t("label_stage", lang), stage_info.name, stage_info.current_floor, stage_info.total_floors)
+    ),
+    detail_title = lang == "ja" and "ダンジョン進行" or "Dungeon Progress",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在ステージ: %s", stage_info.name),
+      string.format("現在Floor: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("進行テキスト: %s", stage_info.text),
+    } or {
+      string.format("Current Stage: %s", stage_info.name),
+      string.format("Current Floor: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("Progress Text: %s", stage_info.text),
+    },
   })
   table.insert(items, {
     id = "entry",
     label = build_meter(with_icon("󰢚", i18n.t("label_progress", lang)), stage_info.current_floor, stage_info.total_floors, 14, stage_info.text, meter_style),
+    detail_title = lang == "ja" and "進行バー詳細" or "Progress Meter",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("現在位置: %s", stage_info.text),
+      "ステージ選択で開始地点を変更できます。",
+    } or {
+      string.format("Current: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("Location: %s", stage_info.text),
+      "You can change start point from Stage action.",
+    },
   })
   table.insert(items, {
     id = "entry",
-    label = with_icon("󰳞", string.format("%s %d/%d", i18n.t("label_floor_step", lang), stage_info.floor_step, stage_info.floor_length)),
+    label = with_icon(
+      "󰳞",
+      string.format(
+        "%s %d/%d  %s %d",
+        i18n.t("label_floor_step", lang),
+        stage_info.floor_step,
+        stage_info.floor_length,
+        i18n.t("label_distance", lang),
+        (state.progress or {}).distance or 0
+      )
+    ),
+    detail_title = lang == "ja" and "フロア歩数" or "Floor Step",
+    detail_lines = (lang == "ja" or lang == "jp") and {
+      string.format("現在歩数: %d/%d", stage_info.floor_step, stage_info.floor_length),
+      string.format("累計距離: %d", (state.progress or {}).distance or 0),
+      "歩数が満たされると次フロアへ進行します。",
+    } or {
+      string.format("Current Step: %d/%d", stage_info.floor_step, stage_info.floor_length),
+      string.format("Total Distance: %d", (state.progress or {}).distance or 0),
+      "You advance when floor step is filled.",
+    },
   })
   table.insert(items, { id = "spacer", label = "" })
-  table.insert(items, { id = "header", label = with_icon("󱂬", lang == "ja" and "入力統計" or "Input Metrics") })
+  table.insert(items, { id = "header", label = status_section_title("󱂬", lang == "ja" and "入力統計" or "Input Metrics") })
   local metrics_lines = menu_locale.build_metrics_detail_lines(state.metrics or {}, lang)
   for index, line in ipairs(metrics_lines) do
-    if index > 3 then
+    if index > 2 then
       break
     end
-    table.insert(items, { id = "entry", label = line })
+    table.insert(items, {
+      id = "entry",
+      label = line,
+      detail_title = i18n.t("metrics_detail_title", lang),
+      detail_lines = metrics_lines,
+    })
   end
   table.insert(items, { id = "spacer", label = "" })
   table.insert(items, {
@@ -192,6 +334,7 @@ local function build_status_items(state, config, lang)
     label = with_icon("󰈞", i18n.t("menu_status_metrics", lang)),
     detail_title = i18n.t("metrics_detail_title", lang),
     detail_lines = metrics_lines,
+    open_detail_on_enter = true,
     keep_open = true,
   })
   return items
@@ -207,8 +350,18 @@ local function build_credits_items(lang)
   table.insert(items, { id = "header", label = i18n.t("credits_title", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_created", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_ui", lang) })
-  -- 画像スプライト参照の表示は廃止した。
   table.insert(items, { id = "entry", label = i18n.t("credits_line_thanks", lang) })
+  -- 感謝とフィードバック募集の本文を追加し、読み物としての満足感を高める。
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_01", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_02", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_03", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_04", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_05", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_06", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_07", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_08", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_09", lang) })
+  table.insert(items, { id = "entry", label = i18n.t("credits_line_message_10", lang) })
   return items
 end
 
@@ -1061,6 +1214,7 @@ local function build_dex_items(state, config, lang, view_state)
           tile_label = build_enemy_tile_label(entry, index, unknown_label),
           detail_title = entry.known and entry.name or unknown_label,
           detail_lines = build_detail_lines(entry, "enemy", lang, unknown_label, config),
+          open_detail_on_enter = true,
           highlight_key = element_key,
           highlight_icon = entry.icon or "",
           keep_open = true,
@@ -1101,6 +1255,7 @@ local function build_dex_items(state, config, lang, view_state)
           tile_label = build_item_tile_label(entry, index, unknown_label),
           detail_title = entry.known and entry.name or unknown_label,
           detail_lines = build_detail_lines(entry, "item", lang, unknown_label, config),
+          open_detail_on_enter = true,
           keep_open = true,
         })
       end

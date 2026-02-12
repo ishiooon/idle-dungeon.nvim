@@ -239,7 +239,20 @@ local function change_job(state, job_id)
     -- 未登録のジョブは初期進行度を追加する。
     job_levels[job.id] = job_progress
   end
-  local actor = player.new_actor(job, hero_progress, job_progress, state.actor and state.actor.hp)
+  local current_actor = state.actor or {}
+  -- ジョブ切替時は現在ステータスを維持し、ジョブ識別情報のみ更新する。
+  local actor = util.merge_tables(current_actor, {
+    id = job.id,
+    name = job.name,
+    role = job.role,
+    level = hero_progress.level,
+    exp = hero_progress.exp,
+    next_level = hero_progress.next_level,
+    job_level = job_progress.level,
+    job_exp = job_progress.exp,
+    job_next_level = job_progress.next_level,
+    dialogue_ratio = job.dialogue_ratio or 1.0,
+  })
   local learned_skills = skills.unlock_from_job(state.skills or skills.empty(), job, job_progress)
   local skill_settings = skills.ensure_enabled(state.skill_settings, learned_skills)
   local next_equipment = util.merge_tables(state.equipment, {})

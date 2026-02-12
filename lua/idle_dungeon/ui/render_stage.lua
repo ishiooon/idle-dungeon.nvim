@@ -62,6 +62,28 @@ local function build_stage_token(progress, stage, config)
   return progress_text
 end
 
+-- メニュー見出し向けに「ステージ番号-現在階層」の短い表記を返す。
+local function build_stage_floor_token(progress, stage, config)
+  local floor_length = floor_progress.resolve_floor_length(config or {})
+  local stage_floor = floor_progress.stage_floor_distance(progress or {}, floor_length)
+  local current_floor = math.max(stage_floor + 1, 1)
+  local stage_id = stage and stage.id or (progress and progress.stage_id) or nil
+  if stage_id then
+    return string.format("%d-%d", stage_id, current_floor)
+  end
+  return string.format("%d", current_floor)
+end
+
+-- メニュー上部の見出しとして使う「<ステージ名[1-1]>」形式の文字列を返す。
+local function build_menu_header(progress, config, lang)
+  local safe_progress = progress or {}
+  local safe_config = config or {}
+  local stage = find_stage(safe_progress, safe_config) or {}
+  local name = resolve_stage_name(stage, safe_progress, lang)
+  local token = build_stage_floor_token(safe_progress, stage, safe_config)
+  return string.format("<%s[%s]>", name, token)
+end
+
 -- 表示用のステージ名とトークンをまとめて返す。
 local function build_stage_parts(progress, config, lang)
   local stage = find_stage(progress or {}, config or {}) or {}
@@ -82,6 +104,8 @@ end
 M.abbreviate_stage_name = abbreviate_stage_name
 M.build_stage_progress_text = build_stage_progress_text
 M.build_stage_summary = build_stage_summary
+M.build_stage_floor_token = build_stage_floor_token
+M.build_menu_header = build_menu_header
 M.build_stage_parts = build_stage_parts
 M.resolve_stage_name = resolve_stage_name
 

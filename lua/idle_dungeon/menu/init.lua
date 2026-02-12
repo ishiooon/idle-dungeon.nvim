@@ -1,6 +1,7 @@
 -- このモジュールはメニューの入口とアクション選択を提供する。
 -- メニュー関連の参照先はmenu配下へ揃える。
 local actions = require("idle_dungeon.menu.actions")
+local game_speed = require("idle_dungeon.core.game_speed")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
@@ -47,30 +48,216 @@ local function with_item_icon(item, text)
   return string.format("%s %s", item.icon, text)
 end
 
--- 状態に応じてラベルが変わる項目を整形する。
-local function format_item_with_state(item, get_state, config, lang)
-  local state = get_state()
-  -- トグル系はボタン風の表示で状態が分かるように整形する。
+-- タブ行は項目名を主体にし、識別タグや連番は表示しない。
+local function format_card_row(label, _, _, _, hint)
+  local safe_label = tostring(label or "")
+  local safe_hint = tostring(hint or "")
+  if safe_hint == "" then
+    return safe_label
+  end
+  return string.format("%s | %s", safe_label, safe_hint)
+end
+
+-- 表示行数トグルの次値を、設定保存前にプレビューするために計算する。
+local function next_display_lines(current)
+  local safe = tonumber(current) or 2
+  if safe >= 2 then
+    return 1
+  end
+  if safe == 1 then
+    return 0
+  end
+  return 2
+end
+
+local function render_mode_name(is_text, lang)
+  if is_text then
+    return lang == "ja" and "Text" or "Text"
+  end
+  return lang == "ja" and "Visual" or "Visual"
+end
+
+-- 操作タブで、選択後に起きる変化を短文で説明する。
+local function action_effect_hint(action_id, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  local hints_ja = {
+    equip = "装備差分を比較して即時反映",
+    stage = "開始ダンジョンと進行位置を変更",
+    purchase = "所持金を消費して装備を追加",
+    sell = "装備売却で所持金を増加",
+    job = "ジョブ変更で成長と技能を切替",
+    skills = "技能の有効/無効を切替",
+  }
+  local hints_en = {
+    equip = "Compare gear and apply stat changes",
+    stage = "Change starting dungeon and progress",
+    purchase = "Spend gold to add equipment",
+    sell = "Sell gear to gain gold",
+    job = "Switch job growth and skill set",
+    skills = "Toggle active and passive skills",
+  }
+  if is_ja then
+    return hints_ja[action_id] or "選択後に状態が更新されます"
+  end
+  return hints_en[action_id] or "State will be updated after select"
+end
+
+-- 設定タブで、現在値と次の値を比較できる短文を返す。
+local function config_effect_hint(item, state, config, lang)
+  local is_ja = lang == "ja" or lang == "jp"
   if item.id == "auto_start" then
-    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang))
+    local current = state.ui.auto_start ~= false
+    local now = i18n.t(current and "status_on" or "status_off", lang)
+    local next = i18n.t((not current) and "status_on" or "status_off", lang)
+    return string.format("%s -> %s", now, next)
   end
   if item.id == "toggle_text" then
     local is_text = (state.ui and state.ui.render_mode) == "text"
-    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang))
+    local now = render_mode_name(is_text, lang)
+    local next = render_mode_name(not is_text, lang)
+    return string.format("%s -> %s", now, next)
+  end
+  if item.id == "display_lines" then
+    local current = (state.ui and state.ui.display_lines) or 2
+    local next_lines = next_display_lines(current)
+    local now = menu_locale.display_lines_label(current, lang)
+    local next = menu_locale.display_lines_label(next_lines, lang)
+    return string.format("%s -> %s", now, next)
+  end
+  if item.id == "game_speed" then
+    local current_id = game_speed.resolve_game_speed_id(state, config)
+    local next_id = game_speed.cycle_game_speed_id(current_id, config)
+    local now = game_speed.label_from_id(current_id, config)
+    local next = game_speed.label_from_id(next_id, config)
+    return string.format("%s -> %s", now, next)
+  end
+  if item.id == "battle_hp_show_max" then
+    local enabled = (state.ui and state.ui.battle_hp_show_max) or false
+    local now = i18n.t(enabled and "status_on" or "status_off", lang)
+    local next = i18n.t((not enabled) and "status_on" or "status_off", lang)
+    return string.format("%s -> %s", now, next)
+  end
+  if item.id == "language" then
+    if is_ja then
+      return "言語選択メニューを開く"
+    end
+    return "Open language selection"
+  end
+  if item.id == "reset" then
+    if is_ja then
+      return "確認後に全データを初期化"
+    end
+    return "Reset all data after confirmation"
+  end
+  if item.id == "reload_plugin" then
+    if is_ja then
+      return "設定と内容を再読込"
+    end
+    return "Reload plugin settings and content"
+  end
+  if is_ja then
+    return "選択すると設定を適用"
+  end
+  return "Apply setting on select"
+end
+
+-- 設定項目の現在値と次値を分離して返す。
+local function resolve_config_current_next(item, state, config, lang)
+  local hint = config_effect_hint(item, state, config, lang)
+  local current, next = hint:match("^(.-)%s%-%>%s(.+)$")
+  if current and next then
+    return current, next
+  end
+  return hint, hint
+end
+
+-- 操作タブの右ペイン用説明を組み立てる。
+local function build_action_detail(item, lang)
+  if not item then
+    return nil
+  end
+  local title = i18n.t(item.key or "", lang)
+  local hint = action_effect_hint(item.id, lang)
+  if lang == "ja" or lang == "jp" then
+    return {
+      title = title,
+      lines = {
+        "選択後の挙動",
+        hint,
+        "",
+        "Enterで確定して操作を適用します。",
+      },
+    }
+  end
+  return {
+    title = title,
+    lines = {
+      "After Select",
+      hint,
+      "",
+      "Press Enter to apply this action.",
+    },
+  }
+end
+
+-- 設定タブの右ペインで現在値と次値を比較表示する。
+local function build_config_detail(item, get_state, config, lang)
+  if not item then
+    return nil
+  end
+  local state = get_state()
+  local current, next = resolve_config_current_next(item, state, config, lang)
+  local title = i18n.t(item.key or "", lang)
+  if lang == "ja" or lang == "jp" then
+    return {
+      title = title,
+      lines = {
+        "選択後の変化",
+        "現在: " .. tostring(current),
+        "次: " .. tostring(next),
+      },
+    }
+  end
+  return {
+    title = title,
+    lines = {
+      "After Select",
+      "Current: " .. tostring(current),
+      "Next: " .. tostring(next),
+    },
+  }
+end
+
+-- 状態に応じてラベルが変わる項目を整形する。
+local function format_item_with_state(item, get_state, config, lang, index, total)
+  local state = get_state()
+  -- トグル系はボタン風の表示で状態が分かるように整形する。
+  if item.id == "auto_start" then
+    local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang))
+    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+  end
+  if item.id == "toggle_text" then
+    local is_text = (state.ui and state.ui.render_mode) == "text"
+    local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang))
+    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
   end
   if item.id == "display_lines" then
     local lines = (state.ui and state.ui.display_lines) or 2
-    return with_item_icon(item, menu_locale.display_lines_label(lines, lang))
+    local label = with_item_icon(item, menu_locale.display_lines_label(lines, lang))
+    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
   end
   if item.id == "game_speed" then
-    return with_item_icon(item, menu_locale.game_speed_label(state, config, lang))
+    local label = with_item_icon(item, menu_locale.game_speed_label(state, config, lang))
+    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
   end
   -- 戦闘時のHP分母表示はトグル表示で整形する。
   if item.id == "battle_hp_show_max" then
     local enabled = (state.ui and state.ui.battle_hp_show_max) or false
-    return with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang))
+    local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang))
+    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
   end
-  return with_item_icon(item, i18n.t(item.key, lang))
+  local base = with_item_icon(item, i18n.t(item.key, lang))
+  return format_card_row(base, index, total, "config", config_effect_hint(item, state, config, lang))
 end
 local function handle_action_choice(action, get_state, set_state, config, lang, handlers)
   if not action then
@@ -110,12 +297,6 @@ local function handle_action_choice(action, get_state, set_state, config, lang, 
     -- スキル一覧と有効/無効切り替えを表示する。
     -- サブメニューのキャンセル時は状態画面へ戻す。
     return actions.open_skills_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
-  end
-  if action.id == "job_levels" then
-    -- サブメニューのキャンセル時は状態画面へ戻す。
-    return actions.open_job_levels_menu(get_state, set_state, config, function()
       open_status_root(get_state, set_state, config, handlers)
     end)
   end
@@ -256,22 +437,30 @@ local function build_tabs(get_state, set_state, config, handlers)
       id = "actions",
       label = i18n.t("menu_tab_actions", lang),
       items = tabs_data.build_action_items(),
-      format_item = function(item)
-        return with_item_icon(item, i18n.t(item.key, lang))
+      format_item = function(item, index, total)
+        local label = with_item_icon(item, i18n.t(item.key, lang))
+        local hint = action_effect_hint(item.id, lang)
+        return format_card_row(label, index, total, "action", hint)
       end,
       on_choice = function(action)
         return handle_action_choice(action, get_state, set_state, config, lang, handlers)
+      end,
+      detail_provider = function(item)
+        return build_action_detail(item, lang)
       end,
     },
     {
       id = "config",
       label = i18n.t("menu_tab_config", lang),
       items = tabs_data.build_config_items(),
-      format_item = function(item)
-        return format_item_with_state(item, get_state, config, lang)
+      format_item = function(item, index, total)
+        return format_item_with_state(item, get_state, config, lang, index, total)
       end,
       on_choice = function(action)
         return handle_config_choice(action, get_state, set_state, config, handlers)
+      end,
+      detail_provider = function(item)
+        return build_config_detail(item, get_state, config, lang)
       end,
     },
     {

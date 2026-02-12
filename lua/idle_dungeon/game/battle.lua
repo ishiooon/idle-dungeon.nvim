@@ -1,6 +1,6 @@
 -- このモジュールは戦闘時の敵生成とダメージ計算を提供する。
 -- 階層計算はgame/floor/progressに委譲して整理する。
-local content = require("idle_dungeon.content")
+local balance = require("idle_dungeon.game.balance")
 local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
 local element = require("idle_dungeon.game.element")
 local floor_progress = require("idle_dungeon.game.floor.progress")
@@ -59,21 +59,27 @@ local function resolve_stage_context(distance, config)
   return fallback, fallback_index, floor_length
 end
 
+-- 乗算・加算補正を反映して最終的な能力値へ丸める。
+local function apply_stat_tuning(base_value, mul, add, minimum)
+  local value = (tonumber(base_value) or 0) * (tonumber(mul) or 1) + (tonumber(add) or 0)
+  return math.max(math.floor(value + 0.5), tonumber(minimum) or 0)
+end
+
 -- 敵の成長レベルを計算する。
 local function resolve_growth_level(distance, config, is_boss)
   local stage, stage_index, floor_length = resolve_stage_context(distance, config)
-  local battle_config = (config or {}).battle or {}
-  local base = battle_config.growth_base or 1
-  local floor_growth = battle_config.growth_floor or 2
-  local stage_growth = battle_config.growth_stage or 12
+  local growth = balance.resolve_enemy_growth(config)
+  local base = growth.growth_base
+  local floor_growth = growth.growth_floor
+  local stage_growth = growth.growth_stage
   local stage_start = stage and stage.start or 0
   local stage_floor = floor_progress.floor_index((distance or 0) - stage_start, floor_length)
   local level = base + math.max(stage_floor, 0) * floor_growth + math.max((stage_index or 1) - 1, 0) * stage_growth
-  local boss_multiplier = battle_config.growth_boss_multiplier or 1.5
+  local boss_multiplier = growth.growth_boss_multiplier
   if is_boss then
     level = math.floor(level * boss_multiplier + 0.5)
   end
-  return math.max(level, 1)
+  return math.max(level, 1), stage
 end
 
 -- 敵のステータスを距離と設定から構築する。
@@ -83,37 +89,50 @@ local function build_enemy(distance, config, enemy_spec)
   local enemy_data = enemy_catalog.find_enemy(enemy_id) or {}
   local is_boss = enemy_spec and enemy_spec.is_boss or false
   -- ステージとフロアの進行度で成長を計算する。
-  local growth = resolve_growth_level(distance or 0, config, is_boss)
+  local growth, stage = resolve_growth_level(distance or 0, config, is_boss)
+  local tuning = balance.resolve_stage_tuning(stage)
   local battle = config.battle or { enemy_hp = 5, enemy_atk = 1 }
+  local growth_config = balance.resolve_enemy_growth(config)
   local stats = enemy_data.stats or {}
   local base_hp = stats.hp or battle.enemy_hp
   local base_atk = stats.atk or battle.enemy_atk
   local base_def = stats.def or 0
   -- 敵の攻撃速度は定義値を優先し、無い場合は既定値を使う。
   local base_speed = stats.speed or battle.enemy_speed or 2
-  local growth_hp = battle.growth_hp or 2
-  local growth_atk = battle.growth_atk or 1
-  local growth_def = battle.growth_def or 0.5
-  local growth_speed = math.max(tonumber(battle.growth_speed) or 0, 0)
-  local scaled_hp = base_hp + math.max(0, math.floor(growth * growth_hp))
-  local scaled_atk = base_atk + math.max(0, math.floor(growth * growth_atk))
-  local scaled_def = base_def + math.max(0, math.floor(growth * growth_def))
-  local scaled_speed = base_speed - math.max(0, math.floor(math.max(growth - 1, 0) * growth_speed))
+  local growth_hp = growth_config.growth_hp
+  local growth_atk = growth_config.growth_atk
+  local growth_def = growth_config.growth_def
+  local growth_speed = growth_config.growth_speed
+  local tuned_growth = math.max((tonumber(growth) or 1) * tuning.growth_mul, 1)
+  local scaled_hp = base_hp + math.max(0, math.floor(tuned_growth * growth_hp))
+  local scaled_atk = base_atk + math.max(0, math.floor(tuned_growth * growth_atk))
+  local scaled_def = base_def + math.max(0, math.floor(tuned_growth * growth_def))
+  -- 進行が進むほどspeedを上げ、行動頻度も増えるようにする。
+  local scaled_speed = base_speed + math.max(0, math.floor(math.max(tuned_growth - 1, 0) * growth_speed))
+  local final_hp = apply_stat_tuning(scaled_hp, tuning.hp_mul, tuning.hp_add, 1)
+  local final_atk = apply_stat_tuning(scaled_atk, tuning.atk_mul, tuning.atk_add, 1)
+  local final_def = apply_stat_tuning(scaled_def, tuning.def_mul, tuning.def_add, 0)
+  local final_speed = apply_stat_tuning(scaled_speed, tuning.speed_mul, tuning.speed_add, 1)
   return {
     id = enemy_id,
     name = resolve_enemy_name(enemy_id),
     element = resolve_enemy_element(enemy_spec),
-    hp = scaled_hp,
+    hp = final_hp,
     -- 最大体力を保持して表示に使う。
-    max_hp = scaled_hp,
-    atk = scaled_atk,
-    def = scaled_def,
+    max_hp = final_hp,
+    atk = final_atk,
+    def = final_def,
     accuracy = stats.accuracy,
-    speed = math.max(tonumber(scaled_speed) or 1, 1),
+    speed = math.max(tonumber(final_speed) or 1, 1),
     is_boss = is_boss,
     level = growth,
-    -- 敵ごとの経験値倍率を保持して報酬計算に使う。
-    exp_multiplier = enemy_data.exp_multiplier or 1,
+    -- 敵ごとの経験値倍率にステージ補正を掛けて報酬計算に使う。
+    exp_multiplier = math.max((enemy_data.exp_multiplier or 1) * tuning.exp_mul, 0),
+    -- ステージごとの経験値上限を保持し、序盤の過剰成長を抑える。
+    exp_cap = tuning.exp_cap,
+    -- ステージごとのゴールド補正を保持し、報酬計算に使う。
+    gold_mul = tuning.gold_mul,
+    gold_add = tuning.gold_add,
     -- 敵スキルは戦闘演出と計算に使う。
     skills = enemy_data.skills,
     -- 敵固有の戦利品候補を保持してドロップ抽選に渡す。

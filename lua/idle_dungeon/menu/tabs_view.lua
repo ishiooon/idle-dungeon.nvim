@@ -7,6 +7,8 @@ local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view = require("idle_dungeon.menu.view")
 local menu_tabs = require("idle_dungeon.menu.tabs")
 local menu_view_util = require("idle_dungeon.menu.view_util")
+local render_stage = require("idle_dungeon.ui.render_stage")
+local sprite_highlight = require("idle_dungeon.ui.sprite_highlight")
 local util = require("idle_dungeon.util")
 local window = require("idle_dungeon.menu.window")
 
@@ -29,8 +31,24 @@ local ui_state = {
   visible_items = {},
   layout = { width = nil, height = nil },
   selection_fx = {},
+  credits = {
+    finished = false,
+    scroll_offset = 0,
+    scroll_max = 0,
+    started_at_sec = nil,
+  },
 }
 local shared_context = { get_state = nil, config = nil }
+
+-- クレジット表示の状態を初期化し、再表示時に前回のスクロール位置を持ち越さない。
+local function reset_credits_state()
+  ui_state.credits = {
+    finished = false,
+    scroll_offset = 0,
+    scroll_max = 0,
+    started_at_sec = nil,
+  }
+end
 
 local function close(silent)
   local callback = ui_state.on_close
@@ -41,6 +59,7 @@ local function close(silent)
   ui_state.buf = nil
   ui_state.tabs = {}
   ui_state.tab_segments = {}
+  reset_credits_state()
   if (not silent) and callback then
     callback()
   end
@@ -48,6 +67,10 @@ end
 
 local function current_tab()
   return ui_state.tabs[ui_state.active]
+end
+
+local function is_credits_tab(tab)
+  return tab and tab.id == "credits"
 end
 
 local function is_selectable(item)
@@ -58,6 +81,9 @@ local function is_selectable(item)
 end
 
 local function selectable_indexes(tab)
+  if is_credits_tab(tab) then
+    return {}
+  end
   local rows = {}
   for index, item in ipairs((tab and tab.items) or {}) do
     if is_selectable(item) then
@@ -92,9 +118,11 @@ end
 local function build_tab_lines(tab, config)
   local lines = {}
   local visible_items = {}
-  for _, item in ipairs((tab and tab.items) or {}) do
+  local items = (tab and tab.items) or {}
+  local total = #items
+  for index, item in ipairs(items) do
     local format_item = tab and tab.format_item or nil
-    local label = format_item and format_item(item) or (item and item.label) or ""
+    local label = format_item and format_item(item, index, total) or (item and item.label) or ""
     if item and item.id == "header" then
       local prefix = config.section_prefix or ""
       if prefix ~= "" then
@@ -117,11 +145,29 @@ local function build_tab_lines(tab, config)
   return lines, visible_items
 end
 
+local function build_credit_lines(tab)
+  local lines = {}
+  local items = (tab and tab.items) or {}
+  local total = #items
+  for index, item in ipairs(items) do
+    if item and item.id == "spacer" then
+      table.insert(lines, "")
+    else
+      local format_item = tab and tab.format_item or nil
+      local label = format_item and format_item(item, index, total) or (item and item.label) or ""
+      table.insert(lines, label)
+    end
+  end
+  return lines
+end
+
 local function build_formatted_lines(tab, config)
   local labels = {}
-  for _, item in ipairs((tab and tab.items) or {}) do
+  local items = (tab and tab.items) or {}
+  local total = #items
+  for index, item in ipairs(items) do
     local format_item = tab and tab.format_item or nil
-    local label = format_item and format_item(item) or (item and item.label) or ""
+    local label = format_item and format_item(item, index, total) or (item and item.label) or ""
     if item and item.id == "header" then
       local prefix = config.section_prefix or ""
       if prefix ~= "" then
@@ -179,6 +225,65 @@ local function center_lines(lines, width)
   return centered
 end
 
+local function build_credits_crawl_lines(lines, visible, time_sec, step_seconds)
+  local source = lines or {}
+  local count = #source
+  local rows = math.max(tonumber(visible) or count, 0)
+  if rows <= 0 then
+    return {}, true
+  end
+  if count == 0 then
+    local blanks = {}
+    for index = 1, rows do
+      blanks[index] = ""
+    end
+    return blanks, true
+  end
+  local step = math.max(tonumber(step_seconds) or 0.4, 0.1)
+  local max_shift = math.max(count + rows - 1, 1)
+  local shift = math.floor((tonumber(time_sec) or 0) / step) + 1
+  shift = math.min(math.max(shift, 1), max_shift)
+  local finished = shift >= max_shift
+  local rendered = {}
+  for row = 1, rows do
+    local source_index = row + shift - rows
+    rendered[row] = source[source_index] or ""
+  end
+  return rendered, finished
+end
+
+-- クレジット停止後は通常の縦スクロール表示へ切り替える。
+local function build_credits_scroll_lines(lines, visible, offset)
+  local source = lines or {}
+  local count = #source
+  local rows = math.max(tonumber(visible) or 0, 0)
+  local max_offset = math.max(count - rows, 0)
+  local safe_offset = tonumber(offset)
+  if safe_offset == nil then
+    safe_offset = max_offset
+  end
+  safe_offset = math.min(math.max(safe_offset, 0), max_offset)
+  local rendered = {}
+  for row = 1, rows do
+    rendered[row] = source[safe_offset + row] or ""
+  end
+  return rendered, safe_offset, max_offset
+end
+
+local function build_top_lines(state, config, lang)
+  if not state then
+    return {}, {}
+  end
+  local lines = {}
+  local live_lines = live_header.build_lines(state, config, lang)
+  -- メニュー上部に現在地の要約を追加し、ライブ表示の文脈を分かりやすくする。
+  table.insert(lines, render_stage.build_menu_header(state.progress or {}, config or {}, lang))
+  for _, line in ipairs(live_lines) do
+    table.insert(lines, line)
+  end
+  return lines, live_lines
+end
+
 local function resolve_stable_layout(config, width, height)
   local max_width = tonumber(config.available_width) or width
   local max_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 10)
@@ -196,6 +301,89 @@ local function has_detail_lines(lines)
     end
   end
   return false
+end
+
+-- 詳細データを安全な形式へ正規化する。
+local function normalize_detail(detail)
+  if type(detail) ~= "table" then
+    return nil
+  end
+  local title = tostring(detail.title or "")
+  local lines = {}
+  for _, line in ipairs(detail.lines or {}) do
+    table.insert(lines, tostring(line or ""))
+  end
+  if title == "" and #lines == 0 then
+    return nil
+  end
+  return { title = title, lines = lines }
+end
+
+-- メインタブで比較プレビューを表示可能かどうかを判定する。
+local function should_show_detail_panel(tab)
+  if not tab or is_credits_tab(tab) then
+    return false
+  end
+  if tab.id == "dex" then
+    -- 図鑑は詳細画面との重複を避けるため、常に1カラムで表示する。
+    return false
+  end
+  if type(tab.detail_provider) == "function" then
+    return true
+  end
+  for _, item in ipairs((tab.items or {})) do
+    if type(item) == "table" and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
+      return true
+    end
+  end
+  return false
+end
+
+-- タブの選択項目から詳細プレビューを生成する。
+local function resolve_tab_detail(tab, item)
+  if not item then
+    return nil
+  end
+  local detail = nil
+  if tab and type(tab.detail_provider) == "function" then
+    detail = normalize_detail(tab.detail_provider(item))
+  end
+  if not detail and type(item) == "table" and type(item.detail_lines) == "table" then
+    detail = normalize_detail({
+      title = item.detail_title or item.label or "",
+      lines = item.detail_lines,
+    })
+  end
+  if detail then
+    return detail
+  end
+  local label = tostring(item.label or "")
+  if label ~= "" then
+    return {
+      title = label,
+      lines = {
+        "Select this row to apply the change.",
+      },
+    }
+  end
+  return nil
+end
+
+-- 右ペイン表示用の行配列を本文高さに合わせて生成する。
+local function build_detail_lines(detail, visible)
+  local rows = {}
+  if detail and detail.title and detail.title ~= "" then
+    table.insert(rows, detail.title)
+    table.insert(rows, string.rep("·", 24))
+  end
+  for _, line in ipairs((detail and detail.lines) or {}) do
+    table.insert(rows, line)
+  end
+  local filled = {}
+  for index = 1, math.max(visible or 0, 0) do
+    filled[index] = rows[index] or ""
+  end
+  return filled
 end
 
 local function append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
@@ -220,6 +408,51 @@ local function append_dex_icon_highlights(highlights, left_lines, visible_items,
   end
 end
 
+local function build_visual_state_for_live_header(state)
+  if not state then
+    return nil
+  end
+  local next_ui = util.merge_tables(state.ui or {}, { render_mode = "visual" })
+  return util.merge_tables(state, { ui = next_ui })
+end
+
+local function append_live_header_highlights(highlights, state, config, live_lines, centered_top_lines, shell)
+  if type(window.palette_group_name) ~= "function" then
+    return
+  end
+  if not state or #(live_lines or {}) == 0 then
+    return
+  end
+  local visual_state = build_visual_state_for_live_header(state)
+  local source_lines = live_lines or {}
+  local live_highlights = sprite_highlight.build(visual_state, config or {}, source_lines)
+  if #live_highlights == 0 then
+    return
+  end
+  local top_line_start = (shell.title_line_index and (shell.title_line_index + 1)) or 1
+  local live_start_index = math.max(#(centered_top_lines or {}) - #source_lines + 1, 1)
+  for _, item in ipairs(live_highlights) do
+    local local_line = (tonumber(item.line) or 0) + 1
+    local top_index = live_start_index + local_line - 1
+    local centered_line = (centered_top_lines or {})[top_index] or ""
+    local padding = #((centered_line:match("^(%s*)") or ""))
+    local start_col = math.max((tonumber(item.start_col) or 0) + padding, 0)
+    local end_col = item.end_col
+    if end_col ~= nil then
+      end_col = math.max((tonumber(end_col) or 0) + padding, 0)
+    else
+      end_col = -1
+    end
+    -- ライブヘッダのトラック行だけにスプライト色を反映する。
+    table.insert(highlights, {
+      line = top_line_start + top_index - 1,
+      group = window.palette_group_name(item.palette),
+      start_col = start_col,
+      end_col = end_col,
+    })
+  end
+end
+
 local function render()
   local tab = current_tab()
   if not tab then
@@ -227,14 +460,12 @@ local function render()
   end
   ensure_selection(tab)
   local config = menu_view_util.menu_config(ui_state.config)
-  local lang = (((shared_context.get_state and shared_context.get_state()) or {}).ui or {}).language
+  local current_state = shared_context.get_state and shared_context.get_state() or nil
+  local lang = ((current_state or {}).ui or {}).language
     or ((shared_context.config or {}).ui or {}).language
     or "en"
-  local top_lines = live_header.build_lines(
-    shared_context.get_state and shared_context.get_state() or nil,
-    shared_context.config or ui_state.config,
-    lang
-  )
+  local source_config = shared_context.config or ui_state.config
+  local top_lines, live_lines = build_top_lines(current_state, source_config, lang)
   local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active, config.tabs_style)
   local base_title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
   local title = string.format("󰀘 %s", base_title)
@@ -248,26 +479,68 @@ local function render()
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)
   local height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
   local visible = frame.resolve_content_height({ height = height, tabs_line = tabs_line, top_lines = top_lines })
-  ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
-  local left_lines, selected_row = menu_view_util.build_select_lines({
-    labels = labels,
-    items = visible_items,
-    selected = ui_state.selected,
-    offset = ui_state.offset,
-    visible = visible,
-    prefix = config.item_prefix or "󰜴 ",
-    non_select_prefix = "  ",
-    is_selectable = is_selectable,
-    render_line = function(label, _, mark, _, selectable)
-      if selectable then
-        return mark .. label
+  local left_lines, selected_row
+  if is_credits_tab(tab) then
+    ui_state.offset = 0
+    local credit_lines = build_credit_lines(tab)
+    local current_time = ((current_state or {}).metrics or {}).time_sec or 0
+    if ui_state.credits.finished then
+      left_lines, ui_state.credits.scroll_offset, ui_state.credits.scroll_max =
+        build_credits_scroll_lines(credit_lines, visible, ui_state.credits.scroll_offset)
+    else
+      if ui_state.credits.started_at_sec == nil then
+        -- クレジット演出はタブを開いた時刻を起点にし、総プレイ時間の影響を受けないようにする。
+        ui_state.credits.started_at_sec = current_time
       end
-      return "  " .. label
-    end,
-  })
+      local crawl_step = ((((source_config or {}).ui or {}).menu or {}).credits_scroll_seconds)
+      local elapsed = math.max(current_time - (ui_state.credits.started_at_sec or current_time), 0)
+      local crawl_lines, finished = build_credits_crawl_lines(credit_lines, visible, elapsed, crawl_step)
+      if finished then
+        ui_state.credits.finished = true
+        left_lines, ui_state.credits.scroll_offset, ui_state.credits.scroll_max =
+          build_credits_scroll_lines(credit_lines, visible, nil)
+      else
+        left_lines = crawl_lines
+        ui_state.credits.scroll_offset = 0
+        ui_state.credits.scroll_max = math.max(#credit_lines - visible, 0)
+      end
+    end
+    selected_row = nil
+  else
+    ui_state.offset = menu_view_util.adjust_offset(ui_state.selected, ui_state.offset, visible, #labels)
+    left_lines, selected_row = menu_view_util.build_select_lines({
+      labels = labels,
+      items = visible_items,
+      selected = ui_state.selected,
+      offset = ui_state.offset,
+      visible = visible,
+      prefix = config.item_prefix or "󰜴 ",
+      non_select_prefix = "  ",
+      is_selectable = is_selectable,
+      render_line = function(label, _, mark, _, selectable)
+        if selectable then
+          return mark .. label
+        end
+        return "  " .. label
+      end,
+    })
+  end
   local width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
+  local show_detail = false
+  local right_lines = {}
+  if show_detail then
+    local selected_item = (tab.items or {})[ui_state.selected]
+    local detail = resolve_tab_detail(tab, selected_item)
+    right_lines = build_detail_lines(detail, visible)
+    for _, line in ipairs(right_lines) do
+      table.insert(width_lines, line)
+    end
+  end
   width = menu_view_util.resolve_display_width(config, width, width_lines)
   width, height = resolve_stable_layout(config, width, height)
+  if is_credits_tab(tab) then
+    left_lines = center_lines(left_lines, width)
+  end
   local centered_top_lines = center_lines(top_lines, width)
   local shell = frame.compose({
     title = title,
@@ -275,6 +548,8 @@ local function render()
     tabs_line = tabs_line,
     left_title = "MENU",
     left_lines = left_lines,
+    right_lines = right_lines,
+    -- メインメニュー全体は1カラムへ統一し、右カラムを表示しない。
     show_right = false,
     footer_hints = footer_hints,
     width = width,
@@ -326,6 +601,7 @@ local function render()
       })
     end
   end
+  append_live_header_highlights(highlights, current_state, source_config, live_lines, centered_top_lines, shell)
   append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
   window.apply_highlights(buf, highlights)
   ui_state.win = win
@@ -369,9 +645,18 @@ local function open_detail_page(tab, choice)
   return true
 end
 
+-- Enterで詳細画面を開くかどうかを項目ごとに判定する。
+local function can_open_detail_on_enter(choice)
+  return type(choice) == "table" and choice.open_detail_on_enter == true
+end
+
 local function move(delta)
   local tab = current_tab()
   if not tab then
+    return
+  end
+  if is_credits_tab(tab) then
+    -- クレジットは最後まで流れた時点で停止し、手動入力で位置を変えない。
     return
   end
   local indexes = selectable_indexes(tab)
@@ -385,7 +670,8 @@ local function move(delta)
       break
     end
   end
-  local next_cursor = math.max(math.min(cursor + delta, #indexes), 1)
+  -- 選択可能項目のみを対象に循環させ、先頭で上入力したときに末尾へ回す。
+  local next_cursor = menu_view_util.wrap_selected(cursor + delta, #indexes)
   ui_state.selected = indexes[next_cursor]
   render()
   selection_fx.start(ui_state.selection_fx, render)
@@ -395,6 +681,7 @@ local function switch_tab(delta)
   ui_state.active = menu_tabs.shift_index(ui_state.active, delta, #ui_state.tabs)
   ui_state.offset = 0
   ui_state.selected = 1
+  reset_credits_state()
   render()
   selection_fx.start(ui_state.selection_fx, render)
 end
@@ -405,7 +692,8 @@ local function select_current()
     return
   end
   local choice = current_choice(tab)
-  if open_detail_page(tab, choice) then
+  -- 実行操作を阻害しないよう、詳細画面は明示指定された項目だけで開く。
+  if can_open_detail_on_enter(choice) and open_detail_page(tab, choice) then
     return
   end
   if not tab.on_choice then
@@ -442,6 +730,14 @@ local function set_keymaps(buf)
       local tab = current_tab()
       ui_state.selected = #(tab and tab.items or {})
       render()
+    end },
+    { "o", function()
+      local tab = current_tab()
+      if not tab then
+        return
+      end
+      local choice = current_choice(tab)
+      open_detail_page(tab, choice)
     end },
     { "<CR>", select_current },
     { "<LeftMouse>", function()
@@ -514,6 +810,7 @@ local function select(tabs, opts, config)
   ui_state.offset = 0
   ui_state.layout = { width = nil, height = nil }
   ui_state.selection_fx = {}
+  reset_credits_state()
   render()
   if ui_state.buf then
     set_keymaps(ui_state.buf)

@@ -1,5 +1,6 @@
 -- このモジュールは戦闘に関わる遷移処理を純粋関数でまとめる。
 local battle = require("idle_dungeon.game.battle")
+local balance = require("idle_dungeon.game.balance")
 local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
 local game_speed = require("idle_dungeon.core.game_speed")
@@ -14,10 +15,15 @@ local state_dex = require("idle_dungeon.game.dex.state")
 local util = require("idle_dungeon.util")
 
 local M = {}
+local SPEED_WAIT_BASE = 5
 
 -- pet_partyは配列として管理するため、状態更新時は明示代入で置き換える。
 local function merge_with_pet_party(state, updates, pet_party)
   local next_state = util.merge_tables(state, updates or {})
+  if updates and type(updates.combat) == "table" then
+    -- 戦闘状態は前ターンの残留データを避けるため、深いマージではなく丸ごと置換する。
+    next_state.combat = updates.combat
+  end
   next_state.pet_party = pet_party or {}
   return next_state
 end
@@ -52,9 +58,14 @@ local function resolve_speed(value, fallback)
   return math.max(speed, 1)
 end
 
--- 行動後に次回行動まで待つティック数を計算する。
-local function resolve_action_interval(speed)
-  return math.max(tonumber(speed) or 1, 1)
+-- 行動後に次回行動まで待つティック数を相対速度から計算する。
+local function resolve_action_interval(speed, opponent_speed)
+  local safe_speed = math.max(tonumber(speed) or 1, 1)
+  local safe_opponent = math.max(tonumber(opponent_speed) or 1, 1)
+  -- 絶対値ではなく相対比で待機を決め、双方が同倍率で速くなっても全体テンポを保つ。
+  local total = safe_speed + safe_opponent
+  local scaled = (SPEED_WAIT_BASE * total) / (2 * safe_speed)
+  return math.max(math.floor(scaled + 0.5), 1)
 end
 
 -- 撃破や敗北の演出を最低1ティックは維持する。
@@ -143,15 +154,15 @@ local function resolve_actor_waits(combat, hero_speed, enemy_speed)
       hero_wait = 0
       enemy_wait = legacy_wait
     else
-      hero_wait = resolve_action_interval(hero_speed)
-      enemy_wait = resolve_action_interval(enemy_speed)
+      hero_wait = resolve_action_interval(hero_speed, enemy_speed)
+      enemy_wait = resolve_action_interval(enemy_speed, hero_speed)
     end
   end
   if hero_wait == nil then
-    hero_wait = resolve_action_interval(hero_speed)
+    hero_wait = resolve_action_interval(hero_speed, enemy_speed)
   end
   if enemy_wait == nil then
-    enemy_wait = resolve_action_interval(enemy_speed)
+    enemy_wait = resolve_action_interval(enemy_speed, hero_speed)
   end
   return math.max(tonumber(hero_wait) or 0, 0), math.max(tonumber(enemy_wait) or 0, 0)
 end
@@ -182,10 +193,10 @@ local function resolve_turn_from_waits(hero_wait, enemy_wait, hero_speed, enemy_
     return "hero"
   end
   -- 初回の同時行動だけは速度が速い側を優先する。
-  if (tonumber(hero_speed) or 1) < (tonumber(enemy_speed) or 1) then
+  if (tonumber(hero_speed) or 1) > (tonumber(enemy_speed) or 1) then
     return "hero"
   end
-  if (tonumber(enemy_speed) or 1) < (tonumber(hero_speed) or 1) then
+  if (tonumber(enemy_speed) or 1) > (tonumber(hero_speed) or 1) then
     return "enemy"
   end
   return "hero"
@@ -211,11 +222,11 @@ local function build_last_turn(attacker, result, state, elapsed_seconds)
   return { attacker = attacker, result = result, time_sec = time_sec }
 end
 
--- 敵ごとの倍率を加味した経験値報酬を計算する。
-local function resolve_reward_exp(base_exp, enemy)
-  local multiplier = enemy and enemy.exp_multiplier or 1
-  local scaled = (tonumber(base_exp) or 0) * multiplier
-  return math.max(0, math.floor(scaled + 0.5))
+-- last_turnは深いマージを避け、毎ターンの結果で丸ごと差し替える。
+local function merge_combat_with_last_turn(combat, updates, last_turn)
+  local next_combat = util.merge_tables(combat or {}, updates or {})
+  next_combat.last_turn = last_turn
+  return next_combat
 end
 
 -- 敵がペットを狙うかどうかを抽選して対象を返す。
@@ -370,7 +381,7 @@ local function tick_battle(state, config)
       end
     end
     last_turn = build_last_turn("hero", hero_result, state, game_tick_seconds)
-    hero_wait = resolve_action_interval(hero_speed)
+    hero_wait = resolve_action_interval(hero_speed, enemy_speed)
     next_progress = util.merge_tables(state.progress, { rng_seed = seed })
     if (next_enemy.hp or 0) <= 0 then
       -- 撃破時に戦利品の抽選を行い、報酬画面で表示できるように保持する。
@@ -378,14 +389,13 @@ local function tick_battle(state, config)
       drop, seed = loot.roll_drop(seed, config, content.items, enemy)
       local gold_bonus
       gold_bonus, seed = loot.roll_gold(seed, enemy)
-      local reward_exp = resolve_reward_exp(battle_config.reward_exp, enemy)
+      local reward_exp = balance.resolve_exp_reward(battle_config.reward_exp, enemy)
       next_progress = util.merge_tables(state.progress, { rng_seed = seed })
-      local next_combat = util.merge_tables(combat, {
+      local next_combat = merge_combat_with_last_turn(combat, {
         enemy = next_enemy,
         pending_drop = drop,
         pending_gold = gold_bonus,
         pending_exp = reward_exp,
-        last_turn = last_turn,
         -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
         attack_effect = attack_effect_frames,
         attack_step = attack_step_frames,
@@ -395,7 +405,7 @@ local function tick_battle(state, config)
         turn_wait = 0,
         outcome = "reward",
         outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds),
-      })
+      }, last_turn)
       return merge_with_pet_party(state, { combat = next_combat, progress = next_progress }, next_pet_party)
     end
   else
@@ -451,12 +461,11 @@ local function tick_battle(state, config)
       next_actor = util.merge_tables(state.actor, { hp = math.max(0, next_actor_hp) })
     end
     last_turn = build_last_turn("enemy", enemy_result, state, game_tick_seconds)
-    enemy_wait = resolve_action_interval(enemy_speed)
+    enemy_wait = resolve_action_interval(enemy_speed, hero_speed)
     next_progress = util.merge_tables(state.progress, { rng_seed = seed })
     if next_actor_hp <= 0 then
-      local next_combat = util.merge_tables(combat, {
+      local next_combat = merge_combat_with_last_turn(combat, {
         enemy = next_enemy,
-        last_turn = last_turn,
         -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
         attack_effect = attack_effect_frames,
         attack_step = attack_step_frames,
@@ -466,13 +475,12 @@ local function tick_battle(state, config)
         turn_wait = 0,
         outcome = "defeat",
         outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds),
-      })
+      }, last_turn)
       return merge_with_pet_party(state, { actor = next_actor, combat = next_combat, progress = next_progress }, next_pet_party)
     end
   end
-  local next_combat = util.merge_tables(combat, {
+  local next_combat = merge_combat_with_last_turn(combat, {
     enemy = next_enemy,
-    last_turn = last_turn,
     -- 攻撃演出はフレーム数を保持し、前進演出も別で持つ。
     attack_effect = attack_effect_frames,
     attack_step = attack_step_frames,
@@ -480,16 +488,20 @@ local function tick_battle(state, config)
     enemy_turn_wait = enemy_wait,
     turn = turn,
     turn_wait = 0,
-  })
+  }, last_turn)
   return merge_with_pet_party(state, { actor = next_actor, combat = next_combat, progress = next_progress }, next_pet_party)
 end
 
 -- 戦闘勝利時の報酬と階層状態を更新する。
 local function tick_reward(state, config)
-  local reward_exp = (state.combat and state.combat.pending_exp) or (config.battle or {}).reward_exp or 0
+  local combat_enemy = (state.combat or {}).enemy
+  local reward_exp = (state.combat and state.combat.pending_exp)
+  if reward_exp == nil then
+    reward_exp = balance.resolve_exp_reward((config.battle or {}).reward_exp or 0, combat_enemy)
+  end
   local base_gold = (config.battle or {}).reward_gold or 0
   local bonus_gold = (state.combat or {}).pending_gold or 0
-  local reward_gold = base_gold + bonus_gold
+  local reward_gold = balance.resolve_gold_reward(base_gold, bonus_gold, combat_enemy)
   local pending_drop = state.combat and state.combat.pending_drop or nil
   -- 現在のジョブ進行度を更新して経験値に反映する。
   local current_job = helpers.find_job(state.actor and state.actor.id)
