@@ -47,4 +47,19 @@ assert_contains(built.lines[1], "Idle Dungeon", "先頭行にタイトルが表�
 assert_true((built.left_width or 0) >= 20, "左ペイン幅が狭すぎない")
 assert_true((built.right_width or 0) >= 20, "右ペイン幅が狭すぎない")
 
+-- 左カラムが長文でも2カラムの区切り位置が崩れず、右カラム内容を維持することを確認する。
+local long_left = string.rep("L", 120)
+local long_split = frame.compose({
+  title = "Idle Dungeon",
+  left_lines = { long_left },
+  right_lines = { "RIGHT-SUMMARY" },
+  footer_hints = { "q Close" },
+  width = 72,
+  height = 16,
+})
+local first_body = long_split.lines[long_split.body_start or 1] or ""
+local separator = string.find(first_body, "│", 1, true)
+assert_equal(separator, (long_split.left_width or 0) + 2, "左カラム長文でも区切り線の位置が固定される")
+assert_contains(first_body, "RIGHT-SUMMARY", "左カラム長文でも右カラムの説明が表示される")
+
 print("OK")

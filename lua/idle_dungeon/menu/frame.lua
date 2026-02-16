@@ -40,6 +40,18 @@ local function fixed_text(text, width)
   return safe_text .. string.rep(" ", gap)
 end
 
+local function fixed_panel_text(text, width, keep_overflow)
+  local safe_width = math.max(tonumber(width) or 0, 0)
+  local safe_text = text or ""
+  -- 2カラム表示では左右の列幅を厳守し、長文で区切り位置が崩れないようにする。
+  local normalized = keep_overflow and safe_text or util.clamp_line(safe_text, safe_width)
+  if util.display_width(normalized) >= safe_width then
+    return normalized
+  end
+  local gap = math.max(safe_width - util.display_width(normalized), 0)
+  return normalized .. string.rep(" ", gap)
+end
+
 local function fixed_hint_text(text, width)
   local safe_width = math.max(tonumber(width) or 0, 0)
   local clamped = util.clamp_line(text or "", safe_width)
@@ -136,9 +148,10 @@ local function compose(opts)
   end
   local body_start = #lines + 1
   for index = 1, body_height do
-    local left = fixed_text((opts.left_lines or {})[index] or "", left_width)
+    local keep_overflow = not show_right
+    local left = fixed_panel_text((opts.left_lines or {})[index] or "", left_width, keep_overflow)
     if show_right then
-      local right = fixed_text((opts.right_lines or {})[index] or "", right_width)
+      local right = fixed_panel_text((opts.right_lines or {})[index] or "", right_width, false)
       table.insert(lines, fixed_text(left .. " │ " .. right, width))
     else
       table.insert(lines, fixed_text(left, width))
