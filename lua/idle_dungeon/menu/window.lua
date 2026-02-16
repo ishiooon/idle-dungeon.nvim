@@ -65,6 +65,8 @@ local function ensure_highlights(theme)
   )
   apply_highlight("IdleDungeonMenuBorder", { fg = safe.border }, "String", inherit)
   apply_highlight("IdleDungeonMenuNormal", { fg = safe.text, bg = safe.background }, "NormalFloat", inherit)
+  -- Enter説明は本文や通常フッターと見分けやすい色へ寄せる。
+  apply_highlight("IdleDungeonMenuHint", { fg = safe.accent or safe.title, italic = true }, "SpecialComment", inherit)
   -- カーソル色は背景を持たせず透過寄りにして、選択記号の見た目を崩さない。
   apply_highlight("IdleDungeonMenuCursor", { fg = "NONE", bg = "NONE", blend = 100, nocombine = true }, "NormalFloat", inherit)
   apply_highlight(

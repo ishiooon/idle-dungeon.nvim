@@ -1,4 +1,4 @@
--- このテストはメインタブが1カラム表示で描画されることを確認する。
+-- このテストはメニュー本文の左クリックで行選択が切り替わることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -6,23 +6,14 @@ local function assert_true(value, message)
   end
 end
 
-local function assert_contains(text, needle, message)
-  if not string.find(text or "", needle or "", 1, true) then
-    error((message or "assert_contains failed") .. ": " .. tostring(text) .. " !~ " .. tostring(needle))
-  end
-end
-
-local function assert_not_contains(text, needle, message)
-  if string.find(text or "", needle or "", 1, true) then
-    error((message or "assert_not_contains failed") .. ": " .. tostring(text) .. " =~ " .. tostring(needle))
-  end
-end
-
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local original_vim = _G.vim
 local ok, err = pcall(function()
-  local rendered = {}
+  local rendered_lines = {}
+  local maps = {}
+  local mouse_pos = { winid = 0, line = 0, column = 0 }
+  local selected_id = nil
 
   package.loaded["idle_dungeon.menu.live_header"] = {
     build_lines = function()
@@ -40,7 +31,7 @@ local ok, err = pcall(function()
     end,
     update_window = function() end,
     set_lines = function(_, lines)
-      rendered = lines
+      rendered_lines = lines or {}
     end,
     apply_highlights = function() end,
     close_window = function() end,
@@ -61,11 +52,13 @@ local ok, err = pcall(function()
       nvim_win_set_cursor = function() end,
     },
     keymap = {
-      set = function() end,
+      set = function(_, lhs, rhs)
+        maps[lhs] = rhs
+      end,
     },
     fn = {
       getmousepos = function()
-        return { winid = 0, line = 0, column = 0 }
+        return mouse_pos
       end,
       strdisplaywidth = function(text)
         return #(text or "")
@@ -74,8 +67,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  -- 詳細プレビューは明示的に無効化した場合のみ1カラム表示になる。
-  local config = { ui = { language = "en", menu = { detail_preview = false } } }
+  local config = { ui = { language = "en", menu = { detail_preview = false, min_height = 16 } } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },
@@ -88,20 +80,14 @@ local ok, err = pcall(function()
       id = "status",
       label = "Status",
       items = {
-        { id = "entry", label = "TOP" },
-        { id = "entry", label = "BOTTOM" },
+        { id = "alpha", label = "ALPHA" },
+        { id = "beta", label = "BETA" },
       },
       format_item = function(item)
         return item.label
       end,
-      detail_provider = function(item)
-        return {
-          title = item.label or "",
-          lines = {
-            "DETAIL HEADER",
-            "VALUE: 42",
-          },
-        }
+      on_choice = function(item)
+        selected_id = item and item.id or nil
       end,
     },
   }, {
@@ -109,11 +95,22 @@ local ok, err = pcall(function()
     footer_hints = { "q" },
   }, config)
 
-  local text = table.concat(rendered or {}, "\n")
-  assert_contains(text, "TOP", "メインタブ本文が表示される")
-  assert_not_contains(text, " │ ", "メインタブに左右ペインの区切りを表示しない")
-  assert_not_contains(text, "DETAIL HEADER", "メインタブの右ペイン詳細は表示しない")
-  assert_not_contains(text, "VALUE: 42", "メインタブの右ペイン詳細は表示しない")
+  local beta_line = nil
+  for index, line in ipairs(rendered_lines or {}) do
+    if string.find(line or "", "BETA", 1, true) then
+      beta_line = index
+      break
+    end
+  end
+  assert_true(beta_line ~= nil, "本文にBETA行が描画される")
+  assert_true(type(maps["<LeftMouse>"]) == "function", "左クリックのキーマップが設定される")
+  assert_true(type(maps["<CR>"]) == "function", "Enterキーのキーマップが設定される")
+
+  mouse_pos = { winid = 1, line = beta_line, column = 4 }
+  maps["<LeftMouse>"]()
+  maps["<CR>"]()
+
+  assert_true(selected_id == "beta", "本文の左クリック後にEnterするとクリックした行が実行される")
   tabs_view.close()
 end)
 

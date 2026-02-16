@@ -39,7 +39,9 @@ M.jobs = {
   {
     id = "recorder",
     name = "剣士",
+    name_en = "Swordsman",
     role = "攻撃型",
+    role_en = "Offense",
     -- 攻撃速度は1以上の整数で、相手より高いほど攻撃間隔が短くなる。
     base = { hp = 14, atk = 5, def = 2, speed = 3 },
     -- ジョブ固有の成長値を定義する。
@@ -61,7 +63,9 @@ M.jobs = {
   {
     id = "guardian",
     name = "騎士",
+    name_en = "Guardian",
     role = "防御型",
+    role_en = "Defense",
     -- 防御寄りのため攻撃速度は少し遅めに設定する。
     base = { hp = 18, atk = 2, def = 4, speed = 5 },
     -- ジョブ固有の成長値を定義する。
@@ -82,7 +86,9 @@ M.jobs = {
   {
     id = "hunter",
     name = "弓兵",
+    name_en = "Hunter",
     role = "速攻型",
+    role_en = "Speed",
     -- 速攻型は攻撃間隔を短めにする。
     base = { hp = 12, atk = 4, def = 1, speed = 2 },
     -- ジョブ固有の成長値を定義する。
@@ -103,7 +109,9 @@ M.jobs = {
   {
     id = "alchemist",
     name = "錬金術師",
+    name_en = "Alchemist",
     role = "支援型",
+    role_en = "Support",
     -- 支援型は安定した間隔で行動する。
     base = { hp = 15, atk = 3, def = 2, speed = 4 },
     -- ジョブ固有の成長値を定義する。
@@ -124,7 +132,9 @@ M.jobs = {
   {
     id = "rogue",
     name = "盗賊",
+    name_en = "Rogue",
     role = "俊敏型",
+    role_en = "Agile",
     -- 俊敏型は素早い攻撃を重視する。
     base = { hp = 11, atk = 4, def = 1, speed = 2 },
     -- ジョブ固有の成長値を定義する。
@@ -145,7 +155,9 @@ M.jobs = {
   {
     id = "cleric",
     name = "神官",
+    name_en = "Cleric",
     role = "回復型",
+    role_en = "Healer",
     -- 回復型は体力と防御を重視する。
     base = { hp = 16, atk = 2, def = 3, speed = 4 },
     -- ジョブ固有の成長値を定義する。
@@ -166,7 +178,9 @@ M.jobs = {
   {
     id = "beast_tamer",
     name = "猛獣使い",
+    name_en = "Beast Tamer",
     role = "共闘型",
+    role_en = "Tamer",
     -- 共闘型は本人の攻撃力を抑え、ペット運用で火力を補う。
     base = { hp = 13, atk = 3, def = 2, speed = 3 },
     -- ジョブ固有の成長値を定義する。
@@ -187,7 +201,9 @@ M.jobs = {
   {
     id = "monk",
     name = "武闘家",
+    name_en = "Monk",
     role = "近接型",
+    role_en = "Melee",
     -- 近接型は攻撃と体力の両方を伸ばす。
     base = { hp = 13, atk = 4, def = 2, speed = 3 },
     -- ジョブ固有の成長値を定義する。

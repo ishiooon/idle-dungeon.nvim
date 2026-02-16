@@ -1,4 +1,4 @@
--- このテストはジョブ選択メニューが確定後も閉じない設定で開くことを確認する。
+-- このテストはジョブ選択メニューがEnterで詳細画面へ遷移する前提の設定で開くことを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -38,6 +38,7 @@ end
 actions.open_job_menu(get_state, set_state, config, function() end)
 
 assert_true(type(captured_opts) == "table", "ジョブ選択の表示オプションが渡される")
-assert_true(captured_opts.keep_open == true, "ジョブ選択は確定後もメニューを閉じない")
+assert_true(captured_opts.keep_open ~= true, "ジョブ一覧は確定時に詳細画面へ遷移するためkeep_openを使わない")
+assert_true(type(captured_opts.enter_hint_provider) == "function", "ジョブ一覧でEnter操作説明を表示する")
 
 print("OK")

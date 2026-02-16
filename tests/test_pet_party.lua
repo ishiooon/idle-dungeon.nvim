@@ -105,7 +105,7 @@ assert_equal(st2.pet_party[1].speed, 3, "後から得た敵の速度が反映さ
 -- 猛獣使いは保持上限が増え、複数保持できる。
 local st_tamer_seed = util.merge_tables(st0, {
   job_levels = util.merge_tables(st0.job_levels or {}, {
-    beast_tamer = { level = 5, exp = 0, next_level = 10 },
+    beast_tamer = { level = 5 },
   }),
 })
 local st_tamer = state_module.change_job(st_tamer_seed, "beast_tamer")

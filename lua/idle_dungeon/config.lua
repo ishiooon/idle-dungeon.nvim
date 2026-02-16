@@ -135,9 +135,9 @@ local function default_config()
       encounter_gap = 2,
       -- 撃破や敗北時の表示は次の更新まで戦闘表示を維持する。
       outcome_wait = 0,
-      -- 戦利品のドロップ率はさらに低めに調整して希少性を強める。
-      -- レアとペットはほぼ出ない前提で数値を設定する。
-      drop_rates = { common = 3, rare = 1, pet = 1, boss_bonus = 1 },
+      -- 戦利品のドロップ率は全体的に抑え、通常戦での入手機会を渋くする。
+      -- ペットは通常戦でも低確率で獲得できるようにする。
+      drop_rates = { common = 2, rare = 1, pet = 1, boss_bonus = 1 },
     },
     storage = {
       -- ユーザー共通の保存を前提とするため、短い同期間隔を既定にする。

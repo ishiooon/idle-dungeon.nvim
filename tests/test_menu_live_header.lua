@@ -1,4 +1,4 @@
--- このテストはメニュー上部のライブトラック表示が常にビジュアル表示であることを確認する。
+-- このテストはメニュー上部ライブヘッダが右下表示と同じ描画結果を返すことを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -6,9 +6,9 @@ local function assert_true(value, message)
   end
 end
 
-local function assert_match(text, pattern, message)
-  if not text:match(pattern) then
-    error((message or "assert_match failed") .. ": " .. tostring(text) .. " !~ " .. pattern)
+local function assert_equal(actual, expected, message)
+  if actual ~= expected then
+    error((message or "assert_equal failed") .. ": " .. tostring(actual) .. " ~= " .. tostring(expected))
   end
 end
 
@@ -23,6 +23,7 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 local config_module = require("idle_dungeon.config")
 local live_header = require("idle_dungeon.menu.live_header")
 local state_module = require("idle_dungeon.core.state")
+local render = require("idle_dungeon.ui.render")
 local util = require("idle_dungeon.util")
 
 local config = config_module.build({
@@ -34,9 +35,14 @@ state = util.merge_tables(state, {
 })
 
 local lines = live_header.build_lines(state, config, "en")
-assert_true(type(lines) == "table" and #lines >= 2, "ライブトラックの2行表示が返る")
+local expected_state = util.merge_tables(state, {
+  ui = util.merge_tables(state.ui or {}, { render_mode = "visual" }),
+})
+local expected_lines = render.build_lines(expected_state, config)
+assert_true(type(lines) == "table" and #lines >= 2, "ライブヘッダの表示行が返る")
+assert_equal(lines[1], expected_lines[1], "1行目は右下表示の1行目と一致する")
+assert_equal(lines[2], expected_lines[2], "2行目は右下表示の2行目と一致する")
 assert_not_match(lines[1] or "", "^%[", "ライブトラックはテキストモード表現を使わない")
-assert_match(lines[2] or "", tostring((state.actor or {}).hp or 0), "上部情報に体力値が含まれる")
 
 local battle_state = util.merge_tables(state, {
   ui = util.merge_tables(state.ui or {}, { mode = "battle" }),
@@ -46,9 +52,12 @@ local battle_state = util.merge_tables(state, {
   },
 })
 local battle_lines = live_header.build_lines(battle_state, config, "en")
-assert_true(type(battle_lines) == "table" and #battle_lines >= 2, "戦闘中もライブトラックの2行表示が返る")
-assert_match(battle_lines[2] or "", "Attack", "戦闘中の上部情報に攻撃名が含まれる")
-assert_match(battle_lines[2] or "", "〉", "戦闘中の上部情報は戦闘レイアウトで表示される")
-assert_match(battle_lines[2] or "", "〈", "戦闘中の上部情報は戦闘レイアウトで表示される")
+local expected_battle_state = util.merge_tables(battle_state, {
+  ui = util.merge_tables(battle_state.ui or {}, { render_mode = "visual" }),
+})
+local expected_battle_lines = render.build_lines(expected_battle_state, config)
+assert_true(type(battle_lines) == "table" and #battle_lines >= 2, "戦闘中もライブヘッダが返る")
+assert_equal(battle_lines[1], expected_battle_lines[1], "戦闘中1行目は右下表示と一致する")
+assert_equal(battle_lines[2], expected_battle_lines[2], "戦闘中2行目は右下表示と一致する")
 
 print("OK")

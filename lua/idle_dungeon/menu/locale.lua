@@ -23,6 +23,28 @@ local function resolve_lang(state, config)
   return (state.ui or {}).language or (config.ui or {}).language or "en"
 end
 
+-- 言語設定に応じてジョブ名を切り替える。
+local function resolve_job_name(job, lang)
+  if type(job) ~= "table" then
+    return ""
+  end
+  if lang == "en" then
+    return job.name_en or job.name or job.id or ""
+  end
+  return job.name or job.name_en or job.id or ""
+end
+
+-- 言語設定に応じてジョブロール名を切り替える。
+local function resolve_job_role(job, lang)
+  if type(job) ~= "table" then
+    return ""
+  end
+  if lang == "en" then
+    return job.role_en or job.role or ""
+  end
+  return job.role or job.role_en or ""
+end
+
 local function slot_label(slot, lang)
   local map = {
     weapon = "slot_weapon",
@@ -169,7 +191,7 @@ local function status_lines(state, lang, config)
   local job_name = nil
   for _, job in ipairs(content.jobs or {}) do
     if job.id == actor.id then
-      job_name = job.name
+      job_name = resolve_job_name(job, lang)
       break
     end
   end
@@ -182,7 +204,6 @@ local function status_lines(state, lang, config)
     string.format("%s %d/%d", i18n.t("label_exp", lang), actor.exp or 0, actor.next_level or 0),
     string.format("%s %s", i18n.t("label_job", lang), job_name or ""),
     string.format("%s %d", i18n.t("label_job_level", lang), actor.job_level or 1),
-    string.format("%s %d/%d", i18n.t("label_job_exp", lang), actor.job_exp or 0, actor.job_next_level or 0),
     string.format("%s %d/%d", i18n.t("label_hp", lang), actor.hp or 0, actor.max_hp or 0),
     string.format("%s %d", i18n.t("label_atk", lang), actor.atk or 0),
     string.format("%s %d", i18n.t("label_def", lang), actor.def or 0),
@@ -198,6 +219,8 @@ local function status_lines(state, lang, config)
 end
 
 M.resolve_lang = resolve_lang
+M.resolve_job_name = resolve_job_name
+M.resolve_job_role = resolve_job_role
 M.slot_label = slot_label
 M.auto_start_label = auto_start_label
 M.display_lines_label = display_lines_label
@@ -208,7 +231,7 @@ local function build_job_level_lines(state, lang, jobs)
   local lines = {}
   for _, job in ipairs(jobs or {}) do
     local progress = levels[job.id] or { level = 1 }
-    table.insert(lines, string.format("%s Lv%d", job.name or "", progress.level or 1))
+    table.insert(lines, string.format("%s Lv%d", resolve_job_name(job, lang), progress.level or 1))
   end
   if #lines == 0 then
     table.insert(lines, i18n.t("menu_job_levels_empty", lang))

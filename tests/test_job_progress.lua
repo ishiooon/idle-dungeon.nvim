@@ -21,7 +21,7 @@ local job = {
 }
 
 local hero_progress = { level = 1, exp = 0, next_level = 5 }
-local job_progress = { level = 1, exp = 0, next_level = 5 }
+local job_progress = { level = 1 }
 local actor = player.new_actor(job, hero_progress, job_progress)
 
 local next_actor, next_job = player.add_exp_with_job(actor, 5, job_progress, job)

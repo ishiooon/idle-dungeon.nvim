@@ -1,4 +1,4 @@
--- このテストはジョブ選択画面で現在ジョブと成長方針が一覧で分かることを確認する。
+-- このテストはジョブ選択画面が1カラムで読みやすく、詳細遷移前の要約情報を表示することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -51,6 +51,8 @@ actions.open_job_menu(get_state, set_state, config)
 
 assert_true(type(captured) == "table", "ジョブ選択メニューの表示情報を取得できる")
 assert_true(type(captured.opts.format_item) == "function", "ジョブ一覧に整形関数が設定される")
+assert_true(captured.opts.detail_layout ~= "split", "ジョブ一覧は2カラムではなく1カラム表示を使う")
+assert_true(type(captured.opts.enter_hint_provider) == "function", "ジョブ一覧にEnter説明の供給関数が設定される")
 
 local lines = {}
 for _, item in ipairs(captured.items or {}) do
@@ -64,8 +66,12 @@ assert_contains(joined, "HP+", "レベルアップ時のHP成長が一覧に表�
 assert_contains(joined, "ATK+", "レベルアップ時の攻撃成長が一覧に表示される")
 assert_contains(joined, "DEF+", "レベルアップ時の防御成長が一覧に表示される")
 assert_contains(joined, "SPD+", "レベルアップ時の速度成長が一覧に表示される")
-assert_contains(joined, "Skill:Lv", "ジョブごとのスキル獲得レベル情報が一覧に表示される")
-assert_contains(joined, "Slash", "ジョブごとのスキル名が一覧に表示される")
+assert_contains(joined, "Skill", "ジョブごとのスキル要約情報が一覧に表示される")
+assert_contains(joined, "/", "習得済み数と総数の要約が一覧に表示される")
+assert_contains(joined, "Swordsman", "英語設定ではジョブ名を英語で表示する")
+assert_contains(joined, "Offense", "英語設定ではジョブロールを英語で表示する")
+assert_not_contains(joined, "Skill:Lv", "詳細用の長いスキル列は一覧に表示しない")
+assert_not_contains(joined, "Slash", "個別スキル名は詳細画面で確認する")
 assert_not_contains(joined, "Δ HP", "ジョブ切替時の即時ステータス差分は表示しない")
 
 print("OK")

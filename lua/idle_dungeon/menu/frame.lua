@@ -62,10 +62,12 @@ end
 local function resolve_panel_width(width)
   -- 本文は「left │ right」の1本区切りで組み立てる。
   local usable = math.max(width - 3, 20)
-  local left = math.max(math.floor(usable * 0.5), 24)
+  -- 左右どちらの情報も読めるよう、初期配分はほぼ半々で計算する。
+  local left = math.floor(usable * 0.5)
+  left = math.max(math.min(left, 56), 24)
   local right = usable - left
-  if right < 20 then
-    right = 20
+  if right < 24 then
+    right = 24
     left = math.max(usable - right, 16)
   end
   return left, right
@@ -79,11 +81,20 @@ local function resolve_content_height(opts)
   local height = math.max(tonumber(opts.height) or 1, 1)
   local has_tabs = type(opts.tabs_line) == "string" and opts.tabs_line ~= ""
   local top_count = type(opts.top_lines) == "table" and #opts.top_lines or 0
+  local footer_note_count = type(opts.footer_notes) == "table" and #opts.footer_notes or 0
+  local footer_note_divider = footer_note_count > 0 and 1 or 0
   local hide_title = opts.hide_title == true
   local hide_divider = opts.hide_divider == true
   local top_gap = (top_count > 0 and has_tabs) and 1 or 0
-  -- title/top/tabs/divider/footer を除いた本文高さを返す。
-  local fixed = 1 + top_count + top_gap + (has_tabs and 1 or 0) + (hide_title and 0 or 1) + (hide_divider and 0 or 1)
+  -- title/top/tabs/divider/footer-note/footer を除いた本文高さを返す。
+  local fixed = 1
+    + footer_note_count
+    + footer_note_divider
+    + top_count
+    + top_gap
+    + (has_tabs and 1 or 0)
+    + (hide_title and 0 or 1)
+    + (hide_divider and 0 or 1)
   return math.max(height - fixed, 1)
 end
 
@@ -118,15 +129,20 @@ local function compose(opts)
   end
   local hide_title = opts.hide_title == true
   local hide_divider = opts.hide_divider == true
+  local footer_notes = opts.footer_notes or {}
   local body_height = resolve_content_height({
     height = height,
     tabs_line = tabs_line,
     top_lines = top_lines,
+    footer_notes = footer_notes,
     hide_title = hide_title,
     hide_divider = hide_divider,
   })
   local lines = {}
   local title_line_index = nil
+  local footer_note_divider_line = nil
+  local footer_note_start_line = nil
+  local footer_note_end_line = nil
   if not hide_title then
     table.insert(lines, fixed_text(title, width))
     title_line_index = #lines
@@ -157,6 +173,19 @@ local function compose(opts)
       table.insert(lines, fixed_text(left, width))
     end
   end
+  if #footer_notes > 0 then
+    -- 説明エリアは本文から明確に分離するため、区切り線を1行追加する。
+    footer_note_divider_line = #lines + 1
+    table.insert(lines, fixed_text(string.rep("─", math.max(width, 1)), width))
+    footer_note_start_line = #lines + 1
+  end
+  -- 選択中項目でEnterを押した際の挙動説明を、基本操作案内の直上に表示する。
+  for _, note in ipairs(footer_notes) do
+    table.insert(lines, fixed_hint_text(tostring(note or ""), width))
+  end
+  if #footer_notes > 0 then
+    footer_note_end_line = #lines
+  end
   local footer_hint_line = #lines + 1
   -- フッター案内は横幅を超えないように丸め、レイアウト崩れを防ぐ。
   table.insert(lines, fixed_hint_text(build_hint_line(opts.footer_hints or {}, width), width))
@@ -170,6 +199,9 @@ local function compose(opts)
     left_width = left_width,
     right_col = show_right and (left_width + 4) or 1,
     right_width = right_width,
+    footer_note_divider_line = footer_note_divider_line,
+    footer_note_start_line = footer_note_start_line,
+    footer_note_end_line = footer_note_end_line,
     footer_hint_line = math.min(footer_hint_line, #normalized),
   }
 end

@@ -29,7 +29,7 @@ local translations = {
   menu_action_status = { en = "Status", jp = "状態確認" },
   menu_status_metrics = { en = "Input Metrics (Detail)", jp = "入力統計(詳細)" },
   -- メニュー下部の案内文を定義する。
-  menu_hint_tabs = { en = "Tabs: Click / <- -> / Tab", jp = "タブ: クリック / <- -> / Tab" },
+  menu_hint_tabs = { en = "Tabs/Rows: Click / <- -> / Tab", jp = "タブ/行: クリック / <- -> / Tab" },
   menu_hint_toggle = { en = "Toggle: Enter switches", jp = "切り替え: Enterで変更" },
   menu_hint_select = { en = "Select: Enter", jp = "選択: Enter" },
   menu_hint_back = { en = "Back: b / <- / Esc", jp = "戻る: b / <- / Esc" },
@@ -124,7 +124,6 @@ local translations = {
   -- ジョブ表示とスキル表示の追加文言をまとめる。
   label_job = { en = "Job:", jp = "ジョブ:" },
   label_job_level = { en = "Job Level:", jp = "ジョブLv:" },
-  label_job_exp = { en = "Job Exp:", jp = "ジョブ経験:" },
   label_job_growth = { en = "Growth:", jp = "成長:" },
   label_job_skills = { en = "Skills:", jp = "習得スキル:" },
   skill_kind_active = { en = "Active", jp = "アクティブ" },

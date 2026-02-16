@@ -31,7 +31,7 @@ local function resolve_tick_seconds(state, config)
   return game_speed.resolve_runtime_tick_seconds(state, config)
 end
 
--- ティック間隔が変わった場合はタイマーを更新する。
+-- ティック間隔が変わった場合はタイマーを更新する。                                           
 local function update_tick_timer(state)
   local desired = resolve_tick_seconds(state, current_config)
   if current_tick_seconds == nil then

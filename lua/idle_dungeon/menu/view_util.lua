@@ -112,6 +112,8 @@ local function menu_config(config)
     item_prefix = menu.item_prefix or "󰜴 ",
     section_prefix = menu.section_prefix or "",
     empty_prefix = menu.empty_prefix or "󰇘 ",
+    -- メインタブで選択中項目の詳細プレビューを表示するかどうかを保持する。
+    detail_preview = menu.detail_preview == true,
     theme = theme.resolve(config),
     -- 上部表示の可読性を保つため、現在画面で使える最大幅を保持する。
     available_width = screen_width,
@@ -153,17 +155,26 @@ local function resolve_display_width(config, base_width, lines)
 end
 
 -- 行数に応じて高さを詰め、下方向の空白を減らす。
-local function resolve_compact_height(config, screen_height, visible_rows, top_lines, has_tabs)
+local function resolve_compact_height(config, screen_height, visible_rows, top_lines, has_tabs, footer_note_count)
   local min_height = tonumber(config.min_height) or 16
   local max_height = tonumber(config.max_height) or tonumber(config.height) or min_height
   local top_count = #(top_lines or {})
   local top_gap = (top_count > 0 and has_tabs) and 1 or 0
+  local safe_screen = math.max(tonumber(screen_height) or min_height, min_height)
+  local footer_count = math.max(tonumber(footer_note_count) or 0, 0)
+  local footer_reserved = footer_count > 0 and (footer_count + 1) or 0
   -- title + divider + footer + top行 + top/tabs間の余白 + tabs行
-  local fixed = 3 + top_count + top_gap + (has_tabs and 1 or 0)
-  local body = clamp_number(visible_rows or 0, 6, 14)
+  local fixed = 3 + top_count + top_gap + (has_tabs and 1 or 0) + footer_reserved
+  -- 下部の説明エリアが増えても本文を読みやすく保つため、本文の確保行数を少し増やす。
+  local body = clamp_number(visible_rows or 0, 7, 15)
   local target = fixed + body
   local clamped = clamp_number(target, min_height, max_height)
-  return math.min(clamped, math.max(screen_height or clamped, min_height))
+  -- 本文が収まらない場合は、画面に余白がある限り高さを拡張して後半項目を見えるようにする。
+  local total_needed = fixed + math.max(tonumber(visible_rows) or 0, 0)
+  if total_needed > clamped and safe_screen > clamped then
+    return clamp_number(total_needed, min_height, safe_screen)
+  end
+  return math.min(clamped, safe_screen)
 end
 
 -- 選択リストの行を共通形式で生成する。

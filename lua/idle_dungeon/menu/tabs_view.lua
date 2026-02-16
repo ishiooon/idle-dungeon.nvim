@@ -7,7 +7,6 @@ local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view = require("idle_dungeon.menu.view")
 local menu_tabs = require("idle_dungeon.menu.tabs")
 local menu_view_util = require("idle_dungeon.menu.view_util")
-local render_stage = require("idle_dungeon.ui.render_stage")
 local sprite_highlight = require("idle_dungeon.ui.sprite_highlight")
 local util = require("idle_dungeon.util")
 local window = require("idle_dungeon.menu.window")
@@ -29,6 +28,8 @@ local ui_state = {
   tabs_line_index = nil,
   tab_segments = {},
   visible_items = {},
+  body_start = nil,
+  body_end = nil,
   layout = { width = nil, height = nil },
   selection_fx = {},
   credits = {
@@ -59,6 +60,8 @@ local function close(silent)
   ui_state.buf = nil
   ui_state.tabs = {}
   ui_state.tab_segments = {}
+  ui_state.body_start = nil
+  ui_state.body_end = nil
   reset_credits_state()
   if (not silent) and callback then
     callback()
@@ -274,14 +277,9 @@ local function build_top_lines(state, config, lang)
   if not state then
     return {}, {}
   end
-  local lines = {}
   local live_lines = live_header.build_lines(state, config, lang)
-  -- メニュー上部に現在地の要約を追加し、ライブ表示の文脈を分かりやすくする。
-  table.insert(lines, render_stage.build_menu_header(state.progress or {}, config or {}, lang))
-  for _, line in ipairs(live_lines) do
-    table.insert(lines, line)
-  end
-  return lines, live_lines
+  -- 状態タブ本文と重なるため、上部はライブヘッダだけを表示して情報重複を抑える。
+  return live_lines, live_lines
 end
 
 local function resolve_stable_layout(config, width, height)
@@ -349,15 +347,133 @@ local function resolve_tab_detail(tab, item)
   return nil
 end
 
+local function normalize_enter_hint_lines(lines)
+  if type(lines) == "string" then
+    local text = tostring(lines or "")
+    if text == "" then
+      return {}
+    end
+    return { text }
+  end
+  if type(lines) ~= "table" then
+    return {}
+  end
+  local normalized = {}
+  for _, line in ipairs(lines) do
+    local text = tostring(line or "")
+    if text ~= "" then
+      table.insert(normalized, text)
+    end
+  end
+  return normalized
+end
+
+-- フッター直上へ表示するEnter説明を、タブ定義と項目状態から決定する。
+local function resolve_enter_hint_lines(tab, item, lang)
+  local hints = {}
+  if tab and type(tab.enter_hint_provider) == "function" then
+    hints = normalize_enter_hint_lines(tab.enter_hint_provider(item, lang))
+  end
+  if #hints > 0 then
+    return hints
+  end
+  if is_credits_tab(tab) then
+    return {}
+  end
+  if not item then
+    if lang == "ja" or lang == "jp" then
+      return { "󰌑 Enterで実行する項目を選択してください。" }
+    end
+    return { "󰌑 Select a row to execute with Enter." }
+  end
+  if item.open_detail_on_enter then
+    if lang == "ja" or lang == "jp" then
+      return { "󰌑 Enter: 詳細画面を開きます。" }
+    end
+    return { "󰌑 Enter: Open detail view." }
+  end
+  if item.keep_open then
+    if lang == "ja" or lang == "jp" then
+      return { "󰌑 Enter: メニューを開いたまま反映します。" }
+    end
+    return { "󰌑 Enter: Apply while keeping this menu open." }
+  end
+  if lang == "ja" or lang == "jp" then
+    return { "󰌑 Enter: 選択項目を実行します。" }
+  end
+  return { "󰌑 Enter: Execute selected item." }
+end
+
 -- 右ペイン表示用の行配列を本文高さに合わせて生成する。
-local function build_detail_lines(detail, visible)
+local function wrap_detail_line(line, width)
+  local safe_width = math.max(tonumber(width) or 0, 1)
+  local text = tostring(line or "")
+  if text == "" then
+    return { "" }
+  end
+  if util.display_width(text) <= safe_width then
+    return { text }
+  end
+  local chunks = {}
+  local current = ""
+  local tokens = {}
+  for token in text:gmatch("%S+") do
+    table.insert(tokens, token)
+  end
+  if #tokens == 0 then
+    return { util.clamp_line(text, safe_width) }
+  end
+  local function flush()
+    if current ~= "" then
+      table.insert(chunks, current)
+      current = ""
+    end
+  end
+  local function split_long_token(token)
+    local piece = ""
+    for _, char in ipairs(util.split_utf8(token)) do
+      local candidate = piece .. char
+      if util.display_width(candidate) > safe_width then
+        if piece ~= "" then
+          table.insert(chunks, piece)
+        end
+        piece = char
+      else
+        piece = candidate
+      end
+    end
+    if piece ~= "" then
+      current = piece
+    end
+  end
+  for _, token in ipairs(tokens) do
+    local candidate = current == "" and token or (current .. " " .. token)
+    if util.display_width(candidate) <= safe_width then
+      current = candidate
+    else
+      flush()
+      if util.display_width(token) <= safe_width then
+        current = token
+      else
+        split_long_token(token)
+      end
+    end
+  end
+  flush()
+  return chunks
+end
+
+local function build_detail_lines(detail, visible, right_width)
   local rows = {}
   if detail and detail.title and detail.title ~= "" then
     table.insert(rows, detail.title)
     table.insert(rows, string.rep("·", 24))
   end
   for _, line in ipairs((detail and detail.lines) or {}) do
-    table.insert(rows, line)
+    local wrapped = wrap_detail_line(line, right_width)
+    for _, piece in ipairs(wrapped) do
+      table.insert(rows, piece)
+    end
   end
   local filled = {}
   for index = 1, math.max(visible or 0, 0) do
@@ -450,6 +566,7 @@ local function render()
   local base_title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
   local title = string.format("󰀘 %s", base_title)
   local footer_hints = (ui_state.opts and ui_state.opts.footer_hints) or {}
+  local footer_notes = resolve_enter_hint_lines(tab, current_choice(tab), lang)
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   local labels, visible_items = build_tab_lines(tab, config)
   if type(window.ensure_palette_highlights) == "function" then
@@ -457,8 +574,21 @@ local function render()
     window.ensure_palette_highlights(palette)
   end
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)
-  local height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
-  local visible = frame.resolve_content_height({ height = height, tabs_line = tabs_line, top_lines = top_lines })
+  local height = menu_view_util.resolve_compact_height(
+    config,
+    screen_height,
+    #labels,
+    top_lines,
+    tabs_line ~= "",
+    #footer_notes
+  )
+  -- 下部説明行を含めた本文高さでスクロール量を計算し、選択項目が画面外に消えないようにする。
+  local visible = frame.resolve_content_height({
+    height = height,
+    tabs_line = tabs_line,
+    top_lines = top_lines,
+    footer_notes = footer_notes,
+  })
   local left_lines, selected_row
   if is_credits_tab(tab) then
     ui_state.offset = 0
@@ -506,18 +636,44 @@ local function render()
     })
   end
   local width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
-  local show_detail = false
+  for _, note in ipairs(footer_notes or {}) do
+    table.insert(width_lines, note)
+  end
+  local selected_item = (tab.items or {})[ui_state.selected]
+  -- メインタブの詳細プレビューは設定で有効化されたときだけ描画する。
+  local detail_data = (config.detail_preview == true and (not is_credits_tab(tab))) and resolve_tab_detail(tab, selected_item) or nil
+  local show_detail = detail_data ~= nil
   local right_lines = {}
   if show_detail then
-    local selected_item = (tab.items or {})[ui_state.selected]
-    local detail = resolve_tab_detail(tab, selected_item)
-    right_lines = build_detail_lines(detail, visible)
-    for _, line in ipairs(right_lines) do
+    for _, line in ipairs((detail_data and detail_data.lines) or {}) do
       table.insert(width_lines, line)
     end
+    table.insert(width_lines, tostring((detail_data and detail_data.title) or ""))
   end
   width = menu_view_util.resolve_display_width(config, width, width_lines)
+  if show_detail then
+    local available_width = tonumber(config.available_width) or width
+    if available_width < 96 then
+      -- 2カラム最小幅が確保できない環境では1カラムへ自動的に戻して可読性を守る。
+      show_detail = false
+      right_lines = {}
+      width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
+      for _, note in ipairs(footer_notes or {}) do
+        table.insert(width_lines, note)
+      end
+      width = menu_view_util.resolve_display_width(config, width, width_lines)
+    else
+      -- 2カラム表示時は左右ペインの最小幅を満たすウィンドウ幅を確保する。
+      width = math.max(width, 96)
+    end
+  end
   width, height = resolve_stable_layout(config, width, height)
+  if show_detail then
+    local _, right_width = frame.resolve_panel_width(width)
+    right_lines = build_detail_lines(detail_data, visible, right_width)
+  else
+    right_lines = {}
+  end
   if is_credits_tab(tab) then
     left_lines = center_lines(left_lines, width)
   end
@@ -529,8 +685,9 @@ local function render()
     left_title = "MENU",
     left_lines = left_lines,
     right_lines = right_lines,
-    -- メインメニュー全体は1カラムへ統一し、右カラムを表示しない。
-    show_right = false,
+    -- 詳細プレビュー有効時だけ右カラムを表示する。
+    show_right = show_detail,
+    footer_notes = footer_notes,
     footer_hints = footer_hints,
     width = width,
     height = height,
@@ -545,6 +702,14 @@ local function render()
     { line = shell.title_line_index, group = "IdleDungeonMenuTitle" },
     { line = shell.footer_hint_line, group = "IdleDungeonMenuMuted" },
   }
+  if shell.footer_note_divider_line then
+    table.insert(highlights, { line = shell.footer_note_divider_line, group = "IdleDungeonMenuDivider" })
+  end
+  if shell.footer_note_start_line and shell.footer_note_end_line then
+    for line = shell.footer_note_start_line, shell.footer_note_end_line do
+      table.insert(highlights, { line = line, group = "IdleDungeonMenuHint" })
+    end
+  end
   if shell.tabs_line_index then
     table.insert(highlights, { line = shell.tabs_line_index, group = "IdleDungeonMenuTabs" })
   end
@@ -565,6 +730,8 @@ local function render()
   ui_state.labels = labels
   ui_state.visible_items = visible_items
   ui_state.tabs_line_index = shell.tabs_line_index
+  ui_state.body_start = shell.body_start
+  ui_state.body_end = shell.body_start + math.max(visible, 1) - 1
   ui_state.tab_segments = {}
   if shell.tabs_line_index then
     for _, segment in ipairs(menu_tabs.build_tabs_segments(ui_state.tabs, ui_state.active, config.tabs_style)) do
@@ -672,8 +839,15 @@ local function select_current()
     return
   end
   local choice = current_choice(tab)
+  if not choice then
+    return
+  end
   -- 実行操作を阻害しないよう、詳細画面は明示指定された項目だけで開く。
   if can_open_detail_on_enter(choice) and open_detail_page(tab, choice) then
+    return
+  end
+  if type(tab.can_execute_on_enter) == "function" and tab.can_execute_on_enter(choice) ~= true then
+    -- 実行対象ではない行はEnterを無視し、メニューを閉じない。
     return
   end
   if not tab.on_choice then
@@ -722,19 +896,40 @@ local function set_keymaps(buf)
     { "<CR>", select_current },
     { "<LeftMouse>", function()
       local pos = vim.fn.getmousepos()
-      if pos.winid ~= ui_state.win or pos.line ~= ui_state.tabs_line_index then
+      if pos.winid ~= ui_state.win then
         return
       end
-      for _, segment in ipairs(ui_state.tab_segments or {}) do
-        if pos.column >= segment.start_col and pos.column <= segment.end_col then
-          ui_state.active = menu_view_util.clamp_selected(segment.index, #ui_state.tabs)
-          ui_state.selected = 1
-          ui_state.offset = 0
-          render()
-          selection_fx.start(ui_state.selection_fx, render)
-          return
+      if pos.line == ui_state.tabs_line_index then
+        for _, segment in ipairs(ui_state.tab_segments or {}) do
+          if pos.column >= segment.start_col and pos.column <= segment.end_col then
+            ui_state.active = menu_view_util.clamp_selected(segment.index, #ui_state.tabs)
+            ui_state.selected = 1
+            ui_state.offset = 0
+            render()
+            selection_fx.start(ui_state.selection_fx, render)
+            return
+          end
         end
+        return
       end
+      local tab = current_tab()
+      if not tab or is_credits_tab(tab) then
+        return
+      end
+      local body_start = ui_state.body_start or 0
+      local body_end = ui_state.body_end or 0
+      if pos.line < body_start or pos.line > body_end then
+        return
+      end
+      local clicked_index = ui_state.offset + (pos.line - body_start + 1)
+      local item = (tab.items or {})[clicked_index]
+      if not is_selectable(item) then
+        return
+      end
+      -- 本文行のクリックは選択だけを更新し、確定操作はEnterへ分離する。
+      ui_state.selected = clicked_index
+      render()
+      selection_fx.start(ui_state.selection_fx, render)
     end },
     { "b", cancel },
     { "<BS>", cancel },

@@ -74,10 +74,9 @@ local function build_job_detail(job, state, lang)
   if not job then
     return nil
   end
-  local progress = (state.job_levels or {})[job.id] or player.default_progress()
+  local progress = (state.job_levels or {})[job.id] or player.default_job_progress()
   local lines = {
     string.format("%s %d", i18n.t("label_job_level", lang), progress.level or 1),
-    string.format("%s %d/%d", i18n.t("label_job_exp", lang), progress.exp or 0, progress.next_level or 0),
     "",
     localized_text(lang, "Level Up Growth", "Level Up Growth"),
     build_job_growth_line(job, lang),
@@ -102,7 +101,7 @@ local function build_job_detail(job, state, lang)
       end
     end
   end
-  return { title = job.name, lines = lines }
+  return { title = menu_locale.resolve_job_name(job, lang), lines = lines }
 end
 
 -- 装備名の先頭にスロットアイコンを付けて識別しやすくする。
@@ -160,36 +159,123 @@ local function format_equip_choice_line(item, state, slot, config, lang)
   return string.format("%s %-20s x%-2d | %s", marker, format_item_label(item, config, lang), owned, delta_text)
 end
 
--- ジョブ一覧の行を、主要スキルの解放情報が見える形式で整形する。
-local function build_job_skill_unlock_line(job, lang)
-  local entries = {}
+-- ジョブごとの習得済みスキル数を集計する。
+local function count_learned_job_skills(job, state)
+  local total = 0
   for _, skill in ipairs((job and job.skills) or {}) do
-    local skill_name = resolve_skill_name(skill, lang)
-    table.insert(entries, string.format("Lv%d %s", skill.level or 1, skill_name))
+    if skills.is_learned((state or {}).skills, skill.id) then
+      total = total + 1
+    end
   end
-  local label = localized_text(lang, "Skill", "Skill")
-  if #entries == 0 then
-    return string.format("%s:%s", label, localized_text(lang, "None", "None"))
-  end
-  return string.format("%s:%s", label, table.concat(entries, " / "))
+  return total
 end
 
--- ジョブ一覧の行を、成長方針とスキル解放レベルが見える形式で整形する。
+-- ジョブ一覧で表示するスキル進捗を、習得数/総数の短い表現で返す。
+local function build_job_skill_progress_line(job, state, lang)
+  local total = #((job and job.skills) or {})
+  local learned = count_learned_job_skills(job, state)
+  local label = localized_text(lang, "Skill", "Skill")
+  return string.format("%s %d/%d", label, learned, total)
+end
+
+-- ジョブ一覧の行を、成長方針とスキル進捗だけに絞って整形する。
 local function format_job_line(job, state, lang)
-  local progress = (state.job_levels or {})[job.id] or player.default_progress()
+  local progress = (state.job_levels or {})[job.id] or player.default_job_progress()
   local is_active = ((state.actor or {}).id == job.id)
   local marker = is_active and "◆ACTIVE" or "◇CANDIDATE"
   local growth_text = build_job_growth_line(job, lang)
-  local skill_line = build_job_skill_unlock_line(job, lang)
+  local skill_line = build_job_skill_progress_line(job, state, lang)
   return string.format(
     "%s %-12s Lv%-2d %s | %s | %s",
     marker,
-    job.name or "",
+    menu_locale.resolve_job_name(job, lang),
     progress.level or 1,
-    job.role or "",
+    menu_locale.resolve_job_role(job, lang),
     growth_text,
     skill_line
   )
+end
+
+-- ジョブ詳細画面で扱う行の実行可否を判定するため、適用行かどうかを識別する。
+local function is_job_apply_row(item)
+  return type(item) == "table" and item.id == "apply_job"
+end
+
+-- ジョブ詳細画面の表示行を組み立てる。
+local function build_job_detail_items(job, state, lang)
+  local detail = build_job_detail(job, state, lang) or { lines = {} }
+  local items = {}
+  local is_active = ((state.actor or {}).id == (job or {}).id
+    and (job or {}).id ~= nil)
+  local apply_label = is_active
+      and localized_text(lang, "◆現在のジョブです", "◆Current Job")
+    or localized_text(lang, "󰌑 Enterでこのジョブに変更", "󰌑 Enter: Apply this job")
+  table.insert(items, {
+    id = "apply_job",
+    label = apply_label,
+    job_id = (job or {}).id,
+  })
+  table.insert(items, { id = "divider", label = string.rep("─", 24) })
+  for index, line in ipairs(detail.lines or {}) do
+    local text = tostring(line or "")
+    if text == "" then
+      text = " "
+    end
+    table.insert(items, {
+      id = string.format("detail_%d", index),
+      label = text,
+    })
+  end
+  return items
+end
+
+-- ジョブ一覧で選択中の行に対するEnter説明を返す。
+local function build_job_list_enter_hint(choice, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if not choice then
+    if is_ja then
+      return { "󰌑 Enterでジョブ詳細を開きます。" }
+    end
+    return { "󰌑 Press Enter to open job details." }
+  end
+  if is_ja then
+    return {
+      "󰌑 Enter: ジョブ詳細を開きます。",
+      "󰇀 詳細画面の適用行でジョブ変更します。",
+    }
+  end
+  return {
+    "󰌑 Enter: Open job details.",
+    "󰇀 Change job from the apply row in detail view.",
+  }
+end
+
+-- ジョブ詳細で選択中の行に対するEnter説明を返す。
+local function build_job_detail_enter_hint(choice, job, state, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if not is_job_apply_row(choice) then
+    if is_ja then
+      return { "󰇀 この行は表示専用です。Enterでは何も起きません。" }
+    end
+    return { "󰇀 This row is display-only. Enter does nothing." }
+  end
+  local is_active = ((state.actor or {}).id == (job or {}).id)
+  if is_active then
+    if is_ja then
+      return { "󰇀 すでに現在のジョブです。Enterでは何も起きません。" }
+    end
+    return { "󰇀 Already the current job. Enter does nothing." }
+  end
+  if is_ja then
+    return {
+      "󰌑 Enter: このジョブへ変更します。",
+      "󰇀 一覧画面へ戻って結果を確認できます。",
+    }
+  end
+  return {
+    "󰌑 Enter: Apply this job.",
+    "󰇀 Returns to job list after applying.",
+  }
 end
 
 -- スキル一覧の行を、現在の有効状態と効果要点が見える形式で整形する。
@@ -214,36 +300,74 @@ local function open_job_menu(get_state, set_state, config, on_close)
   for _, job in ipairs(content.jobs) do
     table.insert(entries, job)
   end
-  -- ジョブ選択のメニューを表示する。
-  menu_view.select(entries, {
-    prompt_provider = function()
-      local title = i18n.t("prompt_job", lang)
-      local legend = localized_text(lang, "◆現在  ◇候補  LvUp成長と習得スキルを比較", "◆ACTIVE  ◇CANDIDATE  Compare LvUp growth and unlocks")
-      return string.format("%s | %s", title, legend)
-    end,
-    lang = lang,
-    footer_hints = menu_locale.submenu_footer_hints(lang),
-    keep_open = true,
-    -- ジョブ選択は左一覧と右詳細を同時に見られる2カラム表示にする。
-    detail_layout = "split",
-    format_item = function(item)
-      return format_job_line(item, get_state(), lang)
-    end,
-    detail_provider = function(item)
-      -- ジョブの成長と習得技を詳細に表示する。
-      return build_job_detail(item, get_state(), lang)
-    end,
-  }, function(choice)
-    if not choice then
-      if on_close then
-        -- キャンセル時は状態画面へ戻る。
-        on_close()
+  local open_job_list
+
+  -- ジョブ詳細を1カラムで表示し、適用行のみEnterで実行可能にする。
+  local function open_job_detail(job)
+    menu_view.select(build_job_detail_items(job, get_state(), lang), {
+      prompt_provider = function()
+        local title = i18n.t("prompt_job", lang)
+        local legend = localized_text(lang, "ジョブ詳細", "Job Detail")
+        return string.format("%s | %s", title, legend)
+      end,
+      lang = lang,
+      footer_hints = menu_locale.submenu_footer_hints(lang),
+      format_item = function(item)
+        return item.label or ""
+      end,
+      can_execute_on_enter = function(item)
+        if not is_job_apply_row(item) then
+          return false
+        end
+        return ((get_state().actor or {}).id ~= job.id)
+      end,
+      enter_hint_provider = function(item)
+        return build_job_detail_enter_hint(item, job, get_state(), lang)
+      end,
+    }, function(choice)
+      if not choice then
+        return open_job_list()
       end
-      return
-    end
-    local next_state = state_module.change_job(get_state(), choice.id)
-    set_state(next_state)
-  end, config)
+      if not is_job_apply_row(choice) then
+        return
+      end
+      local current = get_state()
+      if (current.actor or {}).id ~= job.id then
+        set_state(state_module.change_job(current, job.id))
+      end
+      open_job_list()
+    end, config)
+  end
+
+  -- ジョブ一覧は要約表示に絞り、Enterで詳細画面へ遷移させる。
+  open_job_list = function()
+    menu_view.select(entries, {
+      prompt_provider = function()
+        local title = i18n.t("prompt_job", lang)
+        local legend = localized_text(lang, "◆現在  ◇候補  Enterで詳細", "◆ACTIVE  ◇CANDIDATE  Enter for details")
+        return string.format("%s | %s", title, legend)
+      end,
+      lang = lang,
+      footer_hints = menu_locale.submenu_footer_hints(lang),
+      format_item = function(item)
+        return format_job_line(item, get_state(), lang)
+      end,
+      enter_hint_provider = function(item)
+        return build_job_list_enter_hint(item, lang)
+      end,
+    }, function(choice)
+      if not choice then
+        if on_close then
+          -- キャンセル時は状態画面へ戻る。
+          on_close()
+        end
+        return
+      end
+      open_job_detail(choice)
+    end, config)
+  end
+
+  open_job_list()
 end
 
 -- スキル一覧の表示と有効/無効の切り替えを行う。

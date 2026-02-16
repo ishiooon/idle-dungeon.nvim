@@ -74,15 +74,19 @@ local function default_ui()
     -- 画像スプライト設定は廃止したため保持しない。
     -- 中央メニューの表示設定をまとめる。
     menu = {
-      width_ratio = 0.52,
+      -- 2カラム詳細でも本文が読み切れるよう、既定幅を広めに確保する。
+      width_ratio = 0.72,
       height_ratio = 0.56,
-      min_width = 52,
-      min_height = 16,
-      max_width = 68,
+      min_width = 72,
+      -- 下部の操作説明エリアを分離表示するため、既定の最小高さを少し広げる。
+      min_height = 18,
+      max_width = 108,
       max_height = 26,
       padding = 2,
       border = "none",
       tabs_position = "top",
+      -- メインタブの詳細プレビューは既定で有効にし、選択行の意図を即時に理解しやすくする。
+      detail_preview = true,
       -- タブ表示のスタイルを調整する。
       tabs = {
         separator = " 󰇙 ",

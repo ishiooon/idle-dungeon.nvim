@@ -1,4 +1,4 @@
--- このテストはメインタブが1カラム表示で描画されることを確認する。
+-- このテストは詳細プレビューを有効化した場合にメインタブが2カラム表示になることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -12,17 +12,12 @@ local function assert_contains(text, needle, message)
   end
 end
 
-local function assert_not_contains(text, needle, message)
-  if string.find(text or "", needle or "", 1, true) then
-    error((message or "assert_not_contains failed") .. ": " .. tostring(text) .. " =~ " .. tostring(needle))
-  end
-end
-
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local original_vim = _G.vim
 local ok, err = pcall(function()
   local rendered = {}
+  local window_width = 0
 
   package.loaded["idle_dungeon.menu.live_header"] = {
     build_lines = function()
@@ -38,7 +33,9 @@ local ok, err = pcall(function()
     ensure_window = function()
       return 1, 1
     end,
-    update_window = function() end,
+    update_window = function(_, _, width)
+      window_width = width or 0
+    end,
     set_lines = function(_, lines)
       rendered = lines
     end,
@@ -74,8 +71,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  -- 詳細プレビューは明示的に無効化した場合のみ1カラム表示になる。
-  local config = { ui = { language = "en", menu = { detail_preview = false } } }
+  local config = { ui = { language = "en", menu = { detail_preview = true } } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },
@@ -100,6 +96,7 @@ local ok, err = pcall(function()
           lines = {
             "DETAIL HEADER",
             "VALUE: 42",
+            "This detail text is intentionally long to verify wrapping behavior keeps the tail token visible ENDTOKEN.",
           },
         }
       end,
@@ -111,9 +108,11 @@ local ok, err = pcall(function()
 
   local text = table.concat(rendered or {}, "\n")
   assert_contains(text, "TOP", "メインタブ本文が表示される")
-  assert_not_contains(text, " │ ", "メインタブに左右ペインの区切りを表示しない")
-  assert_not_contains(text, "DETAIL HEADER", "メインタブの右ペイン詳細は表示しない")
-  assert_not_contains(text, "VALUE: 42", "メインタブの右ペイン詳細は表示しない")
+  assert_contains(text, " │ ", "詳細プレビュー有効時は左右ペインの区切りを表示する")
+  assert_contains(text, "DETAIL HEADER", "詳細プレビュー本文が右ペインに表示される")
+  assert_contains(text, "VALUE: 42", "詳細プレビューの内容が右ペインに表示される")
+  assert_contains(text, "ENDTOKEN", "詳細プレビューの長文末尾が見切れず表示される")
+  assert_true(window_width >= 96, "詳細プレビュー表示時のウィンドウ幅は2カラムの最小幅を下回らない")
   tabs_view.close()
 end)
 

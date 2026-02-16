@@ -6,9 +6,10 @@ local M = {}
 
 local function resolve_rates(config, enemy)
   local drop = ((config or {}).battle or {}).drop_rates or {}
-  local common = tonumber(drop.common) or 12
-  local rare = tonumber(drop.rare) or 3
-  local pet = tonumber(drop.pet) or 2
+  -- 設定未指定時も既定設定と同じ渋めの確率を使う。
+  local common = tonumber(drop.common) or 2
+  local rare = tonumber(drop.rare) or 1
+  local pet = tonumber(drop.pet) or 1
   if enemy and enemy.is_boss then
     local bonus = tonumber(drop.boss_bonus) or 0
     common = common + bonus

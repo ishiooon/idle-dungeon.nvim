@@ -29,7 +29,7 @@ local ok, err = pcall(function()
 
   package.loaded["idle_dungeon.menu.live_header"] = {
     build_lines = function()
-      return { "ABC", "HP 100" }
+      return { "ABC", "Moving through the dungeon." }
     end,
   }
   package.loaded["idle_dungeon.ui.sprite_highlight"] = {
@@ -137,8 +137,8 @@ local ok, err = pcall(function()
 
   local colored = find_group(applied, "IdleDungeonMenuPalette_test_enemy")
   assert_true(colored ~= nil, "ライブヘッダのトラック行にパレット色ハイライトが追加される")
-  assert_true(colored.line == 3, "ライブトラック1行目にハイライトが適用される")
-  local track_line = rendered[3] or ""
+  assert_true(colored.line == 2, "ライブトラック1行目にハイライトが適用される")
+  local track_line = rendered[2] or ""
   local expected_start = leading_spaces(track_line) + 1
   assert_true(colored.start_col == expected_start, "中央寄せ後の列位置に合わせてハイライト開始位置が補正される")
   assert_true(colored.end_col == expected_start + 1, "中央寄せ後の列位置に合わせてハイライト終了位置が補正される")

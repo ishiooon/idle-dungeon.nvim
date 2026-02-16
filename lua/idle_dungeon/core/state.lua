@@ -21,9 +21,9 @@ local function new_state(config)
   local hero_progress = player.default_progress()
   local job_levels = {}
   for _, entry in ipairs(content.jobs or {}) do
-    job_levels[entry.id] = player.default_progress()
+    job_levels[entry.id] = player.default_job_progress()
   end
-  local job_progress = job_levels[job.id] or player.default_progress()
+  local job_progress = job_levels[job.id] or player.default_job_progress()
   local actor = player.new_actor(job, hero_progress, job_progress)
   -- 開始ジョブのスキルを解放状態に反映する。
   local learned_skills = skills.unlock_from_job(skills.empty(), job, job_progress)
@@ -111,7 +111,7 @@ local function normalize_state(state)
   local job_levels = util.merge_tables(next_state.job_levels or {}, {})
   for _, job in ipairs(content.jobs or {}) do
     if not job_levels[job.id] then
-      job_levels[job.id] = player.default_progress()
+      job_levels[job.id] = player.default_job_progress()
     end
   end
   local actor = next_state.actor or {}
@@ -122,13 +122,11 @@ local function normalize_state(state)
     exp = actor.exp or 0,
     next_level = actor.next_level or 10,
   }
-  local job_progress = job_levels[job.id] or player.default_progress()
-  if actor.job_level or actor.job_exp or actor.job_next_level then
-    -- 旧保存でジョブ進行がactor側にある場合は取り込む。
+  local job_progress = job_levels[job.id] or player.default_job_progress()
+  if actor.job_level then
+    -- 旧保存のジョブ進行がactor側にある場合はレベルだけ取り込む。
     job_progress = {
       level = actor.job_level or job_progress.level,
-      exp = actor.job_exp or job_progress.exp,
-      next_level = actor.job_next_level or job_progress.next_level,
     }
   end
   job_levels[job.id] = job_progress
@@ -234,7 +232,7 @@ local function change_job(state, job_id)
     next_level = (state.actor and state.actor.next_level) or 10,
   }
   local job_levels = util.merge_tables(state.job_levels or {}, {})
-  local job_progress = job_levels[job.id] or player.default_progress()
+  local job_progress = job_levels[job.id] or player.default_job_progress()
   if not job_levels[job.id] then
     -- 未登録のジョブは初期進行度を追加する。
     job_levels[job.id] = job_progress
@@ -249,8 +247,6 @@ local function change_job(state, job_id)
     exp = hero_progress.exp,
     next_level = hero_progress.next_level,
     job_level = job_progress.level,
-    job_exp = job_progress.exp,
-    job_next_level = job_progress.next_level,
     dialogue_ratio = job.dialogue_ratio or 1.0,
   })
   local learned_skills = skills.unlock_from_job(state.skills or skills.empty(), job, job_progress)

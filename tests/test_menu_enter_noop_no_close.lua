@@ -1,4 +1,4 @@
--- このテストはメインタブが1カラム表示で描画されることを確認する。
+-- このテストはEnterで実行対象がない行を選んだ場合に、何も実行せずメニューも閉じないことを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -6,23 +6,14 @@ local function assert_true(value, message)
   end
 end
 
-local function assert_contains(text, needle, message)
-  if not string.find(text or "", needle or "", 1, true) then
-    error((message or "assert_contains failed") .. ": " .. tostring(text) .. " !~ " .. tostring(needle))
-  end
-end
-
-local function assert_not_contains(text, needle, message)
-  if string.find(text or "", needle or "", 1, true) then
-    error((message or "assert_not_contains failed") .. ": " .. tostring(text) .. " =~ " .. tostring(needle))
-  end
-end
-
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local original_vim = _G.vim
 local ok, err = pcall(function()
-  local rendered = {}
+  local maps = {}
+  local on_choice_called = 0
+  local on_close_called = 0
+  local detail_opened = 0
 
   package.loaded["idle_dungeon.menu.live_header"] = {
     build_lines = function()
@@ -39,9 +30,7 @@ local ok, err = pcall(function()
       return 1, 1
     end,
     update_window = function() end,
-    set_lines = function(_, lines)
-      rendered = lines
-    end,
+    set_lines = function() end,
     apply_highlights = function() end,
     close_window = function() end,
     is_valid_window = function()
@@ -50,6 +39,13 @@ local ok, err = pcall(function()
     is_valid_buffer = function()
       return true
     end,
+  }
+  package.loaded["idle_dungeon.menu.view"] = {
+    select = function()
+      detail_opened = detail_opened + 1
+    end,
+    close = function() end,
+    set_context = function() end,
   }
 
   _G.vim = {
@@ -61,7 +57,9 @@ local ok, err = pcall(function()
       nvim_win_set_cursor = function() end,
     },
     keymap = {
-      set = function() end,
+      set = function(_, lhs, rhs)
+        maps[lhs] = rhs
+      end,
     },
     fn = {
       getmousepos = function()
@@ -74,8 +72,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  -- 詳細プレビューは明示的に無効化した場合のみ1カラム表示になる。
-  local config = { ui = { language = "en", menu = { detail_preview = false } } }
+  local config = { ui = { language = "en", menu = {} } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },
@@ -83,38 +80,39 @@ local ok, err = pcall(function()
       metrics = { time_sec = 0 },
     }
   end, config)
+
   tabs_view.select({
     {
       id = "status",
       label = "Status",
       items = {
-        { id = "entry", label = "TOP" },
-        { id = "entry", label = "BOTTOM" },
+        { id = "entry", label = "READ_ONLY_ENTRY" },
       },
       format_item = function(item)
         return item.label
       end,
-      detail_provider = function(item)
-        return {
-          title = item.label or "",
-          lines = {
-            "DETAIL HEADER",
-            "VALUE: 42",
-          },
-        }
+      can_execute_on_enter = function(item)
+        return type(item) == "table" and item.action_id ~= nil
+      end,
+      on_choice = function()
+        on_choice_called = on_choice_called + 1
       end,
     },
   }, {
     title = "Idle Dungeon",
     footer_hints = { "q" },
+    on_close = function()
+      on_close_called = on_close_called + 1
+    end,
   }, config)
 
-  local text = table.concat(rendered or {}, "\n")
-  assert_contains(text, "TOP", "メインタブ本文が表示される")
-  assert_not_contains(text, " │ ", "メインタブに左右ペインの区切りを表示しない")
-  assert_not_contains(text, "DETAIL HEADER", "メインタブの右ペイン詳細は表示しない")
-  assert_not_contains(text, "VALUE: 42", "メインタブの右ペイン詳細は表示しない")
-  tabs_view.close()
+  assert_true(type(maps["<CR>"]) == "function", "Enterキーのマッピングが設定される")
+  maps["<CR>"]()
+  assert_true(on_choice_called == 0, "実行対象がない行でEnterを押してもon_choiceは呼ばれない")
+  assert_true(on_close_called == 0, "実行対象がない行でEnterを押してもメニューは閉じない")
+  assert_true(detail_opened == 0, "実行対象がない行でEnterを押しても詳細画面は開かない")
+
+  tabs_view.close(true)
 end)
 
 _G.vim = original_vim

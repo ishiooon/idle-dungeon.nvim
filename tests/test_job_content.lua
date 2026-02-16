@@ -13,6 +13,10 @@ local content = require("idle_dungeon.content")
 -- ジョブ定義に不要な項目が無いことを確認する。
 for _, job in ipairs(content.jobs or {}) do
   assert_true(job.sprite == nil, "ジョブ定義にスプライトが含まれない")
+  assert_true(type(job.name) == "string", "ジョブの日本語名が定義されている")
+  assert_true(type(job.name_en) == "string", "ジョブの英語名が定義されている")
+  assert_true(type(job.role) == "string", "ジョブの日本語ロールが定義されている")
+  assert_true(type(job.role_en) == "string", "ジョブの英語ロールが定義されている")
   assert_true(type(job.growth) == "table", "ジョブ成長値が定義されている")
   assert_true(type(job.growth.hp) == "number", "ジョブ成長値のHPが定義されている")
   assert_true(type(job.growth.atk) == "number", "ジョブ成長値の攻撃力が定義されている")

@@ -71,6 +71,80 @@ local function build_labels(items, opts)
   return labels
 end
 
+local function can_execute_choice(choice, opts)
+  if not choice or is_back_item(choice) then
+    return false
+  end
+  if type((opts or {}).can_execute_on_enter) == "function" then
+    return (opts.can_execute_on_enter(choice)) == true
+  end
+  return true
+end
+
+local function normalize_enter_hint_lines(lines)
+  if type(lines) == "string" then
+    local text = tostring(lines or "")
+    if text == "" then
+      return {}
+    end
+    return { text }
+  end
+  if type(lines) ~= "table" then
+    return {}
+  end
+  local normalized = {}
+  for _, line in ipairs(lines) do
+    local text = tostring(line or "")
+    if text ~= "" then
+      table.insert(normalized, text)
+    end
+  end
+  return normalized
+end
+
+-- サブメニュー下部へ表示するEnter説明を、選択項目と画面状態から組み立てる。
+local function resolve_enter_hint_lines(choice, opts, lang, static_view)
+  if static_view then
+    return {}
+  end
+  local lines = {}
+  if type((opts or {}).enter_hint_provider) == "function" then
+    lines = normalize_enter_hint_lines(opts.enter_hint_provider(choice, lang))
+  end
+  if #lines > 0 then
+    return lines
+  end
+  if not choice then
+    if lang == "ja" or lang == "jp" then
+      return { "󰌑 Enterで操作する項目を選択してください。" }
+    end
+    return { "󰌑 Select a row to execute with Enter." }
+  end
+  if is_back_item(choice) then
+    if lang == "ja" or lang == "jp" then
+      return { "󰁍 Enter: 前の画面へ戻ります。" }
+    end
+    return { "󰁍 Enter: Return to previous menu." }
+  end
+  if not can_execute_choice(choice, opts) then
+    if lang == "ja" or lang == "jp" then
+      return { "󰇀 この行は表示専用です。Enterでは何も起きません。" }
+    end
+    return { "󰇀 This row is display-only. Enter does nothing." }
+  end
+  local keep_open = (opts or {}).keep_open == true or (type(choice) == "table" and choice.keep_open == true)
+  if keep_open then
+    if lang == "ja" or lang == "jp" then
+      return { "󰌑 Enter: 適用してこの画面を維持します。" }
+    end
+    return { "󰌑 Enter: Apply and keep this menu open." }
+  end
+  if lang == "ja" or lang == "jp" then
+    return { "󰌑 Enter: 実行してこの画面を閉じます。" }
+  end
+  return { "󰌑 Enter: Execute and close this menu." }
+end
+
 -- 詳細表示オブジェクトを安全な形式へ正規化する。
 local function normalize_detail(detail)
   if type(detail) ~= "table" then
@@ -215,6 +289,7 @@ local function render()
   end
   local hints = ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang)
   local tabs_line = ui_state.opts.tabs_line or ""
+  local footer_notes = resolve_enter_hint_lines(current_choice(), ui_state.opts, lang, static_view)
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels)
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)
@@ -222,12 +297,20 @@ local function render()
   if static_view then
     height = resolve_static_height(config, screen_height, #labels)
   else
-    height = menu_view_util.resolve_compact_height(config, screen_height, #labels, top_lines, tabs_line ~= "")
+    height = menu_view_util.resolve_compact_height(
+      config,
+      screen_height,
+      #labels,
+      top_lines,
+      tabs_line ~= "",
+      #footer_notes
+    )
   end
   local visible = frame.resolve_content_height({
     height = height,
     tabs_line = tabs_line,
     top_lines = top_lines,
+    footer_notes = footer_notes,
     hide_title = static_view,
     hide_divider = static_view,
   })
@@ -273,6 +356,9 @@ local function render()
   for _, line in ipairs(right_lines or {}) do
     table.insert(width_lines, line)
   end
+  for _, line in ipairs(footer_notes or {}) do
+    table.insert(width_lines, line)
+  end
   if static_view then
     -- ヒント行は長くなりやすいため、詳細カード本体の幅へ合わせる。
     width = resolve_static_width(config, left_lines or {})
@@ -281,7 +367,7 @@ local function render()
   end
   if show_detail then
     -- 2カラム時は左右ペインを成立させる最小幅を確保する。
-    width = math.max(width, 72)
+    width = math.max(width, 96)
   end
   local shell = frame.compose({
     title = title,
@@ -290,6 +376,7 @@ local function render()
     left_lines = left_lines,
     right_lines = right_lines,
     show_right = show_detail,
+    footer_notes = footer_notes,
     footer_hints = hints,
     width = width,
     height = height,
@@ -303,6 +390,14 @@ local function render()
     { line = shell.title_line_index, group = "IdleDungeonMenuTitle" },
     { line = shell.footer_hint_line, group = "IdleDungeonMenuMuted" },
   }
+  if shell.footer_note_divider_line then
+    table.insert(highlights, { line = shell.footer_note_divider_line, group = "IdleDungeonMenuDivider" })
+  end
+  if shell.footer_note_start_line and shell.footer_note_end_line then
+    for line = shell.footer_note_start_line, shell.footer_note_end_line do
+      table.insert(highlights, { line = line, group = "IdleDungeonMenuHint" })
+    end
+  end
   if shell.tabs_line_index then
     table.insert(highlights, { line = shell.tabs_line_index, group = "IdleDungeonMenuTabs" })
   end
@@ -355,6 +450,10 @@ local function select_current()
   local choice = current_choice()
   if is_back_item(choice) then
     cancel()
+    return
+  end
+  if not can_execute_choice(choice, ui_state.opts) then
+    -- 実行対象ではない行はEnterを無視し、画面を閉じない。
     return
   end
   local callback = ui_state.on_choice

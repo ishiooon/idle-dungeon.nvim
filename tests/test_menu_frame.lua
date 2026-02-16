@@ -28,6 +28,7 @@ local built = frame.compose({
   tabs_line = "1 Stats  2 Actions  3 Config",
   left_lines = { "line1", "line2" },
   right_lines = { "detail1", "detail2" },
+  footer_notes = { "Enter: Open selection", "Current -> Next" },
   footer_hints = { "Enter Select", "Tab Switch", "b Back", "q Close" },
   width = 96,
   height = 20,
@@ -42,10 +43,14 @@ assert_contains(built.lines[2], "TRACK-L1", "ライブトラック1行目がタ�
 assert_contains(built.lines[3], "TRACK-L2", "ライブトラック2行目がタブより上に表示される")
 assert_contains(built.lines[(built.tabs_line_index or 1) + 1], "·", "タブ行の直下に区切り線が表示される")
 assert_contains(built.lines[built.body_start or 1], "│", "本文で左右ペインの区切りが表示される")
+assert_contains(built.lines[(built.footer_hint_line or #built.lines) - 3], "─", "フッター説明の手前に区切り線が表示される")
+assert_contains(built.lines[(built.footer_hint_line or #built.lines) - 2], "Enter: Open selection", "フッターの上段にEnter説明が表示される")
+assert_contains(built.lines[(built.footer_hint_line or #built.lines) - 1], "Current -> Next", "フッター直上に変更内容の説明が表示される")
 assert_contains(built.lines[built.footer_hint_line or (#built.lines - 1)], "Close", "フッター案内が最下部に表示される")
 assert_contains(built.lines[1], "Idle Dungeon", "先頭行にタイトルが表示される")
 assert_true((built.left_width or 0) >= 20, "左ペイン幅が狭すぎない")
 assert_true((built.right_width or 0) >= 20, "右ペイン幅が狭すぎない")
+assert_true((built.left_width or 0) >= 40, "標準幅では左ペインが狭すぎず項目ラベルの見切れを抑える")
 
 -- 左カラムが長文でも2カラムの区切り位置が崩れず、右カラム内容を維持することを確認する。
 local long_left = string.rep("L", 120)
@@ -61,5 +66,6 @@ local first_body = long_split.lines[long_split.body_start or 1] or ""
 local separator = string.find(first_body, "│", 1, true)
 assert_equal(separator, (long_split.left_width or 0) + 2, "左カラム長文でも区切り線の位置が固定される")
 assert_contains(first_body, "RIGHT-SUMMARY", "左カラム長文でも右カラムの説明が表示される")
+assert_true((long_split.right_width or 0) > (long_split.left_width or 0), "2カラムでは右側の詳細ペインを広めに確保する")
 
 print("OK")

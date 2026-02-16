@@ -68,12 +68,30 @@ local function prefix_width(line, marker)
   return util.display_width(string.sub(line, 1, start_pos - 1))
 end
 
+local function count_literal(text_source, needle)
+  local total = 0
+  local cursor = 1
+  while true do
+    local start_pos, end_pos = string.find(text_source or "", needle or "", cursor, true)
+    if not start_pos then
+      return total
+    end
+    total = total + 1
+    cursor = end_pos + 1
+  end
+end
+
 assert_match(text, "HP", "HPの指標が表示される")
 assert_match(text, "%[", "進行バーの開始記号が表示される")
 assert_match(text, "%]", "進行バーの終了記号が表示される")
 assert_match(text, "▬", "バー表示は設定された塗りつぶしインジケータを使う")
 assert_not_match(text, "#", "バー表示に#を使わない")
-assert_true(#items > 8, "状態タブの項目数が不足しない")
+assert_not_match(text, "%d+ step%(s%) to enemy", "状態タブに敵まで残り歩数を表示しない")
+assert_not_match(text, "Move %d+ step%(s%)", "次行動文言に残り歩数を表示しない")
+assert_not_match(text, "Approaching", "状態タブに接敵状況の文言を表示しない")
+assert_true(count_literal(text, "Exp:") == 1, "状態タブの経験値表示は勇者分のみを表示する")
+assert_match(text, "Next Reward", "状態タブに次の報酬行が表示される")
+assert_true(#items >= 8, "状態タブの項目数が不足しない")
 
 local hp_line = nil
 local exp_line = nil
@@ -82,7 +100,7 @@ for _, item in ipairs(items) do
   if not hp_line and string.find(label, "HP", 1, true) then
     hp_line = label
   end
-  if not exp_line and string.find(label, "Exp", 1, true) then
+  if not exp_line and (string.find(label, "Exp:", 1, true) or string.find(label, "経験値:", 1, true)) then
     exp_line = label
   end
 end

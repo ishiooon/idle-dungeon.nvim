@@ -16,6 +16,12 @@ local menu_open = false
 local open_status_root
 local on_close_callback = nil
 local view_state = {
+  status = {
+    show_advanced = false,
+    show_loadout = false,
+    show_progress = false,
+    show_metrics = false,
+  },
   dex = {
     mode = "enemy",
     sort_mode = "encounter",
@@ -29,6 +35,12 @@ local view_state = {
 
 local function reset_view_state()
   view_state = {
+    status = {
+      show_advanced = false,
+      show_loadout = false,
+      show_progress = false,
+      show_metrics = false,
+    },
     dex = {
       mode = "enemy",
       sort_mode = "encounter",
@@ -171,35 +183,6 @@ local function resolve_config_current_next(item, state, config, lang)
   return hint, hint
 end
 
--- 操作タブの右ペイン用説明を組み立てる。
-local function build_action_detail(item, lang)
-  if not item then
-    return nil
-  end
-  local title = i18n.t(item.key or "", lang)
-  local hint = action_effect_hint(item.id, lang)
-  if lang == "ja" or lang == "jp" then
-    return {
-      title = title,
-      lines = {
-        "選択後の挙動",
-        hint,
-        "",
-        "Enterで確定して操作を適用します。",
-      },
-    }
-  end
-  return {
-    title = title,
-    lines = {
-      "After Select",
-      hint,
-      "",
-      "Press Enter to apply this action.",
-    },
-  }
-end
-
 -- 設定タブの右ペインで現在値と次値を比較表示する。
 local function build_config_detail(item, get_state, config, lang)
   if not item then
@@ -228,36 +211,179 @@ local function build_config_detail(item, get_state, config, lang)
   }
 end
 
+-- 状態タブの選択行に対して、Enterで開く画面や反映内容を下部説明として返す。
+local function build_status_enter_hint(item, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if not item then
+    if is_ja then
+      return { "󰌑 Enterで実行する項目を選択してください。" }
+    end
+    return { "󰌑 Select a row to execute with Enter." }
+  end
+  local action_id = item.action_id
+  if action_id then
+    local action_title_ja = {
+      equip = "装備変更画面を開きます。",
+      stage = "ステージ選択画面を開きます。",
+      purchase = "購入画面を開きます。",
+      sell = "売却画面を開きます。",
+      job = "ジョブ変更画面を開きます。",
+      skills = "スキル設定画面を開きます。",
+    }
+    local action_title_en = {
+      equip = "Open equipment menu.",
+      stage = "Open stage select menu.",
+      purchase = "Open purchase menu.",
+      sell = "Open sell menu.",
+      job = "Open job change menu.",
+      skills = "Open skill settings menu.",
+    }
+    local title = is_ja and (action_title_ja[action_id] or "選択中の操作を実行します。")
+      or (action_title_en[action_id] or "Execute selected action.")
+    local hint = action_effect_hint(action_id, lang)
+    if is_ja then
+      return {
+        "󰌑 Enter: " .. title,
+        "󰇀 効果: " .. hint,
+      }
+    end
+    return {
+      "󰌑 Enter: " .. title,
+      "󰇀 Effect: " .. hint,
+    }
+  end
+  if item.id == "status_control" then
+    local action = item.action
+    local messages_ja = {
+      toggle_advanced = "要約表示と詳細表示を切り替えます。",
+      toggle_loadout = "装備とジョブスキルの表示を開閉します。",
+      toggle_progress = "進行詳細の表示を開閉します。",
+      toggle_metrics = "入力統計詳細の表示を開閉します。",
+    }
+    local messages_en = {
+      toggle_advanced = "Toggle compact and advanced status view.",
+      toggle_loadout = "Toggle loadout and job skill details.",
+      toggle_progress = "Toggle progress details.",
+      toggle_metrics = "Toggle input metrics details.",
+    }
+    if is_ja then
+      return { "󰌑 Enter: " .. (messages_ja[action] or "詳細表示を開閉します。") }
+    end
+    return { "󰌑 Enter: " .. (messages_en[action] or "Toggle detail section.") }
+  end
+  if item.open_detail_on_enter then
+    if is_ja then
+      return { "󰌑 Enter: 詳細画面を開きます。" }
+    end
+    return { "󰌑 Enter: Open detail view." }
+  end
+  if is_ja then
+    return { "󰇀 この行は表示専用です。Enterでは何も起きません。" }
+  end
+  return { "󰇀 This row is display-only. Enter does nothing." }
+end
+
+-- 設定タブの選択行に対して、Enterで反映される内容を下部説明として返す。
+local function build_config_enter_hint(item, get_state, config, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if not item then
+    if is_ja then
+      return { "󰌑 Enterで変更する設定項目を選択してください。" }
+    end
+    return { "󰌑 Select a setting to change with Enter." }
+  end
+  local state = get_state()
+  local effect = config_effect_hint(item, state, config, lang)
+  if is_ja then
+    return {
+      "󰌑 Enter: " .. effect,
+      "󰇀 設定はこの画面のまま反映されます。",
+    }
+  end
+  return {
+    "󰌑 Enter: " .. effect,
+    "󰇀 This setting is applied without closing the menu.",
+  }
+end
+
+-- 図鑑タブの選択行に対して、Enterで起きる操作を下部説明として返す。
+local function build_dex_enter_hint(item, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  if not item then
+    if is_ja then
+      return { "󰌑 Enterで操作する行を選択してください。" }
+    end
+    return { "󰌑 Select a row to control with Enter." }
+  end
+  if item.id == "dex_entry" then
+    if is_ja then
+      return { "󰌑 Enter: 図鑑カードの詳細を開きます。" }
+    end
+    return { "󰌑 Enter: Open detail card." }
+  end
+  if item.id ~= "dex_control" then
+    if is_ja then
+      return { "󰇀 この行は表示専用です。操作はできません。" }
+    end
+    return { "󰇀 This row is display-only and cannot be executed." }
+  end
+  local action_ja = {
+    cycle_mode = "表示モードを切り替えます。",
+    toggle_controls = "詳細フィルタの表示を切り替えます。",
+    cycle_sort = "並び順を切り替えます。",
+    cycle_filter_element = "属性フィルタを切り替えます。",
+    cycle_filter_keyword = "検索キーワードを切り替えます。",
+    expand_enemy = "敵一覧を展開します。",
+    collapse_enemy = "敵一覧を折りたたみます。",
+    expand_item = "装備一覧を展開します。",
+    collapse_item = "装備一覧を折りたたみます。",
+  }
+  local action_en = {
+    cycle_mode = "Switch list mode.",
+    toggle_controls = "Toggle filter controls.",
+    cycle_sort = "Switch sort order.",
+    cycle_filter_element = "Switch element filter.",
+    cycle_filter_keyword = "Switch keyword filter.",
+    expand_enemy = "Expand enemy entries.",
+    collapse_enemy = "Collapse enemy entries.",
+    expand_item = "Expand item entries.",
+    collapse_item = "Collapse item entries.",
+  }
+  local message = is_ja and (action_ja[item.action] or "図鑑の表示を更新します。")
+    or (action_en[item.action] or "Update dex view.")
+  return { "󰌑 Enter: " .. message }
+end
+
 -- 状態に応じてラベルが変わる項目を整形する。
 local function format_item_with_state(item, get_state, config, lang, index, total)
   local state = get_state()
   -- トグル系はボタン風の表示で状態が分かるように整形する。
   if item.id == "auto_start" then
     local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), state.ui.auto_start ~= false, lang))
-    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+    return format_card_row(label, index, total, "config")
   end
   if item.id == "toggle_text" then
     local is_text = (state.ui and state.ui.render_mode) == "text"
     local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), is_text, lang))
-    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+    return format_card_row(label, index, total, "config")
   end
   if item.id == "display_lines" then
     local lines = (state.ui and state.ui.display_lines) or 2
     local label = with_item_icon(item, menu_locale.display_lines_label(lines, lang))
-    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+    return format_card_row(label, index, total, "config")
   end
   if item.id == "game_speed" then
     local label = with_item_icon(item, menu_locale.game_speed_label(state, config, lang))
-    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+    return format_card_row(label, index, total, "config")
   end
   -- 戦闘時のHP分母表示はトグル表示で整形する。
   if item.id == "battle_hp_show_max" then
     local enabled = (state.ui and state.ui.battle_hp_show_max) or false
     local label = with_item_icon(item, menu_locale.toggle_label(i18n.t(item.key, lang), enabled, lang))
-    return format_card_row(label, index, total, "config", config_effect_hint(item, state, config, lang))
+    return format_card_row(label, index, total, "config")
   end
   local base = with_item_icon(item, i18n.t(item.key, lang))
-  return format_card_row(base, index, total, "config", config_effect_hint(item, state, config, lang))
+  return format_card_row(base, index, total, "config")
 end
 local function handle_action_choice(action, get_state, set_state, config, lang, handlers)
   if not action then
@@ -301,6 +427,54 @@ local function handle_action_choice(action, get_state, set_state, config, lang, 
     end)
   end
 end
+
+local build_tabs
+
+-- 状態タブの折りたたみ表示フラグを切り替える。
+local function toggle_status_view(action)
+  view_state.status = view_state.status or {}
+  if action == "toggle_advanced" then
+    view_state.status.show_advanced = not (view_state.status.show_advanced == true)
+    -- 要約表示へ戻す場合は詳細セクションの展開状態を初期化する。
+    if view_state.status.show_advanced ~= true then
+      view_state.status.show_loadout = false
+      view_state.status.show_progress = false
+      view_state.status.show_metrics = false
+    end
+    return true
+  end
+  if action == "toggle_loadout" then
+    view_state.status.show_loadout = not (view_state.status.show_loadout == true)
+    return true
+  end
+  if action == "toggle_progress" then
+    view_state.status.show_progress = not (view_state.status.show_progress == true)
+    return true
+  end
+  if action == "toggle_metrics" then
+    view_state.status.show_metrics = not (view_state.status.show_metrics == true)
+    return true
+  end
+  return false
+end
+
+-- 状態タブの行から遷移可能なクイック操作を処理する。
+local function handle_status_choice(item, get_state, set_state, config, lang, handlers)
+  if not item then
+    return
+  end
+  if item.id == "status_control" then
+    if toggle_status_view(item.action) then
+      tabs_view.update(build_tabs(get_state, set_state, config, handlers))
+    end
+    return
+  end
+  if not item.action_id then
+    return
+  end
+  return handle_action_choice({ id = item.action_id }, get_state, set_state, config, lang, handlers)
+end
+
 local function handle_config_choice(action, get_state, set_state, config, handlers)
   if not action then
     return
@@ -334,7 +508,6 @@ end
 -- メニューの開閉状態を閉じる側へ更新する。
 local function mark_closed()
   menu_open = false
-  reset_view_state()
   if on_close_callback then
     on_close_callback()
   end
@@ -418,35 +591,28 @@ local function handle_dex_choice(action)
   end
 end
 
-local function build_tabs(get_state, set_state, config, handlers)
+build_tabs = function(get_state, set_state, config, handlers)
   local state = get_state()
   local lang = menu_locale.resolve_lang(state, config)
   return {
     {
       id = "status",
       label = i18n.t("menu_tab_status", lang),
-      items = tabs_data.build_status_items(state, config, lang),
+      items = tabs_data.build_status_items(state, config, lang, view_state.status),
       format_item = function(item)
         return item.label
       end,
       detail_provider = function(item)
         return tabs_data.build_status_detail(item, get_state(), config, lang)
       end,
-    },
-    {
-      id = "actions",
-      label = i18n.t("menu_tab_actions", lang),
-      items = tabs_data.build_action_items(),
-      format_item = function(item, index, total)
-        local label = with_item_icon(item, i18n.t(item.key, lang))
-        local hint = action_effect_hint(item.id, lang)
-        return format_card_row(label, index, total, "action", hint)
+      enter_hint_provider = function(item)
+        return build_status_enter_hint(item, lang)
       end,
-      on_choice = function(action)
-        return handle_action_choice(action, get_state, set_state, config, lang, handlers)
+      can_execute_on_enter = function(item)
+        return type(item) == "table" and (item.action_id ~= nil or item.id == "status_control")
       end,
-      detail_provider = function(item)
-        return build_action_detail(item, lang)
+      on_choice = function(item)
+        return handle_status_choice(item, get_state, set_state, config, lang, handlers)
       end,
     },
     {
@@ -462,6 +628,12 @@ local function build_tabs(get_state, set_state, config, handlers)
       detail_provider = function(item)
         return build_config_detail(item, get_state, config, lang)
       end,
+      enter_hint_provider = function(item)
+        return build_config_enter_hint(item, get_state, config, lang)
+      end,
+      can_execute_on_enter = function(item)
+        return type(item) == "table" and item.id ~= nil
+      end,
     },
     {
       id = "dex",
@@ -472,6 +644,12 @@ local function build_tabs(get_state, set_state, config, handlers)
       end,
       on_choice = function(action)
         return handle_dex_choice(action)
+      end,
+      enter_hint_provider = function(item)
+        return build_dex_enter_hint(item, lang)
+      end,
+      can_execute_on_enter = function(item)
+        return type(item) == "table" and item.id == "dex_control"
       end,
     },
     {
@@ -486,7 +664,6 @@ local function build_tabs(get_state, set_state, config, handlers)
 end
 -- メニューの最初のページを再表示するための入口を用意する。
 open_status_root = function(get_state, set_state, config, handlers)
-  reset_view_state()
   local lang = menu_locale.resolve_lang(get_state(), config)
   -- 全メニュー画面で共通のライブトラック情報を表示するため文脈を共有する。
   menu_view.set_context(get_state, config)
@@ -540,7 +717,6 @@ M.close = function(options)
   menu_view.close()
   tabs_view.close(silent)
   menu_open = false
-  reset_view_state()
   if silent then
     on_close_callback = saved_callback
   end

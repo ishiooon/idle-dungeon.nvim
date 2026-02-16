@@ -6,6 +6,12 @@ local function assert_match(text, pattern, message)
   end
 end
 
+local function assert_contains(text, needle, message)
+  if not string.find(text or "", needle or "", 1, true) then
+    error((message or "assert_contains failed") .. ": " .. tostring(text) .. " !~ " .. tostring(needle))
+  end
+end
+
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local menu_locale = require("idle_dungeon.menu.locale")
@@ -29,5 +35,9 @@ assert_match(joined, "入力文字数", "入力文字数の表示が含まれる
 assert_match(joined, "保存回数", "保存回数の表示が含まれる")
 assert_match(joined, "稼働時間", "稼働時間の表示が含まれる")
 assert_match(joined, "lua", "ファイル種別ごとの内訳が表示される")
+
+local lines_en = menu_locale.status_lines(state, "en", config)
+local joined_en = table.concat(lines_en or {}, " ")
+assert_contains(joined_en, "Job: Swordsman", "英語設定では状態表示のジョブ名を英語で表示する")
 
 print("OK")

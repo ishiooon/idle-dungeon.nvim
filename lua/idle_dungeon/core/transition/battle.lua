@@ -506,7 +506,7 @@ local function tick_reward(state, config)
   -- 現在のジョブ進行度を更新して経験値に反映する。
   local current_job = helpers.find_job(state.actor and state.actor.id)
   local job_levels = util.merge_tables(state.job_levels or {}, {})
-  local job_progress = job_levels[current_job.id] or player.default_progress()
+  local job_progress = job_levels[current_job.id] or player.default_job_progress()
   local leveled, next_job = player.add_exp_with_job(state.actor, reward_exp, job_progress, current_job)
   local applied = player.apply_equipment(leveled, state.equipment, content.items)
   job_levels[current_job.id] = next_job

@@ -8,8 +8,46 @@ local M = {}
 -- 勇者の成長値は既定値として固定する。
 local HERO_GROWTH = (balance.hero_profile() or {}).growth or { hp = 1, atk = 1, def = 1, speed = 0 }
 
+-- 装備スロットごとの得意能力を固定値で補正する。
+local EQUIPMENT_SLOT_BONUS = {
+  weapon = { hp = 0, atk = 2, def = 0, speed = 1 },
+  armor = { hp = 2, atk = 0, def = 2, speed = 0 },
+  accessory = { hp = 1, atk = 1, def = 0, speed = 2 },
+}
+
+-- 希少度ごとの追加補正を定義し、レア装備の価値を明確にする。
+local EQUIPMENT_RARITY_BONUS = {
+  common = 0,
+  rare = 1,
+}
+
+local function slot_bonus(item, stat_key)
+  local slot = item and item.slot or nil
+  local bonuses = EQUIPMENT_SLOT_BONUS[slot] or {}
+  return tonumber(bonuses[stat_key]) or 0
+end
+
+local function rarity_bonus(item)
+  local rarity = item and item.rarity or "common"
+  return tonumber(EQUIPMENT_RARITY_BONUS[rarity]) or 0
+end
+
+-- 装備に定義された能力だけを対象に、スロットと希少度で補正値を強める。
+local function scaled_bonus(item, stat_key)
+  local base = math.max(tonumber((item or {})[stat_key]) or 0, 0)
+  if base <= 0 then
+    return 0
+  end
+  return base + slot_bonus(item, stat_key) + rarity_bonus(item)
+end
+
 local function default_progress()
   return balance.default_progress()
+end
+
+-- ジョブは独立経験値を持たず、レベル値のみを保持する。
+local function default_job_progress()
+  return { level = 1 }
 end
 
 local function normalize_progress(progress)
@@ -18,6 +56,13 @@ local function normalize_progress(progress)
     level = math.max(tonumber(base.level) or 1, 1),
     exp = math.max(tonumber(base.exp) or 0, 0),
     next_level = math.max(tonumber(base.next_level) or (balance.default_progress().next_level or 10), 1),
+  }
+end
+
+local function normalize_job_progress(progress)
+  local base = progress or {}
+  return {
+    level = math.max(tonumber(base.level) or 1, 1),
   }
 end
 
@@ -39,7 +84,7 @@ end
 
 local function new_actor(job, hero_progress, job_progress, current_hp)
   local hero = normalize_progress(hero_progress)
-  local job_state = normalize_progress(job_progress)
+  local job_state = normalize_job_progress(job_progress)
   local base = build_base_stats(job, hero.level, job_state.level)
   local next_hp = current_hp and math.min(current_hp, base.hp) or base.hp
   return {
@@ -52,8 +97,6 @@ local function new_actor(job, hero_progress, job_progress, current_hp)
     next_level = hero.next_level,
     -- ジョブごとの成長は別のレベルで管理する。
     job_level = job_state.level,
-    job_exp = job_state.exp,
-    job_next_level = job_state.next_level,
     base_hp = base.hp,
     base_atk = base.atk,
     base_def = base.def,
@@ -73,10 +116,10 @@ local function apply_equipment(actor, equipment, items)
   local bonus_hp, bonus_atk, bonus_def, bonus_speed = 0, 0, 0, 0
   for _, item in pairs(items or {}) do
     if equipment[item.slot] == item.id then
-      bonus_hp = bonus_hp + (item.hp or 0)
-      bonus_atk = bonus_atk + (item.atk or 0)
-      bonus_def = bonus_def + (item.def or 0)
-      bonus_speed = bonus_speed + (item.speed or 0)
+      bonus_hp = bonus_hp + scaled_bonus(item, "hp")
+      bonus_atk = bonus_atk + scaled_bonus(item, "atk")
+      bonus_def = bonus_def + scaled_bonus(item, "def")
+      bonus_speed = bonus_speed + scaled_bonus(item, "speed")
     end
   end
   local next_actor = util.merge_tables(actor, {})
@@ -138,16 +181,13 @@ end
 
 local function add_exp_with_job(actor, amount, job_progress, job)
   local hero_progress = normalize_progress({ level = actor.level, exp = actor.exp, next_level = actor.next_level })
-  local job_state = normalize_progress(job_progress)
+  local job_state = normalize_job_progress(job_progress)
   local next_hero = apply_progress(hero_progress, amount)
   -- ジョブレベルは勇者レベルの上昇に同期して上げる。
   local level_gain = math.max(next_hero.level - hero_progress.level, 0)
-  local next_job = util.merge_tables(job_state, {
+  local next_job = {
     level = math.max(job_state.level + level_gain, 1),
-    -- ジョブ経験値は勇者の進行状況を表示するために合わせて更新する。
-    exp = next_hero.exp,
-    next_level = next_hero.next_level,
-  })
+  }
   -- ジョブ切替直後のステータス変化を避けるため、現在値を基準に必要な項目だけ更新する。
   local next_actor = util.merge_tables(actor, {
     id = job.id,
@@ -157,8 +197,6 @@ local function add_exp_with_job(actor, amount, job_progress, job)
     exp = next_hero.exp,
     next_level = next_hero.next_level,
     job_level = next_job.level,
-    job_exp = next_job.exp,
-    job_next_level = next_job.next_level,
     dialogue_ratio = job.dialogue_ratio or 1.0,
   })
   next_actor = apply_level_growth(next_actor, level_gain, job)
@@ -167,6 +205,7 @@ end
 
 M.new_actor = new_actor
 M.default_progress = default_progress
+M.default_job_progress = default_job_progress
 M.apply_equipment = apply_equipment
 M.add_exp_with_job = add_exp_with_job
 
