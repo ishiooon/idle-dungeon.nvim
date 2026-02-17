@@ -67,7 +67,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  local config = { ui = { language = "en", menu = { detail_preview = false, min_height = 16 } } }
+  local config = { ui = { language = "en", menu = { min_height = 16 } } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },

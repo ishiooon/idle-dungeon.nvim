@@ -1,4 +1,4 @@
--- このテストはサブメニューが1カラム表示で描画されることを確認する。
+-- このテストはサブメニューが1カラム表示を維持しつつ、詳細を下部へ表示することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -78,8 +78,9 @@ local ok, err = pcall(function()
 
   local joined = table.concat(rendered_lines or {}, "\n")
   assert_not_contains(joined, " │ ", "サブメニューで左右ペインの区切りを表示しない")
-  assert_not_contains(joined, "DETAIL TOP", "サブメニューの右ペイン詳細は表示しない")
-  assert_not_contains(joined, "CHANGE: ATK +2", "サブメニューの右ペイン詳細は表示しない")
+  assert_contains(joined, "Detail: TOP_SUB_ENTRY", "サブメニューの詳細タイトルは下部へ表示する")
+  assert_contains(joined, "DETAIL TOP", "サブメニューの詳細本文は下部へ表示する")
+  assert_contains(joined, "CHANGE: ATK +2", "サブメニューの詳細値は下部へ表示する")
   assert_contains(joined, "↩", "戻る項目の記号が表示される")
   menu_view.close()
 end)

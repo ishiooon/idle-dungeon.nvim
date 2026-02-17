@@ -1,5 +1,5 @@
 -- このテストはメニュー表示のデータ生成が期待通りであることを確認する。
--- メニュー階層整理に合わせて参照先を更新する。
+-- 状態タブは折りたたみを使わず、主要情報を常時表示する。
 
 local function assert_true(value, message)
   if not value then
@@ -37,32 +37,37 @@ state = util.merge_tables(state, {
     filetypes = { lua = 100, python = 20 },
   },
 })
+
 local status_items = menu_data.build_status_items(state, config, "en")
-local status_items_expanded = menu_data.build_status_items(state, config, "en", {
-  show_advanced = true,
-  show_loadout = true,
-})
 assert_true(#status_items > 0, "状態タブの項目が生成される")
-assert_true(#status_items < #status_items_expanded, "初期状態は情報量を抑えた要約表示になる")
+
 local found_status_action_equip = false
 local found_status_action_stage = false
 local found_status_action_purchase = false
 local found_status_action_sell = false
 local found_status_action_skills = false
-local found_status_toggle_advanced = false
-local found_status_toggle_loadout = false
-local found_status_recommended = false
+local found_status_action_job = false
+local found_status_action_stage_keep_open = false
+local found_status_action_purchase_keep_open = false
+local found_status_action_sell_keep_open = false
+local found_status_action_job_keep_open = false
+local found_status_action_equip_keep_open = false
+local found_status_action_skills_keep_open = false
 local found_status_next_reward = false
-local found_status_metrics_detail = false
 local found_status_stage_name_redundant = false
 local found_status_equipment_row = false
 local found_status_skill_row = false
 local found_status_step_count_label = false
 local found_status_next_enemy_line = false
 local found_status_danger_reason_detail = false
-local recommended_action_id = nil
-local status_toggle_advanced_index = nil
-local status_power_header_index = nil
+local found_status_control = false
+local found_metrics_detail_flag = false
+local found_metrics_detail_id = false
+local found_section_situation = false
+local found_section_power = false
+local found_section_loadout = false
+local found_section_progress = false
+local found_section_metrics = false
 
 local function is_equipment_detail_row(label)
   local text = tostring(label or "")
@@ -82,140 +87,171 @@ local function is_skill_detail_row(label)
   return false
 end
 
-for index, item in ipairs(status_items) do
-  if tostring(item.label or ""):match("%d+ step%(s%) to enemy") or tostring(item.label or ""):match("Move %d+ step%(s%)") then
+for _, item in ipairs(status_items) do
+  local label = tostring(item.label or "")
+  if item.id == "header" and label:match("Situation") then
+    found_section_situation = true
+  end
+  if item.id == "header" and label:match("Power") then
+    found_section_power = true
+  end
+  if item.id == "header" and label:match("Loadout & Skills") then
+    found_section_loadout = true
+  end
+  if item.id == "header" and label:match("Progress") then
+    found_section_progress = true
+  end
+  if item.id == "header" and label:match("Input Metrics") then
+    found_section_metrics = true
+  end
+
+  if label:match("%d+ step%(s%) to enemy") or label:match("Move %d+ step%(s%)") then
     found_status_step_count_label = true
   end
+
   local detail_joined = table.concat(item.detail_lines or {}, "\n")
   if detail_joined:match("Next Enemy:") or detail_joined:match("次の敵:") then
     found_status_next_enemy_line = true
   end
-  if detail_joined:match("Risk Reason:") then
+  if detail_joined:match("Threat Scan:") then
     found_status_danger_reason_detail = true
   end
+
   if item.action_id == "equip" then
     found_status_action_equip = true
+    if item.keep_open == true then
+      found_status_action_equip_keep_open = true
+    end
   end
   if item.action_id == "stage" then
     found_status_action_stage = true
-    if tostring(item.label or ""):match("dungeon1%-1") then
+    if item.keep_open == true then
+      found_status_action_stage_keep_open = true
+    end
+    if label:match("dungeon1%-1") then
       found_status_stage_name_redundant = true
     end
   end
   if item.action_id == "purchase" then
     found_status_action_purchase = true
+    if item.keep_open == true then
+      found_status_action_purchase_keep_open = true
+    end
   end
   if item.action_id == "sell" then
     found_status_action_sell = true
+    if item.keep_open == true then
+      found_status_action_sell_keep_open = true
+    end
   end
   if item.action_id == "skills" then
     found_status_action_skills = true
+    if item.keep_open == true then
+      found_status_action_skills_keep_open = true
+    end
   end
-  if item.id == "status_control" and item.action == "toggle_advanced" then
-    found_status_toggle_advanced = true
-    status_toggle_advanced_index = index
+  if item.action_id == "job" then
+    found_status_action_job = true
+    if item.keep_open == true then
+      found_status_action_job_keep_open = true
+    end
   end
-  if item.id == "status_control" and item.action == "toggle_loadout" then
-    found_status_toggle_loadout = true
-  end
-  if item.id == "entry" and type(item.action_id) == "string" and tostring(item.label or ""):match("Recommended") then
-    found_status_recommended = true
-    recommended_action_id = item.action_id
-  end
-  if (item.label or ""):match("Next Reward") then
+
+  if label:match("Next Reward") then
     found_status_next_reward = true
   end
-  if item.id == "metrics_detail" then
-    found_status_metrics_detail = true
+  if item.id == "status_control" then
+    found_status_control = true
   end
-  if is_equipment_detail_row(item.label) then
+  if item.id == "metrics_detail" then
+    found_metrics_detail_id = true
+  end
+  if item.open_detail_on_enter == true and item.keep_open == true then
+    found_metrics_detail_flag = true
+  end
+  if is_equipment_detail_row(label) then
     found_status_equipment_row = true
   end
-  if is_skill_detail_row(item.label) then
+  if is_skill_detail_row(label) then
     found_status_skill_row = true
   end
-  if item.id == "header" and tostring(item.label or ""):match("Power") then
-    status_power_header_index = index
-  end
 end
+
 assert_true(found_status_action_equip, "状態タブから装備変更へ遷移する項目が含まれる")
 assert_true(found_status_action_stage, "状態タブから開始ステージ変更へ遷移する項目が含まれる")
 assert_true(found_status_action_purchase, "状態タブから購入へ遷移する項目が含まれる")
 assert_true(found_status_action_sell, "状態タブから売却へ遷移する項目が含まれる")
 assert_true(found_status_action_skills, "状態タブからスキル設定へ遷移する項目が含まれる")
-assert_true(found_status_toggle_advanced, "状態タブに詳細表示の開閉トグルが含まれる")
-assert_true(
-  (status_toggle_advanced_index or 0) > 0 and (status_power_header_index or 0) > 0 and status_toggle_advanced_index < status_power_header_index,
-  "状態タブの詳細表示トグルは上部に配置される"
-)
-assert_true(found_status_recommended, "状態タブに推奨操作の行が含まれる")
-assert_true(recommended_action_id ~= "skills", "既定状態の推奨操作でスキル設定を最優先しない")
+assert_true(found_status_action_job, "状態タブからジョブ変更へ遷移する項目が含まれる")
+assert_true(found_status_action_stage_keep_open, "状態タブのステージ遷移はメインメニューを維持する")
+assert_true(found_status_action_purchase_keep_open, "状態タブの購入遷移はメインメニューを維持する")
+assert_true(found_status_action_sell_keep_open, "状態タブの売却遷移はメインメニューを維持する")
+assert_true(found_status_action_job_keep_open, "状態タブのジョブ遷移はメインメニューを維持する")
+assert_true(found_status_action_equip_keep_open, "状態タブの装備遷移はメインメニューを維持する")
+assert_true(found_status_action_skills_keep_open, "状態タブのスキル遷移はメインメニューを維持する")
 assert_true(found_status_next_reward, "状態タブに次の報酬行が含まれる")
 assert_true(not found_status_stage_name_redundant, "状態タブでステージ名を重複表示しない")
-assert_true(not found_status_toggle_loadout, "初期状態では装備詳細トグルを表示しない")
-assert_true(not found_status_metrics_detail, "初期状態では入力統計詳細を折りたたむ")
-assert_true(not found_status_equipment_row, "初期状態では装備詳細を折りたたむ")
-assert_true(not found_status_skill_row, "初期状態ではジョブスキル詳細を折りたたむ")
 assert_true(not found_status_step_count_label, "状態タブで敵まで残り歩数を表示しない")
 assert_true(not found_status_next_enemy_line, "状態タブの詳細に次の敵の行を表示しない")
 assert_true(found_status_danger_reason_detail, "状態タブの詳細に危険度判断の理由を表示する")
+assert_true(not found_status_control, "状態タブに折りたたみトグルを表示しない")
+assert_true(found_status_equipment_row, "状態タブに装備情報の行を常時表示する")
+assert_true(found_status_skill_row, "状態タブにジョブスキル情報の行を常時表示する")
+assert_true(found_metrics_detail_flag, "状態タブに入力統計の詳細導線が含まれる")
+assert_true(not found_metrics_detail_id, "状態タブに重複した入力統計行を含めない")
+assert_true(found_section_situation, "状態タブに状況セクションが含まれる")
+assert_true(found_section_power, "状態タブに強さセクションが含まれる")
+assert_true(found_section_loadout, "状態タブに装備と技能セクションが含まれる")
+assert_true(found_section_progress, "状態タブに進行セクションが含まれる")
+assert_true(found_section_metrics, "状態タブに入力統計セクションが含まれる")
 
-local status_items_loadout = menu_data.build_status_items(state, config, "en", {
-  show_advanced = true,
-  show_loadout = true,
+-- 進行後半の敵能力は戦闘生成式で大きく伸びるため、基礎値だけで危険度を判定しないことを確認する。
+local scaled_enemy_state = util.merge_tables(state, {
+  actor = util.merge_tables(state.actor or {}, {
+    hp = 30,
+    max_hp = 30,
+    atk = 5,
+    def = 2,
+    speed = 2,
+  }),
+  progress = util.merge_tables(state.progress or {}, {
+    distance = 95,
+    stage_start = 0,
+    stage_id = 1,
+    floor_enemies = {
+      { id = "dust_slime", element = "normal", position = 10, defeated = false },
+    },
+  }),
 })
-for _, item in ipairs(status_items_loadout) do
-  if item.id == "status_control" and item.action == "toggle_loadout" then
-    found_status_toggle_loadout = true
+local scaled_enemy_items = menu_data.build_status_items(scaled_enemy_state, config, "en")
+local found_scaled_enemy_high_risk = false
+local found_scaled_enemy_timing_reason = false
+for _, item in ipairs(scaled_enemy_items) do
+  local detail_joined = table.concat(item.detail_lines or {}, "\n")
+  if detail_joined:match("Risk:%s*High") then
+    found_scaled_enemy_high_risk = true
   end
-  if is_equipment_detail_row(item.label) then
-    found_status_equipment_row = true
-  end
-  if is_skill_detail_row(item.label) then
-    found_status_skill_row = true
-  end
-end
-assert_true(found_status_toggle_loadout, "詳細表示を開くと装備詳細トグルが表示される")
-assert_true(found_status_equipment_row, "詳細を展開すると装備情報の行が表示される")
-assert_true(found_status_skill_row, "詳細を展開するとジョブスキル情報の行が表示される")
-local found_metrics = false
-for _, item in ipairs(status_items_expanded) do
-  if item.id == "metrics_detail" then
-    found_metrics = true
-    local joined = table.concat(item.detail_lines or {}, " ")
-    assert_match(joined, "lua", "入力統計の詳細にファイル種別が含まれる")
+  if detail_joined:match("Enemy can defeat you in about") and detail_joined:match("before your estimated win time") then
+    found_scaled_enemy_timing_reason = true
   end
 end
-assert_true(found_metrics, "入力統計の詳細項目が含まれる")
-local normal_entry = nil
-for _, item in ipairs(status_items_expanded) do
-  if item.id == "entry" and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
-    normal_entry = item
-    break
-  end
-end
-assert_true(normal_entry ~= nil, "通常エントリに詳細プレビューが付与される")
-local detail_none = menu_data.build_status_detail(normal_entry, state, config, "en")
-assert_true(type(detail_none) == "table", "通常エントリでも詳細を表示できる")
-local metrics_entry = nil
-for _, item in ipairs(status_items_expanded) do
-  if item.id == "metrics_detail" then
-    metrics_entry = item
-    break
-  end
-end
-assert_true(metrics_entry ~= nil, "統計詳細エントリが存在する")
-local detail_metrics = menu_data.build_status_detail(metrics_entry, state, config, "en")
-assert_true(type(detail_metrics) == "table", "統計詳細エントリでは詳細を表示する")
+assert_true(found_scaled_enemy_high_risk, "進行後半では基礎値ではなく成長後の敵能力で危険度を判定する")
+assert_true(found_scaled_enemy_timing_reason, "危険度理由に撃破見込み時間の比較を表示する")
+
 local status_items_ja = menu_data.build_status_items(state, config, "ja")
 local status_ja_joined = {}
 local found_status_danger_reason_detail_ja = false
+local found_status_next_equipment_unlock_ja = false
 for _, item in ipairs(status_items_ja) do
   if item and item.label then
     table.insert(status_ja_joined, item.label)
+    -- 次の解放の対象が装備であることを日本語表示で明示する。
+    if tostring(item.label):match("次の装備解放") then
+      found_status_next_equipment_unlock_ja = true
+    end
   end
   local detail_joined = table.concat(item.detail_lines or {}, "\n")
-  if detail_joined:match("危険度理由:") then
+  if detail_joined:match("脅威診断:") then
     found_status_danger_reason_detail_ja = true
   end
 end
@@ -227,6 +263,7 @@ assert_true(not status_ja_text:match("Weapon/Armor/Accessory"), "日本語表示
 assert_true(not status_ja_text:match("敵まで%d+歩"), "日本語表示で敵まで残り歩数を表示しない")
 assert_true(not status_ja_text:match("接近中"), "日本語表示で接敵文言を表示しない")
 assert_true(found_status_danger_reason_detail_ja, "日本語表示の詳細に危険度判断の理由を表示する")
+assert_true(found_status_next_equipment_unlock_ja, "日本語表示で次の装備解放の文言を明示する")
 
 local action_items = menu_data.build_action_items()
 assert_true(#action_items >= 5, "操作タブの項目が生成される")

@@ -207,6 +207,8 @@ lua tests/test_metrics_delta.lua
 lua tests/test_enemy_pool.lua
 # ステージ1の敵と初期装備のバランス基準を確認する。
 lua tests/test_stage1_balance.lua
+# ステージ1開幕で被ダメージが最小値1に張り付かないことを確認する。
+lua tests/test_stage1_incoming_damage.lua
 # ステージ1-2で初期攻撃が一撃になりにくいことを確認する。
 lua tests/test_stage1_floor2_balance.lua
 # ステージ1序盤の経験値が過剰にならないことを確認する。

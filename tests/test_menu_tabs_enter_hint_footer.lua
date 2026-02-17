@@ -100,9 +100,28 @@ local ok, err = pcall(function()
     end
   end
   assert_true(footer_line > 2, "最下部に基本操作のフッターが描画される")
-  assert_contains(rendered_lines[footer_line - 3] or "", "─", "フッター説明の手前に区切り線が表示される")
-  assert_contains(rendered_lines[footer_line - 2] or "", "Enter: Toggle text mode", "フッターの上段にEnter説明が表示される")
-  assert_contains(rendered_lines[footer_line - 1] or "", "Text -> Visual", "フッター直上に変更内容が表示される")
+  local found_divider = false
+  local found_detail = false
+  local found_enter = false
+  local found_change = false
+  for index, line in ipairs(rendered_lines or {}) do
+    if index < footer_line and string.find(line or "", "─", 1, true) then
+      found_divider = true
+    end
+    if index < footer_line and string.find(line or "", "Detail:", 1, true) then
+      found_detail = true
+    end
+    if index < footer_line and string.find(line or "", "Enter: Toggle text mode", 1, true) then
+      found_enter = true
+    end
+    if index < footer_line and string.find(line or "", "Text -> Visual", 1, true) then
+      found_change = true
+    end
+  end
+  assert_true(found_divider, "フッター説明の手前に区切り線が表示される")
+  assert_true(found_detail, "フッター上段に選択中項目の詳細タイトルが表示される")
+  assert_true(found_enter, "フッターの下段にEnter説明が表示される")
+  assert_true(found_change, "フッター直上に変更内容が表示される")
   local has_hint_highlight = false
   for _, item in ipairs(rendered_highlights) do
     if type(item) == "table" and item.group == "IdleDungeonMenuHint" then

@@ -4,6 +4,7 @@ local frame = require("idle_dungeon.menu.frame")
 local menu_locale = require("idle_dungeon.menu.locale")
 local selection_fx = require("idle_dungeon.menu.selection_fx")
 local menu_view_util = require("idle_dungeon.menu.view_util")
+local util = require("idle_dungeon.util")
 local window = require("idle_dungeon.menu.window")
 
 local M = {}
@@ -161,6 +162,15 @@ local function normalize_detail(detail)
   return { title = title, lines = lines }
 end
 
+local function has_detail_lines(lines)
+  for _, line in ipairs(lines or {}) do
+    if tostring(line or "") ~= "" then
+      return true
+    end
+  end
+  return false
+end
+
 -- 項目から詳細プレビューを生成する。比較情報がない場合でも説明文を補う。
 local function resolve_detail(item, opts, lang)
   if not item then
@@ -213,6 +223,90 @@ local function resolve_detail(item, opts, lang)
       "If nothing changes, the view stays as-is.",
     },
   }
+end
+
+-- 下部詳細欄の長文を、指定幅に収まる行へ分割する。
+local function wrap_detail_footer_line(line, width)
+  local safe_width = math.max(tonumber(width) or 0, 1)
+  local text = tostring(line or "")
+  if text == "" then
+    return { "" }
+  end
+  if util.display_width(text) <= safe_width then
+    return { text }
+  end
+  local chunks = {}
+  local current = ""
+  local tokens = {}
+  for token in text:gmatch("%S+") do
+    table.insert(tokens, token)
+  end
+  if #tokens == 0 then
+    return { util.clamp_line(text, safe_width) }
+  end
+  local function flush()
+    if current ~= "" then
+      table.insert(chunks, current)
+      current = ""
+    end
+  end
+  local function split_long_token(token)
+    local piece = ""
+    for _, char in ipairs(util.split_utf8(token)) do
+      local candidate = piece .. char
+      if util.display_width(candidate) > safe_width then
+        if piece ~= "" then
+          table.insert(chunks, piece)
+        end
+        piece = char
+      else
+        piece = candidate
+      end
+    end
+    if piece ~= "" then
+      current = piece
+    end
+  end
+  for _, token in ipairs(tokens) do
+    local candidate = current == "" and token or (current .. " " .. token)
+    if util.display_width(candidate) <= safe_width then
+      current = candidate
+    else
+      flush()
+      if util.display_width(token) <= safe_width then
+        current = token
+      else
+        split_long_token(token)
+      end
+    end
+  end
+  flush()
+  return chunks
+end
+
+-- サブメニュー下部へ、選択項目の詳細を圧縮表示する。
+local function build_detail_footer_lines(detail, lang, width)
+  if not detail or not has_detail_lines(detail.lines) then
+    return {}
+  end
+  local safe_width = math.max(tonumber(width) or 0, 1)
+  local is_ja = lang == "ja" or lang == "jp"
+  local title_prefix = is_ja and "󰋼 詳細: " or "󰋼 Detail: "
+  local lines = { util.clamp_line(title_prefix .. tostring(detail.title or "-"), safe_width) }
+  local flattened = {}
+  for _, line in ipairs(detail.lines or {}) do
+    for _, piece in ipairs(wrap_detail_footer_line(line, safe_width - 2)) do
+      local safe_piece = tostring(piece or "")
+      if safe_piece ~= "" then
+        table.insert(flattened, safe_piece)
+      end
+    end
+  end
+  local max_body_rows = 3
+  for index = 1, math.min(#flattened, max_body_rows) do
+    table.insert(lines, util.clamp_line("  " .. flattened[index], safe_width))
+  end
+  return lines
 end
 
 -- 右ペインへ表示するプレビュー行を本文高さに合わせて構築する。
@@ -289,7 +383,20 @@ local function render()
   end
   local hints = ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang)
   local tabs_line = ui_state.opts.tabs_line or ""
-  local footer_notes = resolve_enter_hint_lines(current_choice(), ui_state.opts, lang, static_view)
+  local selected_item = current_choice()
+  local detail_notes = {}
+  if not static_view then
+    local detail_width = tonumber(config.min_width) or 56
+    detail_notes = build_detail_footer_lines(resolve_detail(selected_item, ui_state.opts, lang), lang, detail_width)
+  end
+  local enter_notes = resolve_enter_hint_lines(selected_item, ui_state.opts, lang, static_view)
+  local footer_notes = {}
+  for _, line in ipairs(detail_notes or {}) do
+    table.insert(footer_notes, line)
+  end
+  for _, line in ipairs(enter_notes or {}) do
+    table.insert(footer_notes, line)
+  end
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   ui_state.selected = menu_view_util.clamp_selected(ui_state.selected, #labels)
   local width = menu_view_util.resolve_compact_width(config, top_lines, tabs_line)

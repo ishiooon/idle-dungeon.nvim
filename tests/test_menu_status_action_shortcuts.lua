@@ -9,7 +9,6 @@ end
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local selected_tabs = nil
-local update_called = 0
 local called = {
   equip = 0,
   stage = 0,
@@ -18,28 +17,42 @@ local called = {
   job = 0,
   skills = 0,
 }
+local cancel_callbacks = {
+  equip = "__unset__",
+  stage = "__unset__",
+  purchase = "__unset__",
+  sell = "__unset__",
+  job = "__unset__",
+  skills = "__unset__",
+}
 
 package.loaded["idle_dungeon.menu.actions"] = {
-  open_equip_menu = function()
+  open_equip_menu = function(_, _, _, on_cancel)
     called.equip = called.equip + 1
+    cancel_callbacks.equip = on_cancel
   end,
-  open_stage_menu = function()
+  open_stage_menu = function(_, _, _, on_cancel)
     called.stage = called.stage + 1
+    cancel_callbacks.stage = on_cancel
   end,
-  open_job_menu = function()
+  open_job_menu = function(_, _, _, on_cancel)
     called.job = called.job + 1
+    cancel_callbacks.job = on_cancel
   end,
-  open_skills_menu = function()
+  open_skills_menu = function(_, _, _, on_cancel)
     called.skills = called.skills + 1
+    cancel_callbacks.skills = on_cancel
   end,
 }
 
 package.loaded["idle_dungeon.menu.shop"] = {
-  open_purchase_menu = function()
+  open_purchase_menu = function(_, _, _, _, on_cancel)
     called.purchase = called.purchase + 1
+    cancel_callbacks.purchase = on_cancel
   end,
-  open_sell_menu = function()
+  open_sell_menu = function(_, _, _, _, on_cancel)
     called.sell = called.sell + 1
+    cancel_callbacks.sell = on_cancel
   end,
 }
 
@@ -49,7 +62,6 @@ package.loaded["idle_dungeon.menu.tabs_view"] = {
   end,
   update = function(tabs)
     selected_tabs = tabs or selected_tabs
-    update_called = update_called + 1
   end,
   close = function() end,
   set_context = function() end,
@@ -99,8 +111,7 @@ local purchase_item = nil
 local sell_item = nil
 local job_item = nil
 local skills_item = nil
-local advanced_toggle_item = nil
-local loadout_toggle_item = nil
+local detail_item = nil
 for _, item in ipairs(status_tab.items or {}) do
   if item.action_id == "equip" then
     equip_item = item
@@ -120,11 +131,8 @@ for _, item in ipairs(status_tab.items or {}) do
   if item.action_id == "skills" then
     skills_item = item
   end
-  if item.id == "status_control" and item.action == "toggle_advanced" then
-    advanced_toggle_item = item
-  end
-  if item.id == "status_control" and item.action == "toggle_loadout" then
-    loadout_toggle_item = item
+  if detail_item == nil and item.id == "entry" and item.action_id == nil then
+    detail_item = item
   end
 end
 assert_true(equip_item ~= nil, "状態タブに装備変更のクイック操作が含まれる")
@@ -133,34 +141,11 @@ assert_true(purchase_item ~= nil, "状態タブに購入のクイック操作が
 assert_true(sell_item ~= nil, "状態タブに売却のクイック操作が含まれる")
 assert_true(job_item ~= nil, "状態タブにジョブ変更の操作が含まれる")
 assert_true(skills_item ~= nil, "状態タブにスキル設定のクイック操作が含まれる")
-assert_true(advanced_toggle_item ~= nil, "状態タブに詳細表示の開閉トグルが含まれる")
-assert_true(loadout_toggle_item == nil, "要約表示では装備詳細トグルを表示しない")
-
-status_tab.on_choice(advanced_toggle_item)
-assert_true(update_called == 1, "状態タブの開閉トグルはタブ表示を更新する")
+assert_true(detail_item ~= nil, "状態タブに非実行の情報行が含まれる")
+status_tab.on_choice(detail_item)
 assert_true(
   called.equip == 0 and called.stage == 0 and called.purchase == 0 and called.sell == 0 and called.job == 0 and called.skills == 0,
-  "開閉トグルではサブメニュー遷移しない"
-)
-for _, tab in ipairs(selected_tabs or {}) do
-  if tab.id == "status" then
-    status_tab = tab
-    break
-  end
-end
-for _, item in ipairs(status_tab.items or {}) do
-  if item.id == "status_control" and item.action == "toggle_loadout" then
-    loadout_toggle_item = item
-    break
-  end
-end
-assert_true(loadout_toggle_item ~= nil, "詳細表示を開くと装備詳細トグルが表示される")
-
-status_tab.on_choice(loadout_toggle_item)
-assert_true(update_called == 2, "装備詳細トグルでもタブ表示を更新する")
-assert_true(
-  called.equip == 0 and called.stage == 0 and called.purchase == 0 and called.sell == 0 and called.job == 0 and called.skills == 0,
-  "装備詳細トグルではサブメニュー遷移しない"
+  "非実行行ではサブメニュー遷移しない"
 )
 
 status_tab.on_choice(equip_item)
@@ -176,5 +161,11 @@ assert_true(called.purchase == 1, "状態タブのクイック操作から購入
 assert_true(called.sell == 1, "状態タブのクイック操作から売却メニューへ遷移できる")
 assert_true(called.job == 1, "状態タブのジョブ行からジョブメニューへ遷移できる")
 assert_true(called.skills == 1, "状態タブのクイック操作からスキルメニューへ遷移できる")
+assert_true(cancel_callbacks.equip == nil, "状態タブの装備遷移はキャンセル時の再オープンコールバックを渡さない")
+assert_true(cancel_callbacks.stage == nil, "状態タブのステージ遷移はキャンセル時の再オープンコールバックを渡さない")
+assert_true(cancel_callbacks.purchase == nil, "状態タブの購入遷移はキャンセル時の再オープンコールバックを渡さない")
+assert_true(cancel_callbacks.sell == nil, "状態タブの売却遷移はキャンセル時の再オープンコールバックを渡さない")
+assert_true(cancel_callbacks.job == nil, "状態タブのジョブ遷移はキャンセル時の再オープンコールバックを渡さない")
+assert_true(cancel_callbacks.skills == nil, "状態タブのスキル遷移はキャンセル時の再オープンコールバックを渡さない")
 
 print("OK")

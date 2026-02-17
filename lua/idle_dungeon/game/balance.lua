@@ -34,7 +34,8 @@ local REWARD_PROFILE = {
 -- ステージごとの敵補正と報酬補正を1箇所で管理する。
 local STAGE_PROFILES = {
   [1] = {
-    enemy = { growth_mul = 1.25, hp_mul = 1.15, atk_mul = 1.35, def_mul = 1.15, speed_mul = 1.0 },
+    -- 序盤の被ダメージが常に最小値へ張り付きにくいよう攻撃力へ固定加算を入れる。
+    enemy = { growth_mul = 1.25, hp_mul = 1.15, atk_mul = 1.35, def_mul = 1.15, speed_mul = 1.0, atk_add = 3 },
     reward = { exp_mul = 0.18, exp_cap = 3, gold_mul = 0.7, gold_add = 0 },
   },
   [2] = {

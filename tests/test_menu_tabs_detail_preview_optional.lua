@@ -1,4 +1,4 @@
--- このテストは詳細プレビューを有効化した場合にメインタブが2カラム表示になることを確認する。
+-- このテストは詳細情報を下部へ表示してもメインタブが1カラム表示を維持することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -71,7 +71,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  local config = { ui = { language = "en", menu = { detail_preview = true } } }
+  local config = { ui = { language = "en", menu = {} } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },
@@ -108,11 +108,12 @@ local ok, err = pcall(function()
 
   local text = table.concat(rendered or {}, "\n")
   assert_contains(text, "TOP", "メインタブ本文が表示される")
-  assert_contains(text, " │ ", "詳細プレビュー有効時は左右ペインの区切りを表示する")
-  assert_contains(text, "DETAIL HEADER", "詳細プレビュー本文が右ペインに表示される")
-  assert_contains(text, "VALUE: 42", "詳細プレビューの内容が右ペインに表示される")
-  assert_contains(text, "ENDTOKEN", "詳細プレビューの長文末尾が見切れず表示される")
-  assert_true(window_width >= 96, "詳細プレビュー表示時のウィンドウ幅は2カラムの最小幅を下回らない")
+  assert_true(not string.find(text, " │ ", 1, true), "詳細情報を表示しても左右ペインの区切りを表示しない")
+  assert_contains(text, "Detail: TOP", "詳細タイトルを下部へ表示する")
+  assert_contains(text, "DETAIL HEADER", "詳細本文を下部へ表示する")
+  assert_contains(text, "VALUE: 42", "詳細の値を下部へ表示する")
+  assert_contains(text, "Open detail with Enter", "長文がある場合は下部に詳細画面への案内を表示する")
+  assert_true(window_width <= 84, "詳細表示時もメニュー横幅は広がりすぎない")
   tabs_view.close()
 end)
 

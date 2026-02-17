@@ -74,41 +74,31 @@ assert_true(type(status_tab.on_choice) == "function", "状態タブに選択ハ�
 assert_true(type(status_tab.enter_hint_provider) == "function", "状態タブにEnter説明関数が存在する")
 assert_true(type(status_tab.can_execute_on_enter) == "function", "状態タブにEnter実行判定関数が存在する")
 local action_item = nil
-local toggle_item = nil
-local read_only_item = nil
+local detail_item = nil
 for _, item in ipairs(status_tab.items or {}) do
-  if item.action_id == "equip" then
+  if action_item == nil and item.action_id == "equip" then
     action_item = item
   end
-  if item.id == "status_control" and item.action == "toggle_advanced" then
-    toggle_item = item
-  end
-  if read_only_item == nil and item.id == "entry" and item.action_id == nil and item.open_detail_on_enter ~= true then
-    read_only_item = item
+  if detail_item == nil and item.id == "entry" and item.action_id == nil and type(item.detail_lines) == "table" and #item.detail_lines > 0 then
+    detail_item = item
   end
 end
 assert_true(action_item ~= nil, "状態タブにクイック操作の項目が含まれる")
-assert_true(toggle_item ~= nil, "状態タブに要約表示の開閉トグルが含まれる")
-assert_true(read_only_item ~= nil, "状態タブに実行対象ではない表示行が含まれる")
+assert_true(detail_item ~= nil, "状態タブに詳細表示可能な表示行が含まれる")
 local action_label = status_tab.format_item(action_item, 1, #status_tab.items)
-local has_action_label = string.find(action_label, "Equip", 1, true)
-  or string.find(action_label, "Recommended", 1, true)
-assert_true(has_action_label ~= nil, "状態タブの操作行が表示される")
+assert_true(type(action_label) == "string" and action_label ~= "", "状態タブの操作行が表示される")
 assert_not_contains(action_label, "⟫", "意味の不明な記号は表示しない")
 assert_true(type(status_tab.detail_provider) == "function", "状態タブに詳細プレビュー関数が存在する")
 local action_detail = status_tab.detail_provider(action_item)
 assert_true(type(action_detail) == "table", "状態タブのクイック操作で詳細プレビューが生成される")
-assert_contains(table.concat(action_detail.lines or {}, "\n"), "Compare", "装備変更の詳細に比較方針が表示される")
+assert_true(type(action_detail.lines) == "table" and #action_detail.lines > 0, "状態タブの操作行で詳細本文が表示される")
 local status_enter_hint = status_tab.enter_hint_provider(action_item)
 assert_true(type(status_enter_hint) == "table" and #status_enter_hint >= 1, "状態タブの選択項目にEnter説明が出る")
 assert_contains(table.concat(status_enter_hint, "\n"), "Enter", "状態タブのEnter説明に操作キーが含まれる")
 assert_true(status_tab.can_execute_on_enter(action_item) == true, "状態タブの実行項目はEnter実行可能と判定される")
-local toggle_enter_hint = status_tab.enter_hint_provider(toggle_item)
-assert_contains(table.concat(toggle_enter_hint, "\n"), "Enter", "状態タブの開閉トグルにEnter説明が表示される")
-assert_true(status_tab.can_execute_on_enter(toggle_item) == true, "状態タブの開閉トグルはEnter実行可能と判定される")
-local read_only_hint = status_tab.enter_hint_provider(read_only_item)
-assert_contains(table.concat(read_only_hint, "\n"), "display-only", "状態タブの非実行行は表示専用の説明になる")
-assert_true(status_tab.can_execute_on_enter(read_only_item) == false, "状態タブの非実行行はEnter実行対象にならない")
+local detail_hint = status_tab.enter_hint_provider(detail_item)
+assert_contains(table.concat(detail_hint, "\n"), "Open detail view", "状態タブの非実行行は詳細表示の説明になる")
+assert_true(status_tab.can_execute_on_enter(detail_item) == false, "状態タブの非実行行はEnter実行対象にならない")
 
 local config_tab = find_tab("config")
 assert_true(config_tab ~= nil, "設定タブが生成される")

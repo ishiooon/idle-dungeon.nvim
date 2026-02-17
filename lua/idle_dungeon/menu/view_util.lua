@@ -92,9 +92,9 @@ local function menu_config(config)
   -- 画面サイズに応じた大きめのメニュー寸法を算出する。
   local screen_width = math.max(safe_columns() - 4, 20)
   local screen_height = math.max(safe_lines() - safe_cmdheight() - 4, 10)
-  local width = resolve_dimension(menu.width, menu.width_ratio or 0.62, menu.min_width or 64, menu.max_width, screen_width)
+  local width = resolve_dimension(menu.width, menu.width_ratio or 0.52, menu.min_width or 56, menu.max_width, screen_width)
   local height = resolve_dimension(menu.height, menu.height_ratio or 0.6, menu.min_height or 20, menu.max_height, screen_height)
-  local min_width = clamp_number(menu.min_width or 64, 20, screen_width)
+  local min_width = clamp_number(menu.min_width or 56, 20, screen_width)
   local min_height = clamp_number(menu.min_height or 20, 10, screen_height)
   local max_width = clamp_number(menu.max_width or width, min_width, screen_width)
   local max_height = clamp_number(menu.max_height or height, min_height, screen_height)
@@ -112,8 +112,6 @@ local function menu_config(config)
     item_prefix = menu.item_prefix or "󰜴 ",
     section_prefix = menu.section_prefix or "",
     empty_prefix = menu.empty_prefix or "󰇘 ",
-    -- メインタブで選択中項目の詳細プレビューを表示するかどうかを保持する。
-    detail_preview = menu.detail_preview == true,
     theme = theme.resolve(config),
     -- 上部表示の可読性を保つため、現在画面で使える最大幅を保持する。
     available_width = screen_width,
@@ -169,11 +167,7 @@ local function resolve_compact_height(config, screen_height, visible_rows, top_l
   local body = clamp_number(visible_rows or 0, 7, 15)
   local target = fixed + body
   local clamped = clamp_number(target, min_height, max_height)
-  -- 本文が収まらない場合は、画面に余白がある限り高さを拡張して後半項目を見えるようにする。
-  local total_needed = fixed + math.max(tonumber(visible_rows) or 0, 0)
-  if total_needed > clamped and safe_screen > clamped then
-    return clamp_number(total_needed, min_height, safe_screen)
-  end
+  -- 高さは設定上限を尊重し、本文が多い場合はスクロールで読む前提にする。
   return math.min(clamped, safe_screen)
 end
 

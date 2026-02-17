@@ -16,12 +16,6 @@ local menu_open = false
 local open_status_root
 local on_close_callback = nil
 local view_state = {
-  status = {
-    show_advanced = false,
-    show_loadout = false,
-    show_progress = false,
-    show_metrics = false,
-  },
   dex = {
     mode = "enemy",
     sort_mode = "encounter",
@@ -35,12 +29,6 @@ local view_state = {
 
 local function reset_view_state()
   view_state = {
-    status = {
-      show_advanced = false,
-      show_loadout = false,
-      show_progress = false,
-      show_metrics = false,
-    },
     dex = {
       mode = "enemy",
       sort_mode = "encounter",
@@ -252,35 +240,14 @@ local function build_status_enter_hint(item, lang)
       "󰇀 Effect: " .. hint,
     }
   end
-  if item.id == "status_control" then
-    local action = item.action
-    local messages_ja = {
-      toggle_advanced = "要約表示と詳細表示を切り替えます。",
-      toggle_loadout = "装備とジョブスキルの表示を開閉します。",
-      toggle_progress = "進行詳細の表示を開閉します。",
-      toggle_metrics = "入力統計詳細の表示を開閉します。",
-    }
-    local messages_en = {
-      toggle_advanced = "Toggle compact and advanced status view.",
-      toggle_loadout = "Toggle loadout and job skill details.",
-      toggle_progress = "Toggle progress details.",
-      toggle_metrics = "Toggle input metrics details.",
-    }
-    if is_ja then
-      return { "󰌑 Enter: " .. (messages_ja[action] or "詳細表示を開閉します。") }
-    end
-    return { "󰌑 Enter: " .. (messages_en[action] or "Toggle detail section.") }
-  end
-  if item.open_detail_on_enter then
+  -- 実行行以外は詳細閲覧に統一し、表示専用メッセージを出さない。
+  if type(item.detail_lines) == "table" and #item.detail_lines > 0 then
     if is_ja then
       return { "󰌑 Enter: 詳細画面を開きます。" }
     end
     return { "󰌑 Enter: Open detail view." }
   end
-  if is_ja then
-    return { "󰇀 この行は表示専用です。Enterでは何も起きません。" }
-  end
-  return { "󰇀 This row is display-only. Enter does nothing." }
+  return {}
 end
 
 -- 設定タブの選択行に対して、Enterで反映される内容を下部説明として返す。
@@ -389,90 +356,51 @@ local function handle_action_choice(action, get_state, set_state, config, lang, 
   if not action then
     return
   end
-  if action.id == "equip" then
+  local action_id = action.action_id or action.id
+  local on_cancel = nil
+  if not (type(action) == "table" and action.keep_open == true) then
+    on_cancel = function()
+      open_status_root(get_state, set_state, config, handlers)
+    end
+  end
+  if action_id == "equip" then
     -- 装備メニューのキャンセル時に状態画面へ戻す。
-    return actions.open_equip_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+    return actions.open_equip_menu(get_state, set_state, config, on_cancel)
   end
-  if action.id == "stage" then
+  if action_id == "stage" then
     -- サブメニューのキャンセル時は状態画面へ戻す。
-    return actions.open_stage_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+    return actions.open_stage_menu(get_state, set_state, config, on_cancel)
   end
-  if action.id == "purchase" then
-    return shop.open_purchase_menu(get_state, set_state, lang, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+  if action_id == "purchase" then
+    return shop.open_purchase_menu(get_state, set_state, lang, config, on_cancel)
   end
-  if action.id == "sell" then
+  if action_id == "sell" then
     -- サブメニューのキャンセル時は状態画面へ戻す。
-    return shop.open_sell_menu(get_state, set_state, lang, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+    return shop.open_sell_menu(get_state, set_state, lang, config, on_cancel)
   end
-  if action.id == "job" then
+  if action_id == "job" then
     -- ジョブ変更メニューを開く。
     -- サブメニューのキャンセル時は状態画面へ戻す。
-    return actions.open_job_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+    return actions.open_job_menu(get_state, set_state, config, on_cancel)
   end
-  if action.id == "skills" then
+  if action_id == "skills" then
     -- スキル一覧と有効/無効切り替えを表示する。
     -- サブメニューのキャンセル時は状態画面へ戻す。
-    return actions.open_skills_menu(get_state, set_state, config, function()
-      open_status_root(get_state, set_state, config, handlers)
-    end)
+    return actions.open_skills_menu(get_state, set_state, config, on_cancel)
   end
 end
 
 local build_tabs
-
--- 状態タブの折りたたみ表示フラグを切り替える。
-local function toggle_status_view(action)
-  view_state.status = view_state.status or {}
-  if action == "toggle_advanced" then
-    view_state.status.show_advanced = not (view_state.status.show_advanced == true)
-    -- 要約表示へ戻す場合は詳細セクションの展開状態を初期化する。
-    if view_state.status.show_advanced ~= true then
-      view_state.status.show_loadout = false
-      view_state.status.show_progress = false
-      view_state.status.show_metrics = false
-    end
-    return true
-  end
-  if action == "toggle_loadout" then
-    view_state.status.show_loadout = not (view_state.status.show_loadout == true)
-    return true
-  end
-  if action == "toggle_progress" then
-    view_state.status.show_progress = not (view_state.status.show_progress == true)
-    return true
-  end
-  if action == "toggle_metrics" then
-    view_state.status.show_metrics = not (view_state.status.show_metrics == true)
-    return true
-  end
-  return false
-end
 
 -- 状態タブの行から遷移可能なクイック操作を処理する。
 local function handle_status_choice(item, get_state, set_state, config, lang, handlers)
   if not item then
     return
   end
-  if item.id == "status_control" then
-    if toggle_status_view(item.action) then
-      tabs_view.update(build_tabs(get_state, set_state, config, handlers))
-    end
-    return
-  end
   if not item.action_id then
     return
   end
-  return handle_action_choice({ id = item.action_id }, get_state, set_state, config, lang, handlers)
+  return handle_action_choice(item, get_state, set_state, config, lang, handlers)
 end
 
 local function handle_config_choice(action, get_state, set_state, config, handlers)
@@ -598,7 +526,7 @@ build_tabs = function(get_state, set_state, config, handlers)
     {
       id = "status",
       label = i18n.t("menu_tab_status", lang),
-      items = tabs_data.build_status_items(state, config, lang, view_state.status),
+      items = tabs_data.build_status_items(state, config, lang),
       format_item = function(item)
         return item.label
       end,
@@ -609,7 +537,7 @@ build_tabs = function(get_state, set_state, config, handlers)
         return build_status_enter_hint(item, lang)
       end,
       can_execute_on_enter = function(item)
-        return type(item) == "table" and (item.action_id ~= nil or item.id == "status_control")
+        return type(item) == "table" and item.action_id ~= nil
       end,
       on_choice = function(item)
         return handle_status_choice(item, get_state, set_state, config, lang, handlers)

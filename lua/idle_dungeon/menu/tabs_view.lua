@@ -317,8 +317,8 @@ local function normalize_detail(detail)
   return { title = title, lines = lines }
 end
 
--- タブの選択項目から詳細プレビューを生成する。
-local function resolve_tab_detail(tab, item)
+-- タブの選択項目から、実体のある詳細情報だけを抽出する。
+local function resolve_explicit_detail(tab, item)
   if not item then
     return nil
   end
@@ -332,8 +332,20 @@ local function resolve_tab_detail(tab, item)
       lines = item.detail_lines,
     })
   end
+  if detail and has_detail_lines(detail.lines) then
+    return detail
+  end
+  return nil
+end
+
+-- タブの選択項目から詳細プレビューを生成する。
+local function resolve_tab_detail(tab, item)
+  local detail = resolve_explicit_detail(tab, item)
   if detail then
     return detail
+  end
+  if not item then
+    return nil
   end
   local label = tostring(item.label or "")
   if label ~= "" then
@@ -345,6 +357,41 @@ local function resolve_tab_detail(tab, item)
     }
   end
   return nil
+end
+
+-- 選択行でEnter時に詳細画面を開くべきかを判定する。
+local function can_open_detail_on_enter(tab, choice)
+  if type(choice) ~= "table" then
+    return false
+  end
+  local detail = resolve_explicit_detail(tab, choice)
+  if choice.open_detail_on_enter == true then
+    return detail ~= nil
+  end
+  if detail == nil then
+    return false
+  end
+  if type(tab and tab.can_execute_on_enter) == "function" then
+    return tab.can_execute_on_enter(choice) ~= true
+  end
+  if tab and type(tab.on_choice) == "function" then
+    return false
+  end
+  return true
+end
+
+-- 図鑑とクレジットは一覧性を優先し、下部の詳細欄を出さない。
+local function supports_inline_detail(tab)
+  if not tab then
+    return false
+  end
+  if tab.id == "credits" then
+    return false
+  end
+  if tab.id == "dex" then
+    return false
+  end
+  return true
 end
 
 local function normalize_enter_hint_lines(lines)
@@ -386,7 +433,7 @@ local function resolve_enter_hint_lines(tab, item, lang)
     end
     return { "󰌑 Select a row to execute with Enter." }
   end
-  if item.open_detail_on_enter then
+  if can_open_detail_on_enter(tab, item) then
     if lang == "ja" or lang == "jp" then
       return { "󰌑 Enter: 詳細画面を開きます。" }
     end
@@ -404,8 +451,8 @@ local function resolve_enter_hint_lines(tab, item, lang)
   return { "󰌑 Enter: Execute selected item." }
 end
 
--- 右ペイン表示用の行配列を本文高さに合わせて生成する。
-local function wrap_detail_line(line, width)
+-- 下部詳細欄の長文を、指定幅に収まる行へ分割する。
+local function wrap_detail_footer_line(line, width)
   local safe_width = math.max(tonumber(width) or 0, 1)
   local text = tostring(line or "")
   if text == "" then
@@ -463,23 +510,36 @@ local function wrap_detail_line(line, width)
   return chunks
 end
 
-local function build_detail_lines(detail, visible, right_width)
-  local rows = {}
-  if detail and detail.title and detail.title ~= "" then
-    table.insert(rows, detail.title)
-    table.insert(rows, string.rep("·", 24))
+-- 選択中の詳細を下部欄へ圧縮して表示する。
+local function build_detail_footer_lines(detail, lang, width, allow_open_detail)
+  if not detail then
+    return {}
   end
-  for _, line in ipairs((detail and detail.lines) or {}) do
-    local wrapped = wrap_detail_line(line, right_width)
-    for _, piece in ipairs(wrapped) do
-      table.insert(rows, piece)
+  local safe_width = math.max(tonumber(width) or 0, 1)
+  local is_ja = lang == "ja" or lang == "jp"
+  local title_prefix = is_ja and "󰋼 詳細: " or "󰋼 Detail: "
+  local lines = { util.clamp_line(title_prefix .. tostring(detail.title or "-"), safe_width) }
+  local flattened = {}
+  for _, line in ipairs(detail.lines or {}) do
+    for _, piece in ipairs(wrap_detail_footer_line(line, safe_width - 2)) do
+      local safe_piece = tostring(piece or "")
+      if safe_piece ~= "" then
+        table.insert(flattened, safe_piece)
+      end
     end
   end
-  local filled = {}
-  for index = 1, math.max(visible or 0, 0) do
-    filled[index] = rows[index] or ""
+  -- 下部詳細は少し行数を増やして、省略感を減らす。
+  local max_body_rows = 3
+  for index = 1, math.min(#flattened, max_body_rows) do
+    table.insert(lines, util.clamp_line("  " .. flattened[index], safe_width))
   end
-  return filled
+  if #flattened > max_body_rows then
+    if allow_open_detail then
+      local more = is_ja and "  …続きはEnterで詳細を開く" or "  …Open detail with Enter"
+      table.insert(lines, util.clamp_line(more, safe_width))
+    end
+  end
+  return lines
 end
 
 local function append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
@@ -566,9 +626,28 @@ local function render()
   local base_title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
   local title = string.format("󰀘 %s", base_title)
   local footer_hints = (ui_state.opts and ui_state.opts.footer_hints) or {}
-  local footer_notes = resolve_enter_hint_lines(tab, current_choice(tab), lang)
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   local labels, visible_items = build_tab_lines(tab, config)
+  local selected_item = (tab.items or {})[ui_state.selected]
+  -- 右ペインは廃止し、選択中詳細を下部へ圧縮表示する。
+  local detail_width = tonumber(config.min_width) or 56
+  local detail_notes = {}
+  if supports_inline_detail(tab) then
+    detail_notes = build_detail_footer_lines(
+      resolve_tab_detail(tab, selected_item),
+      lang,
+      detail_width,
+      can_open_detail_on_enter(tab, selected_item)
+    )
+  end
+  local enter_notes = resolve_enter_hint_lines(tab, selected_item, lang)
+  local footer_notes = {}
+  for _, line in ipairs(detail_notes) do
+    table.insert(footer_notes, line)
+  end
+  for _, line in ipairs(enter_notes) do
+    table.insert(footer_notes, line)
+  end
   if type(window.ensure_palette_highlights) == "function" then
     local palette = ((ui_state.config or {}).ui or {}).sprite_palette or {}
     window.ensure_palette_highlights(palette)
@@ -639,41 +718,8 @@ local function render()
   for _, note in ipairs(footer_notes or {}) do
     table.insert(width_lines, note)
   end
-  local selected_item = (tab.items or {})[ui_state.selected]
-  -- メインタブの詳細プレビューは設定で有効化されたときだけ描画する。
-  local detail_data = (config.detail_preview == true and (not is_credits_tab(tab))) and resolve_tab_detail(tab, selected_item) or nil
-  local show_detail = detail_data ~= nil
-  local right_lines = {}
-  if show_detail then
-    for _, line in ipairs((detail_data and detail_data.lines) or {}) do
-      table.insert(width_lines, line)
-    end
-    table.insert(width_lines, tostring((detail_data and detail_data.title) or ""))
-  end
   width = menu_view_util.resolve_display_width(config, width, width_lines)
-  if show_detail then
-    local available_width = tonumber(config.available_width) or width
-    if available_width < 96 then
-      -- 2カラム最小幅が確保できない環境では1カラムへ自動的に戻して可読性を守る。
-      show_detail = false
-      right_lines = {}
-      width_lines = build_width_lines(title, tabs_line, footer_hints, top_lines, left_lines, ui_state.tabs, config)
-      for _, note in ipairs(footer_notes or {}) do
-        table.insert(width_lines, note)
-      end
-      width = menu_view_util.resolve_display_width(config, width, width_lines)
-    else
-      -- 2カラム表示時は左右ペインの最小幅を満たすウィンドウ幅を確保する。
-      width = math.max(width, 96)
-    end
-  end
   width, height = resolve_stable_layout(config, width, height)
-  if show_detail then
-    local _, right_width = frame.resolve_panel_width(width)
-    right_lines = build_detail_lines(detail_data, visible, right_width)
-  else
-    right_lines = {}
-  end
   if is_credits_tab(tab) then
     left_lines = center_lines(left_lines, width)
   end
@@ -684,9 +730,8 @@ local function render()
     tabs_line = tabs_line,
     left_title = "MENU",
     left_lines = left_lines,
-    right_lines = right_lines,
-    -- 詳細プレビュー有効時だけ右カラムを表示する。
-    show_right = show_detail,
+    -- メインメニューは常に1カラムで表示し、詳細は下部欄へ集約する。
+    show_right = false,
     footer_notes = footer_notes,
     footer_hints = footer_hints,
     width = width,
@@ -755,6 +800,61 @@ local function render()
   ui_state.buf = buf
 end
 
+local function is_card_style_lines(lines)
+  local first = tostring((lines or {})[1] or "")
+  return first:sub(1, 1) == "┏"
+end
+
+local function pad_right_for_card(text, width)
+  local safe = util.clamp_line(tostring(text or ""), width)
+  local gap = math.max(width - util.display_width(safe), 0)
+  return safe .. string.rep(" ", gap)
+end
+
+-- 詳細画面はゲーム画面らしいカード枠へ変換して読みやすさを上げる。
+local function build_detail_card_lines(detail, lang, max_width)
+  local lines = detail and detail.lines or {}
+  if is_card_style_lines(lines) then
+    return lines
+  end
+  local safe_max = math.max(tonumber(max_width) or 56, 34)
+  local body = {}
+  for _, line in ipairs(lines) do
+    for _, piece in ipairs(wrap_detail_footer_line(line, safe_max - 4)) do
+      local text = tostring(piece or "")
+      if text ~= "" then
+        table.insert(body, text)
+      end
+    end
+  end
+  if #body == 0 then
+    if lang == "ja" or lang == "jp" then
+      body = { "この項目の詳細はありません。" }
+    else
+      body = { "No additional detail for this item." }
+    end
+  end
+  local title = tostring(detail and detail.title or "-")
+  local inner_width = util.display_width(title) + 2
+  for _, line in ipairs(body) do
+    inner_width = math.max(inner_width, util.display_width(line) + 2)
+  end
+  inner_width = math.max(math.min(inner_width, safe_max - 2), 28)
+  local top = "┏" .. string.rep("━", inner_width) .. "┓"
+  local sep = "┣" .. string.rep("━", inner_width) .. "┫"
+  local bottom = "┗" .. string.rep("━", inner_width) .. "┛"
+  local card = {
+    top,
+    "┃" .. pad_right_for_card(" " .. title, inner_width) .. "┃",
+    sep,
+  }
+  for _, line in ipairs(body) do
+    table.insert(card, "┃" .. pad_right_for_card(" " .. line, inner_width) .. "┃")
+  end
+  table.insert(card, bottom)
+  return card
+end
+
 local function open_detail_page(tab, choice)
   if not choice then
     return false
@@ -774,7 +874,13 @@ local function open_detail_page(tab, choice)
   end
   local state = shared_context.get_state and shared_context.get_state() or {}
   local lang = ((state.ui or {}).language) or ((shared_context.config or {}).ui or {}).language or "en"
-  menu_view.select(detail.lines, {
+  local config = menu_view_util.menu_config(ui_state.config)
+  local card_lines = build_detail_card_lines(
+    detail,
+    lang,
+    math.max((tonumber(config.available_width) or tonumber(config.width) or 72) - 4, 34)
+  )
+  menu_view.select(card_lines, {
     prompt = detail.title or "",
     lang = lang,
     keep_open = true,
@@ -790,11 +896,6 @@ local function open_detail_page(tab, choice)
   }, function()
   end, ui_state.config)
   return true
-end
-
--- Enterで詳細画面を開くかどうかを項目ごとに判定する。
-local function can_open_detail_on_enter(choice)
-  return type(choice) == "table" and choice.open_detail_on_enter == true
 end
 
 local function move(delta)
@@ -843,7 +944,7 @@ local function select_current()
     return
   end
   -- 実行操作を阻害しないよう、詳細画面は明示指定された項目だけで開く。
-  if can_open_detail_on_enter(choice) and open_detail_page(tab, choice) then
+  if can_open_detail_on_enter(tab, choice) and open_detail_page(tab, choice) then
     return
   end
   if type(tab.can_execute_on_enter) == "function" and tab.can_execute_on_enter(choice) ~= true then

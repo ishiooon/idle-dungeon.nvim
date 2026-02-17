@@ -1,4 +1,4 @@
--- このテストはメインタブが1カラム表示で描画されることを確認する。
+-- このテストはメインタブが1カラム表示を維持しつつ、選択中詳細を下部へ表示することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -74,8 +74,7 @@ local ok, err = pcall(function()
   }
 
   local tabs_view = require("idle_dungeon.menu.tabs_view")
-  -- 詳細プレビューは明示的に無効化した場合のみ1カラム表示になる。
-  local config = { ui = { language = "en", menu = { detail_preview = false } } }
+  local config = { ui = { language = "en", menu = {} } }
   tabs_view.set_context(function()
     return {
       ui = { language = "en" },
@@ -112,8 +111,9 @@ local ok, err = pcall(function()
   local text = table.concat(rendered or {}, "\n")
   assert_contains(text, "TOP", "メインタブ本文が表示される")
   assert_not_contains(text, " │ ", "メインタブに左右ペインの区切りを表示しない")
-  assert_not_contains(text, "DETAIL HEADER", "メインタブの右ペイン詳細は表示しない")
-  assert_not_contains(text, "VALUE: 42", "メインタブの右ペイン詳細は表示しない")
+  assert_contains(text, "Detail: TOP", "選択中項目の詳細タイトルを下部へ表示する")
+  assert_contains(text, "DETAIL HEADER", "選択中項目の詳細本文を下部へ表示する")
+  assert_contains(text, "VALUE: 42", "選択中項目の詳細値を下部へ表示する")
   tabs_view.close()
 end)
 

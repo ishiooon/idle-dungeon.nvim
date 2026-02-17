@@ -1,4 +1,4 @@
--- このテストはサブメニューでも選択中項目のEnter説明がフッター上段に表示されることを確認する。
+-- このテストはサブメニューでも選択中項目の詳細とEnter説明がフッター上段に表示されることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -57,6 +57,15 @@ local ok, err = pcall(function()
   }, {
     lang = "en",
     footer_hints = { "FOOTER-HINT" },
+    detail_provider = function()
+      return {
+        title = "Sample Detail",
+        lines = {
+          "DETAIL HEADER",
+          "VALUE: 42",
+        },
+      }
+    end,
     enter_hint_provider = function()
       return {
         "󰌑 Enter: Apply selected item",
@@ -76,9 +85,38 @@ local ok, err = pcall(function()
     end
   end
   assert_true(footer_line > 2, "サブメニューの最下部に基本操作フッターが描画される")
-  assert_contains(rendered_lines[footer_line - 3] or "", "─", "サブメニューでもフッター説明の手前に区切り線が表示される")
-  assert_contains(rendered_lines[footer_line - 2] or "", "Enter: Apply selected item", "サブメニューでもEnter説明が表示される")
-  assert_contains(rendered_lines[footer_line - 1] or "", "Keep this menu open", "サブメニューでも補足説明が表示される")
+  local found_divider = false
+  local found_detail_title = false
+  local found_detail_header = false
+  local found_detail_value = false
+  local found_enter = false
+  local found_hint = false
+  for index, line in ipairs(rendered_lines or {}) do
+    if index < footer_line and string.find(line or "", "─", 1, true) then
+      found_divider = true
+    end
+    if index < footer_line and string.find(line or "", "Detail: Sample Detail", 1, true) then
+      found_detail_title = true
+    end
+    if index < footer_line and string.find(line or "", "DETAIL HEADER", 1, true) then
+      found_detail_header = true
+    end
+    if index < footer_line and string.find(line or "", "VALUE: 42", 1, true) then
+      found_detail_value = true
+    end
+    if index < footer_line and string.find(line or "", "Enter: Apply selected item", 1, true) then
+      found_enter = true
+    end
+    if index < footer_line and string.find(line or "", "Keep this menu open", 1, true) then
+      found_hint = true
+    end
+  end
+  assert_true(found_divider, "サブメニューでもフッター説明の手前に区切り線が表示される")
+  assert_true(found_detail_title, "サブメニューでも詳細タイトルが下部に表示される")
+  assert_true(found_detail_header, "サブメニューでも詳細本文が下部に表示される")
+  assert_true(found_detail_value, "サブメニューでも詳細値が下部に表示される")
+  assert_true(found_enter, "サブメニューでもEnter説明が表示される")
+  assert_true(found_hint, "サブメニューでも補足説明が表示される")
   local has_hint_highlight = false
   for _, item in ipairs(rendered_highlights) do
     if type(item) == "table" and item.group == "IdleDungeonMenuHint" then

@@ -1,4 +1,4 @@
--- このテストは状態タブの詳細表示トグルが再オープン後も保持されることを確認する。
+-- このテストは状態タブが折りたたみトグルなしの固定構成で再オープン後も維持されることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -62,28 +62,30 @@ local function find_tab(tabs, tab_id)
   return nil
 end
 
-local function find_status_control(tab, action)
+local function has_label(tab, token)
   for _, item in ipairs((tab and tab.items) or {}) do
-    if item.id == "status_control" and item.action == action then
-      return item
+    if string.find(tostring(item.label or ""), token, 1, true) then
+      return true
     end
   end
-  return nil
+  return false
+end
+
+local function has_status_control(tab)
+  for _, item in ipairs((tab and tab.items) or {}) do
+    if item.id == "status_control" then
+      return true
+    end
+  end
+  return false
 end
 
 menu.open(get_state, set_state, config)
 local status_tab = find_tab(selected_tabs, "status")
 assert_true(status_tab ~= nil, "状態タブが生成される")
-local toggle_advanced = find_status_control(status_tab, "toggle_advanced")
-assert_true(toggle_advanced ~= nil, "状態タブに詳細表示トグルが存在する")
-
-status_tab.on_choice(toggle_advanced)
-status_tab = find_tab(selected_tabs, "status")
-assert_true(status_tab ~= nil, "トグル後も状態タブが存在する")
-assert_true(
-  find_status_control(status_tab, "toggle_loadout") ~= nil,
-  "詳細表示を開いた直後に装備詳細トグルが表示される"
-)
+assert_true(not has_status_control(status_tab), "状態タブに折りたたみトグルを表示しない")
+assert_true(has_label(status_tab, "Loadout & Skills"), "状態タブに装備と技能セクションが表示される")
+assert_true(has_label(status_tab, "Input Metrics"), "状態タブに入力統計セクションが表示される")
 
 menu.toggle(get_state, set_state, config)
 assert_true(not menu.is_open(), "メニューを閉じるとopen状態が解除される")
@@ -91,9 +93,8 @@ assert_true(not menu.is_open(), "メニューを閉じるとopen状態が解除�
 menu.open(get_state, set_state, config)
 status_tab = find_tab(selected_tabs, "status")
 assert_true(status_tab ~= nil, "再オープン後も状態タブが生成される")
-assert_true(
-  find_status_control(status_tab, "toggle_loadout") ~= nil,
-  "再オープン後も詳細表示トグルの状態が保持される"
-)
+assert_true(not has_status_control(status_tab), "再オープン後も折りたたみトグルを表示しない")
+assert_true(has_label(status_tab, "Loadout & Skills"), "再オープン後も装備と技能セクションが表示される")
+assert_true(has_label(status_tab, "Input Metrics"), "再オープン後も入力統計セクションが表示される")
 
 print("OK")
