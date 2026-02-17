@@ -48,6 +48,15 @@ local function set_state(next_state)
   state = next_state
 end
 
+local function has_log_line(token)
+  for _, line in ipairs((state and state.logs) or {}) do
+    if string.find(tostring(line or ""), token, 1, true) then
+      return true
+    end
+  end
+  return false
+end
+
 menu.open(get_state, set_state, config)
 
 local function find_tab(tabs, tab_id)
@@ -81,5 +90,6 @@ local updated_dex = find_tab(updated_tabs, "dex")
 assert_true(updated_dex ~= nil, "更新後も図鑑タブが存在する")
 local collapse_control = find_control(updated_dex, "Collapse")
 assert_true(collapse_control ~= nil, "展開後は折りたたみトグルへ切り替わる")
+assert_true(has_log_line("Dex"), "図鑑タブの操作を行うと操作ログが追加される")
 
 print("OK")

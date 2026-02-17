@@ -1,4 +1,4 @@
--- このテストはEnterで実行対象がない行を選んだ場合に、何も実行せずメニューも閉じないことを確認する。
+-- このテストはEnterで非実行行を選んだ場合に、実行せず詳細画面を開いてメニューを閉じないことを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -110,7 +110,7 @@ local ok, err = pcall(function()
   maps["<CR>"]()
   assert_true(on_choice_called == 0, "実行対象がない行でEnterを押してもon_choiceは呼ばれない")
   assert_true(on_close_called == 0, "実行対象がない行でEnterを押してもメニューは閉じない")
-  assert_true(detail_opened == 0, "実行対象がない行でEnterを押しても詳細画面は開かない")
+  assert_true(detail_opened == 1, "実行対象がない行でEnterを押すと詳細画面が開く")
 
   tabs_view.close(true)
 end)

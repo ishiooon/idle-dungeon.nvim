@@ -8,6 +8,7 @@ local menu = require("idle_dungeon.menu")
 local metrics = require("idle_dungeon.game.metrics")
 local event_catalog = require("idle_dungeon.game.event_catalog")
 local event_choice = require("idle_dungeon.game.event_choice")
+local game_log = require("idle_dungeon.game.log")
 local render_state = require("idle_dungeon.ui.render_state")
 local session = require("idle_dungeon.core.session")
 local state_module = require("idle_dungeon.core.state")
@@ -199,11 +200,25 @@ handle_choice = function(choice_index)
   end
   local event = event_catalog.find_event(state.ui.event_id)
   if not event_choice.is_choice_event(event) then
-    local next_state = state_module.set_ui_mode(state, "move", { event_id = nil, choice_remaining = 0 })
+    local moved = state_module.set_ui_mode(state, "move", { event_id = nil, choice_remaining = 0 })
+    local lang = resolve_lang()
+    local message = (lang == "ja" or lang == "jp")
+        and "選択イベントが無効のため通常移動へ復帰"
+      or "Choice event is no longer valid; returned to move mode"
+    local next_state = game_log.append(moved, message)
     return set_state_and_render(next_state)
   end
   -- 選択結果を反映し、保存と描画を更新する。
-  local next_state = event_choice.apply_choice_event(state, event, current_config, choice_index)
+  local applied = event_choice.apply_choice_event(state, event, current_config, choice_index)
+  local lang = resolve_lang()
+  local label = (event and event.choices and event.choices[choice_index] and event.choices[choice_index].label) or nil
+  local choice_text = type(label) == "table"
+      and ((lang == "en") and (label.en or label.ja or label.jp or tostring(choice_index)) or (label.ja or label.jp or label.en or tostring(choice_index)))
+    or tostring(label or choice_index or "")
+  local message = (lang == "ja" or lang == "jp")
+      and ("選択入力: " .. choice_text)
+    or ("Choice Selected: " .. choice_text)
+  local next_state = game_log.append(applied, message)
   set_state_and_render(next_state)
 end
 set_state_and_render = function(next_state)

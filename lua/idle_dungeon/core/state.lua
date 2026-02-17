@@ -5,6 +5,8 @@ local content = require("idle_dungeon.content")
 local floor_state = require("idle_dungeon.game.floor.state")
 local helpers = require("idle_dungeon.core.state_helpers")
 local inventory = require("idle_dungeon.game.inventory")
+local game_log = require("idle_dungeon.game.log")
+local transition_log = require("idle_dungeon.game.log_transition")
 local metrics = require("idle_dungeon.game.metrics")
 local pets = require("idle_dungeon.game.pets")
 local player = require("idle_dungeon.game.player")
@@ -75,6 +77,8 @@ local function new_state(config)
       speed_boost = nil,
     },
     metrics = metrics.new_metrics(),
+    -- 履歴表示用ログは常に最大1000行で保持する。
+    logs = {},
     unlocks = {
       items = {},
       titles = {},
@@ -141,6 +145,7 @@ local function normalize_state(state)
     skills = learned_skills,
     skill_settings = skill_settings,
     ui = util.merge_tables(next_state.ui or {}, { game_speed = ((next_state.ui or {}).game_speed or "1x") }),
+    logs = game_log.lines(next_state),
   })
   -- 旧データ互換のためペット保持情報も正規化する。
   return pets.enforce_capacity(normalized, content.jobs, content.enemies, nil)
@@ -219,10 +224,11 @@ local function apply_ui_timers(state)
   return util.merge_tables(state, { ui = util.merge_tables(ui, updated) })
 end
 local function tick(state, config)
-  local next_state = transition.tick(state, config)
-  local applied = apply_ui_timers(next_state)
+  local transitioned = transition.tick(state, config)
+  local applied = apply_ui_timers(transitioned)
+  local with_logs = transition_log.append_tick_logs(state, applied, config)
   -- スキル切り替え後も保持上限を常に満たすよう補正する。
-  return pets.enforce_capacity(applied, content.jobs, content.enemies, ((config.ui or {}).icons or {}).companion)
+  return pets.enforce_capacity(with_logs, content.jobs, content.enemies, ((config.ui or {}).icons or {}).companion)
 end
 local function change_job(state, job_id)
   local job = helpers.find_job(job_id)

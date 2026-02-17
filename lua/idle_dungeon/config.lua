@@ -74,7 +74,7 @@ local function default_config()
     -- 戦闘進行の更新間隔はゲーム進行と独立して管理する。
     battle_tick_seconds = 0.5,
     -- メニューから切り替えるゲーム速度の既定値と候補を定義する。
-    default_game_speed = "1x",
+    default_game_speed = "2x",
     game_speed_options = {
       { id = "1x", label = "1x", tick_seconds = 0.5 },
       { id = "2x", label = "2x", tick_seconds = 0.25 },

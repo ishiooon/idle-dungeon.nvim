@@ -1,4 +1,4 @@
--- このテストはメインメニューで選択中項目のEnter説明がフッター上段に表示されることを確認する。
+-- このテストはメインメニューでEnter説明を優先表示し、詳細は初期非表示であることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -119,7 +119,7 @@ local ok, err = pcall(function()
     end
   end
   assert_true(found_divider, "フッター説明の手前に区切り線が表示される")
-  assert_true(found_detail, "フッター上段に選択中項目の詳細タイトルが表示される")
+  assert_true(not found_detail, "フッター上段に選択中項目の詳細は初期表示しない")
   assert_true(found_enter, "フッターの下段にEnter説明が表示される")
   assert_true(found_change, "フッター直上に変更内容が表示される")
   local has_hint_highlight = false

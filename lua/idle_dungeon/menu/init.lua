@@ -3,6 +3,7 @@
 local actions = require("idle_dungeon.menu.actions")
 local game_speed = require("idle_dungeon.core.game_speed")
 local i18n = require("idle_dungeon.i18n")
+local menu_logging = require("idle_dungeon.menu.logging")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
 local settings = require("idle_dungeon.menu.settings")
@@ -46,6 +47,15 @@ local function with_item_icon(item, text)
     return text
   end
   return string.format("%s %s", item.icon, text)
+end
+
+-- メニュー操作ログを状態へ追記する。行数上限はgame/logで制御する。
+local function append_menu_log(get_state, set_state, text)
+  local safe_text = tostring(text or "")
+  if safe_text == "" then
+    return
+  end
+  set_state(menu_logging.append(get_state(), safe_text))
 end
 
 -- タブ行は項目名を主体にし、識別タグや連番は表示しない。
@@ -161,6 +171,19 @@ local function config_effect_hint(item, state, config, lang)
   return "Apply setting on select"
 end
 
+local function notify_config_applied(message, lang)
+  if not (_G.vim and type(vim.notify) == "function") then
+    return
+  end
+  local title = (lang == "ja" or lang == "jp") and "設定を反映" or "Config Applied"
+  local level = (vim.log and vim.log.levels and vim.log.levels.INFO) or nil
+  -- 設定反映を短時間通知して、変更結果を即時に認識できるようにする。
+  pcall(vim.notify, tostring(message or ""), level, {
+    title = title,
+    timeout = 1000,
+  })
+end
+
 -- 設定項目の現在値と次値を分離して返す。
 local function resolve_config_current_next(item, state, config, lang)
   local hint = config_effect_hint(item, state, config, lang)
@@ -247,7 +270,10 @@ local function build_status_enter_hint(item, lang)
     end
     return { "󰌑 Enter: Open detail view." }
   end
-  return {}
+  if is_ja then
+    return { "󰌑 Enter: 詳細画面を開きます。" }
+  end
+  return { "󰌑 Enter: Open detail view." }
 end
 
 -- 設定タブの選択行に対して、Enterで反映される内容を下部説明として返す。
@@ -363,6 +389,29 @@ local function handle_action_choice(action, get_state, set_state, config, lang, 
       open_status_root(get_state, set_state, config, handlers)
     end
   end
+  local is_ja = lang == "ja" or lang == "jp"
+  local action_logs_ja = {
+    equip = "装備変更メニューを開く",
+    stage = "ステージ選択メニューを開く",
+    purchase = "購入メニューを開く",
+    sell = "売却メニューを開く",
+    job = "ジョブ変更メニューを開く",
+    skills = "スキル設定メニューを開く",
+  }
+  local action_logs_en = {
+    equip = "Open equipment menu",
+    stage = "Open stage select menu",
+    purchase = "Open purchase menu",
+    sell = "Open sell menu",
+    job = "Open job change menu",
+    skills = "Open skill settings menu",
+  }
+  append_menu_log(
+    get_state,
+    set_state,
+    is_ja and (action_logs_ja[action_id] or "状態タブ操作を実行")
+      or (action_logs_en[action_id] or "Executed status action")
+  )
   if action_id == "equip" then
     -- 装備メニューのキャンセル時に状態画面へ戻す。
     return actions.open_equip_menu(get_state, set_state, config, on_cancel)
@@ -403,45 +452,109 @@ local function handle_status_choice(item, get_state, set_state, config, lang, ha
   return handle_action_choice(item, get_state, set_state, config, lang, handlers)
 end
 
-local function handle_config_choice(action, get_state, set_state, config, handlers)
+local function handle_config_choice(action, get_state, set_state, config, handlers, lang)
   if not action then
     return
   end
+  local effect_message = config_effect_hint(action, get_state(), config, lang)
+  local applied = false
   if action.id == "toggle_text" then
-    return set_state(state_module.toggle_render_mode(get_state()))
+    set_state(state_module.toggle_render_mode(get_state()))
+    applied = true
   end
-  if action.id == "auto_start" then
-    return settings.toggle_auto_start(get_state, set_state)
+  if (not applied) and action.id == "auto_start" then
+    settings.toggle_auto_start(get_state, set_state)
+    applied = true
   end
-  if action.id == "display_lines" then
-    return settings.toggle_display_lines(get_state, set_state, config)
+  if (not applied) and action.id == "display_lines" then
+    settings.toggle_display_lines(get_state, set_state, config)
+    applied = true
   end
-  if action.id == "game_speed" then
-    return settings.cycle_game_speed(get_state, set_state, config)
+  if (not applied) and action.id == "game_speed" then
+    settings.cycle_game_speed(get_state, set_state, config)
+    applied = true
   end
-  if action.id == "battle_hp_show_max" then
-    return settings.toggle_battle_hp_show_max(get_state, set_state, config)
+  if (not applied) and action.id == "battle_hp_show_max" then
+    settings.toggle_battle_hp_show_max(get_state, set_state, config)
+    applied = true
   end
-  if action.id == "reload_plugin" and handlers and type(handlers.on_reload) == "function" then
-    return handlers.on_reload()
+  if (not applied) and action.id == "reload_plugin" and handlers and type(handlers.on_reload) == "function" then
+    handlers.on_reload()
+    applied = true
   end
-  if action.id == "language" then
+  if (not applied) and action.id == "language" then
+    append_menu_log(
+      get_state,
+      set_state,
+      (lang == "ja" or lang == "jp") and "言語設定メニューを開く" or "Open language settings"
+    )
     return settings.open_language_menu(get_state, set_state, config)
   end
-  if action.id == "reset" then
+  if (not applied) and action.id == "reset" then
     -- 全データ初期化の確認画面を開く。
+    append_menu_log(
+      get_state,
+      set_state,
+      (lang == "ja" or lang == "jp") and "全データ初期化の確認画面を開く" or "Open reset confirmation"
+    )
     return settings.open_reset_menu(get_state, set_state, config)
+  end
+  if applied then
+    append_menu_log(
+      get_state,
+      set_state,
+      (lang == "ja" or lang == "jp")
+          and ("設定変更: " .. tostring(effect_message or ""))
+        or ("Config changed: " .. tostring(effect_message or ""))
+    )
+    notify_config_applied(effect_message, lang)
   end
 end
 -- メニューの開閉状態を閉じる側へ更新する。
 local function mark_closed()
   menu_open = false
+  reset_view_state()
   if on_close_callback then
     on_close_callback()
   end
 end
 
-local function handle_dex_choice(action)
+local function append_dex_action_log(action, get_state, set_state, lang)
+  local is_ja = lang == "ja" or lang == "jp"
+  local labels_ja = {
+    cycle_mode = "図鑑表示モードを切り替え",
+    toggle_controls = "図鑑フィルタ表示を切り替え",
+    expand_enemy = "図鑑の敵一覧を展開",
+    collapse_enemy = "図鑑の敵一覧を折りたたみ",
+    expand_item = "図鑑の装備一覧を展開",
+    collapse_item = "図鑑の装備一覧を折りたたみ",
+    cycle_sort = "図鑑の並び順を切り替え",
+    cycle_filter_element = "図鑑の属性フィルタを切り替え",
+    cycle_filter_keyword = "図鑑のキーワードフィルタを切り替え",
+  }
+  local labels_en = {
+    cycle_mode = "Dex view mode changed",
+    toggle_controls = "Dex filter controls toggled",
+    expand_enemy = "Dex enemy list expanded",
+    collapse_enemy = "Dex enemy list collapsed",
+    expand_item = "Dex item list expanded",
+    collapse_item = "Dex item list collapsed",
+    cycle_sort = "Dex sort order changed",
+    cycle_filter_element = "Dex element filter changed",
+    cycle_filter_keyword = "Dex keyword filter changed",
+  }
+  local key = action and action.action
+  if not key then
+    return
+  end
+  append_menu_log(
+    get_state,
+    set_state,
+    is_ja and (labels_ja[key] or "図鑑操作を実行") or (labels_en[key] or "Executed dex action")
+  )
+end
+
+local function handle_dex_choice(action, get_state, set_state, lang)
   if not action or action.id ~= "dex_control" then
     return
   end
@@ -456,26 +569,32 @@ local function handle_dex_choice(action)
     -- 表示対象を切り替える際は展開状態を初期化して一覧の高さを抑える。
     view_state.dex.show_all_enemies = false
     view_state.dex.show_all_items = false
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "toggle_controls" then
     view_state.dex.show_controls = not (view_state.dex.show_controls == true)
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "expand_enemy" then
     view_state.dex.show_all_enemies = true
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "collapse_enemy" then
     view_state.dex.show_all_enemies = false
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "expand_item" then
     view_state.dex.show_all_items = true
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "collapse_item" then
     view_state.dex.show_all_items = false
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "cycle_sort" then
@@ -486,6 +605,7 @@ local function handle_dex_choice(action)
     else
       view_state.dex.sort_mode = "encounter"
     end
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "cycle_filter_element" then
@@ -501,6 +621,7 @@ local function handle_dex_choice(action)
     view_state.dex.filter_element = next_value
     view_state.dex.show_all_enemies = false
     view_state.dex.show_all_items = false
+    append_dex_action_log(action, get_state, set_state, lang)
     return
   end
   if action.action == "cycle_filter_keyword" then
@@ -516,6 +637,7 @@ local function handle_dex_choice(action)
     view_state.dex.filter_keyword = next_value
     view_state.dex.show_all_enemies = false
     view_state.dex.show_all_items = false
+    append_dex_action_log(action, get_state, set_state, lang)
   end
 end
 
@@ -551,7 +673,7 @@ build_tabs = function(get_state, set_state, config, handlers)
         return format_item_with_state(item, get_state, config, lang, index, total)
       end,
       on_choice = function(action)
-        return handle_config_choice(action, get_state, set_state, config, handlers)
+        return handle_config_choice(action, get_state, set_state, config, handlers, lang)
       end,
       detail_provider = function(item)
         return build_config_detail(item, get_state, config, lang)
@@ -571,13 +693,24 @@ build_tabs = function(get_state, set_state, config, handlers)
         return item.label
       end,
       on_choice = function(action)
-        return handle_dex_choice(action)
+        return handle_dex_choice(action, get_state, set_state, lang)
       end,
       enter_hint_provider = function(item)
         return build_dex_enter_hint(item, lang)
       end,
       can_execute_on_enter = function(item)
         return type(item) == "table" and item.id == "dex_control"
+      end,
+    },
+    {
+      id = "log",
+      label = i18n.t("menu_tab_log", lang),
+      items = tabs_data.build_log_items(state, lang),
+      format_item = function(item)
+        return item.label
+      end,
+      can_execute_on_enter = function()
+        return false
       end,
     },
     {
@@ -645,6 +778,7 @@ M.close = function(options)
   menu_view.close()
   tabs_view.close(silent)
   menu_open = false
+  reset_view_state()
   if silent then
     on_close_callback = saved_callback
   end

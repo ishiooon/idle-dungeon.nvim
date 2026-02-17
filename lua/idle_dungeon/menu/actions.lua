@@ -8,6 +8,7 @@ local inventory = require("idle_dungeon.game.inventory")
 local choice_style = require("idle_dungeon.menu.choice_style")
 local equip_detail = require("idle_dungeon.menu.equip_detail")
 local menu_detail = require("idle_dungeon.menu.detail")
+local menu_logging = require("idle_dungeon.menu.logging")
 local menu_locale = require("idle_dungeon.menu.locale")
 local menu_view = require("idle_dungeon.menu.view")
 local skills = require("idle_dungeon.game.skills")
@@ -333,7 +334,14 @@ local function open_job_menu(get_state, set_state, config, on_close)
       end
       local current = get_state()
       if (current.actor or {}).id ~= job.id then
-        set_state(state_module.change_job(current, job.id))
+        local next_state = state_module.change_job(current, job.id)
+        local job_name = menu_locale.resolve_job_name(job, lang)
+        set_state(menu_logging.append_localized(
+          next_state,
+          lang,
+          string.format("ジョブ変更: %s", job_name ~= "" and job_name or tostring(job.id or "-")),
+          string.format("Job Changed: %s", job_name ~= "" and job_name or tostring(job.id or "-"))
+        ))
       end
       open_job_list()
     end, config)
@@ -433,9 +441,16 @@ local function open_skills_menu(get_state, set_state, config, on_close)
     if enabled == nil then
       enabled = true
     end
-    bucket[choice.id] = not enabled
+    local next_enabled = not enabled
+    bucket[choice.id] = next_enabled
     local next_state = util.merge_tables(current_state, { skill_settings = settings })
-    set_state(next_state)
+    local skill_name = resolve_skill_name(choice, lang)
+    set_state(menu_logging.append_localized(
+      next_state,
+      lang,
+      string.format("スキル設定: %s -> %s", skill_name, next_enabled and "有効" or "無効"),
+      string.format("Skill Toggled: %s -> %s", skill_name, next_enabled and "ON" or "OFF")
+    ))
   end, config)
 end
 
@@ -522,7 +537,14 @@ local function open_stage_menu(get_state, set_state, config, on_close)
     })
     -- 開始階層の遭遇状態を再計算して反映する。
     local refreshed = floor_state.refresh(progress, config)
-    set_state(util.merge_tables(current, { progress = refreshed }))
+    local stage_name = render_stage.resolve_stage_name(choice, nil, lang)
+    local next_state = util.merge_tables(current, { progress = refreshed })
+    set_state(menu_logging.append_localized(
+      next_state,
+      lang,
+      string.format("開始ステージ変更: %s", stage_name),
+      string.format("Start Stage Changed: %s", stage_name)
+    ))
   end, config)
 end
 
@@ -582,8 +604,19 @@ local function open_equip_menu(get_state, set_state, config, on_close)
           -- 装備枠の選択へ戻る。
           return open_slot_menu()
         end
-        local next_state = apply_equipment(get_state(), slot, item.id)
-        set_state(next_state)
+        local current_state = get_state()
+        if ((current_state.equipment or {})[slot]) == item.id then
+          return
+        end
+        local slot_name = menu_locale.slot_label(slot, lang)
+        local item_name = menu_logging.resolve_item_name(item, lang)
+        local next_state = apply_equipment(current_state, slot, item.id)
+        set_state(menu_logging.append_localized(
+          next_state,
+          lang,
+          string.format("装備変更: %s -> %s", slot_name, item_name),
+          string.format("Equipment Changed: %s -> %s", slot_name, item_name)
+        ))
       end, config)
     end, config)
   end

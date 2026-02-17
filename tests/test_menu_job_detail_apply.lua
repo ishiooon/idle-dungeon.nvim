@@ -68,10 +68,20 @@ local function set_state(next_state)
   state = next_state
 end
 
+local function has_log_line(token)
+  for _, line in ipairs((state and state.logs) or {}) do
+    if string.find(tostring(line or ""), token, 1, true) then
+      return true
+    end
+  end
+  return false
+end
+
 actions.open_job_menu(get_state, set_state, config)
 
 assert_true(#calls >= 3, "ジョブ一覧→詳細→ジョブ一覧の順で画面遷移する")
 assert_true(type(selected_job) == "table", "適用対象のジョブを選択できる")
 assert_equal((state.actor or {}).id, selected_job.id, "詳細画面の適用行でジョブ変更が反映される")
+assert_true(has_log_line("Job Changed"), "ジョブ変更を確定した時に操作ログが追加される")
 
 print("OK")

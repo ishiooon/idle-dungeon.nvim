@@ -1,5 +1,5 @@
 -- このテストはメニュー表示のデータ生成が期待通りであることを確認する。
--- 状態タブは折りたたみを使わず、主要情報を常時表示する。
+-- 状態タブは簡易表示と詳細表示を切り替えられる前提で検証する。
 
 local function assert_true(value, message)
   if not value then
@@ -38,7 +38,7 @@ state = util.merge_tables(state, {
   },
 })
 
-local status_items = menu_data.build_status_items(state, config, "en")
+local status_items = menu_data.build_status_items(state, config, "en", { show_details = true })
 assert_true(#status_items > 0, "状態タブの項目が生成される")
 
 local found_status_action_equip = false
@@ -54,13 +54,12 @@ local found_status_action_job_keep_open = false
 local found_status_action_equip_keep_open = false
 local found_status_action_skills_keep_open = false
 local found_status_next_reward = false
-local found_status_stage_name_redundant = false
+local found_status_stage_name_visible = false
 local found_status_equipment_row = false
 local found_status_skill_row = false
 local found_status_step_count_label = false
 local found_status_next_enemy_line = false
 local found_status_danger_reason_detail = false
-local found_status_control = false
 local found_metrics_detail_flag = false
 local found_metrics_detail_id = false
 local found_section_situation = false
@@ -129,7 +128,7 @@ for _, item in ipairs(status_items) do
       found_status_action_stage_keep_open = true
     end
     if label:match("dungeon1%-1") then
-      found_status_stage_name_redundant = true
+      found_status_stage_name_visible = true
     end
   end
   if item.action_id == "purchase" then
@@ -160,9 +159,6 @@ for _, item in ipairs(status_items) do
   if label:match("Next Reward") then
     found_status_next_reward = true
   end
-  if item.id == "status_control" then
-    found_status_control = true
-  end
   if item.id == "metrics_detail" then
     found_metrics_detail_id = true
   end
@@ -190,11 +186,10 @@ assert_true(found_status_action_job_keep_open, "状態タブのジョブ遷移�
 assert_true(found_status_action_equip_keep_open, "状態タブの装備遷移はメインメニューを維持する")
 assert_true(found_status_action_skills_keep_open, "状態タブのスキル遷移はメインメニューを維持する")
 assert_true(found_status_next_reward, "状態タブに次の報酬行が含まれる")
-assert_true(not found_status_stage_name_redundant, "状態タブでステージ名を重複表示しない")
+assert_true(found_status_stage_name_visible, "状態タブ本文で現在ステージ名が確認できる")
 assert_true(not found_status_step_count_label, "状態タブで敵まで残り歩数を表示しない")
 assert_true(not found_status_next_enemy_line, "状態タブの詳細に次の敵の行を表示しない")
 assert_true(found_status_danger_reason_detail, "状態タブの詳細に危険度判断の理由を表示する")
-assert_true(not found_status_control, "状態タブに折りたたみトグルを表示しない")
 assert_true(found_status_equipment_row, "状態タブに装備情報の行を常時表示する")
 assert_true(found_status_skill_row, "状態タブにジョブスキル情報の行を常時表示する")
 assert_true(found_metrics_detail_flag, "状態タブに入力統計の詳細導線が含まれる")
@@ -204,6 +199,26 @@ assert_true(found_section_power, "状態タブに強さセクションが含ま�
 assert_true(found_section_loadout, "状態タブに装備と技能セクションが含まれる")
 assert_true(found_section_progress, "状態タブに進行セクションが含まれる")
 assert_true(found_section_metrics, "状態タブに入力統計セクションが含まれる")
+
+local compact_status_items = menu_data.build_status_items(state, config, "en", { show_details = false })
+local compact_has_control = false
+local compact_has_loadout = false
+local compact_has_metrics = false
+for _, item in ipairs(compact_status_items) do
+  local label = tostring(item.label or "")
+  if item.id == "status_control" then
+    compact_has_control = true
+  end
+  if label:match("Loadout & Skills") then
+    compact_has_loadout = true
+  end
+  if label:match("Input Metrics") then
+    compact_has_metrics = true
+  end
+end
+assert_true(not compact_has_control, "状態タブに折りたたみトグルを表示しない")
+assert_true(compact_has_loadout, "状態タブは常時装備と技能セクションを表示する")
+assert_true(compact_has_metrics, "状態タブは常時入力統計セクションを表示する")
 
 -- 進行後半の敵能力は戦闘生成式で大きく伸びるため、基礎値だけで危険度を判定しないことを確認する。
 local scaled_enemy_state = util.merge_tables(state, {
@@ -223,7 +238,7 @@ local scaled_enemy_state = util.merge_tables(state, {
     },
   }),
 })
-local scaled_enemy_items = menu_data.build_status_items(scaled_enemy_state, config, "en")
+local scaled_enemy_items = menu_data.build_status_items(scaled_enemy_state, config, "en", { show_details = true })
 local found_scaled_enemy_high_risk = false
 local found_scaled_enemy_timing_reason = false
 for _, item in ipairs(scaled_enemy_items) do
@@ -238,7 +253,7 @@ end
 assert_true(found_scaled_enemy_high_risk, "進行後半では基礎値ではなく成長後の敵能力で危険度を判定する")
 assert_true(found_scaled_enemy_timing_reason, "危険度理由に撃破見込み時間の比較を表示する")
 
-local status_items_ja = menu_data.build_status_items(state, config, "ja")
+local status_items_ja = menu_data.build_status_items(state, config, "ja", { show_details = true })
 local status_ja_joined = {}
 local found_status_danger_reason_detail_ja = false
 local found_status_next_equipment_unlock_ja = false

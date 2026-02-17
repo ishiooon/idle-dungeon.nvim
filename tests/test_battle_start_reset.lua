@@ -14,10 +14,11 @@ local config = {
   move_step = 1,
   encounter_every = 1,
   floor_encounters = { enabled = false },
+  floor_events = { enabled = false },
   dialogue_seconds = 0,
   stage_name = "Test",
   stages = {
-    { id = 1, name = "Test", start = 0, length = 5 },
+    { id = 99, name = "Test", start = 0, length = 5 },
   },
   battle = { enemy_hp = 1, enemy_atk = 1 },
   event_distances = {},
@@ -28,7 +29,7 @@ local state = {
   progress = {
     distance = 0,
     stage_start = 0,
-    stage_id = 1,
+    stage_id = 99,
     stage_name = "Test",
     boss_every = 0,
     boss_milestones = {},

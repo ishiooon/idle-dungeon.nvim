@@ -111,8 +111,10 @@ lua tests/test_menu_tabs_wrap_navigation.lua
 lua tests/test_menu_tabs_format_index.lua
 # メインタブが1カラム表示で描画されることを確認する。
 lua tests/test_menu_tabs_detail_preview.lua
-# 詳細プレビューを有効化した場合にメインタブが2カラム表示になることを確認する。
+# 明示操作で詳細を表示してもメインタブが1カラム表示を維持することを確認する。
 lua tests/test_menu_tabs_detail_preview_optional.lua
+# 実行可能行と表示専用行の先頭マーカーが分かれることを確認する。
+lua tests/test_menu_actionable_marker.lua
 # 図鑑タブは常に1カラムで表示されることを確認する。
 lua tests/test_menu_dex_single_column.lua
 # 詳細プレビューがあってもEnterで項目実行を優先することを確認する。
@@ -151,7 +153,7 @@ lua tests/test_menu_tabs.lua
 lua tests/test_menu_toggle.lua
 # メニューの開閉状態とクローズコールバックを確認する。
 lua tests/test_menu_open_state.lua
-# 状態タブの詳細表示トグルが再オープン後も保持されることを確認する。
+# 状態タブの詳細表示トグルが再オープン後に初期表示へ戻ることを確認する。
 lua tests/test_menu_status_view_persist.lua
 # メニューのサブ画面から戻れることを確認する。
 lua tests/test_menu_action_back.lua
@@ -159,6 +161,8 @@ lua tests/test_menu_action_back.lua
 lua tests/test_menu_dex_toggle.lua
 # 設定タブの再読み込み項目がハンドラを呼ぶことを確認する。
 lua tests/test_menu_config_reload.lua
+# 設定タブの即時反映で短時間通知が表示されることを確認する。
+lua tests/test_menu_config_toast.lua
 # Read-only表示の単体テストを確認する。
 lua tests/test_read_only.lua
 # 閲覧専用状態から主導権を奪取できることを確認する。
@@ -173,10 +177,16 @@ lua tests/test_reload_single_start.lua
 lua tests/test_engine_stop_menu_close.lua
 # メニュー表示のデータ生成を確認する。
 lua tests/test_menu_tabs_data.lua
+# 状態遷移差分から戦闘/報酬/イベントのログが追加されることを確認する。
+lua tests/test_log_transition.lua
+# ログタブとログ件数上限の表示を確認する。
+lua tests/test_menu_log_tab.lua
 # 操作タブと設定タブがカード風の行ラベルで整形されることを確認する。
 lua tests/test_menu_action_config_style.lua
 # 状態タブのクイック操作から装備/スキル画面へ遷移できることを確認する。
 lua tests/test_menu_status_action_shortcuts.lua
+# 装備変更/ステージ変更/スキル切替の確定で操作ログが追加されることを確認する。
+lua tests/test_menu_operation_logs.lua
 # メニューの状態タブに指標と進行バーが表示されることを確認する。
 lua tests/test_menu_status_widgets.lua
 # 図鑑データの単体テストを確認する。
@@ -191,6 +201,8 @@ lua tests/test_dex_drop_progress.lua
 lua tests/test_dex_detail_card.lua
 # 購入メニューの分類と解錠判定を確認する。
 lua tests/test_shop_purchase.lua
+# 購入と売却の確定で操作ログが追加されることを確認する。
+lua tests/test_shop_operation_log.lua
 # スプライト表示の単体テストを確認する。
 lua tests/test_sprites.lua
 # 右下表示のクリック判定を確認する。
@@ -230,6 +242,8 @@ lua tests/test_attack_frame_timing.lua
 lua tests/test_job_content.lua
 # ジョブレベル進行の単体テストを確認する。
 lua tests/test_job_progress.lua
+# 高レベル帯のジョブスキル定義を確認する。
+lua tests/test_job_high_level_skills.lua
 # ジョブ切替直後にステータスが変化しないことを確認する。
 lua tests/test_job_change_no_stat_shift.lua
 # スキル引き継ぎの単体テストを確認する。

@@ -38,6 +38,7 @@ local ui_state = {
     scroll_max = 0,
     started_at_sec = nil,
   },
+  show_footer_detail = false,
 }
 local shared_context = { get_state = nil, config = nil }
 
@@ -62,10 +63,21 @@ local function close(silent)
   ui_state.tab_segments = {}
   ui_state.body_start = nil
   ui_state.body_end = nil
+  ui_state.show_footer_detail = false
   reset_credits_state()
   if (not silent) and callback then
     callback()
   end
+end
+
+local function can_execute_choice(tab, item)
+  if type(item) ~= "table" then
+    return false
+  end
+  if type(tab and tab.can_execute_on_enter) == "function" then
+    return tab.can_execute_on_enter(item) == true
+  end
+  return tab and type(tab.on_choice) == "function"
 end
 
 local function current_tab()
@@ -364,20 +376,8 @@ local function can_open_detail_on_enter(tab, choice)
   if type(choice) ~= "table" then
     return false
   end
-  local detail = resolve_explicit_detail(tab, choice)
-  if choice.open_detail_on_enter == true then
-    return detail ~= nil
-  end
-  if detail == nil then
-    return false
-  end
-  if type(tab and tab.can_execute_on_enter) == "function" then
-    return tab.can_execute_on_enter(choice) ~= true
-  end
-  if tab and type(tab.on_choice) == "function" then
-    return false
-  end
-  return true
+  -- 実行不可の行はEnterで詳細へ統一し、操作契約を単純化する。
+  return not can_execute_choice(tab, choice)
 end
 
 -- 図鑑とクレジットは一覧性を優先し、下部の詳細欄を出さない。
@@ -433,22 +433,22 @@ local function resolve_enter_hint_lines(tab, item, lang)
     end
     return { "󰌑 Select a row to execute with Enter." }
   end
-  if can_open_detail_on_enter(tab, item) then
-    if lang == "ja" or lang == "jp" then
-      return { "󰌑 Enter: 詳細画面を開きます。" }
+  if can_execute_choice(tab, item) then
+    if item.keep_open then
+      if lang == "ja" or lang == "jp" then
+        return { "󰌑 Enter: メニューを開いたまま反映します。" }
+      end
+      return { "󰌑 Enter: Apply while keeping this menu open." }
     end
-    return { "󰌑 Enter: Open detail view." }
-  end
-  if item.keep_open then
     if lang == "ja" or lang == "jp" then
-      return { "󰌑 Enter: メニューを開いたまま反映します。" }
+      return { "󰌑 Enter: 選択項目を実行します。" }
     end
-    return { "󰌑 Enter: Apply while keeping this menu open." }
+    return { "󰌑 Enter: Execute selected item." }
   end
   if lang == "ja" or lang == "jp" then
-    return { "󰌑 Enter: 選択項目を実行します。" }
+    return { "󰌑 Enter: 詳細画面を開きます。" }
   end
-  return { "󰌑 Enter: Execute selected item." }
+  return { "󰌑 Enter: Open detail view." }
 end
 
 -- 下部詳細欄の長文を、指定幅に収まる行へ分割する。
@@ -564,6 +564,25 @@ local function append_dex_icon_highlights(highlights, left_lines, visible_items,
   end
 end
 
+local function append_row_token_highlights(highlights, left_lines, visible_items, shell)
+  local base_col = (shell.left_col or 1) - 1
+  for row, line in ipairs(left_lines or {}) do
+    local absolute = ui_state.offset + row
+    local item = (visible_items or {})[absolute]
+    if item and item.highlight_group and item.highlight_icon and item.highlight_icon ~= "" then
+      local token_start = string.find(line, item.highlight_icon, 1, true)
+      if token_start then
+        table.insert(highlights, {
+          line = shell.body_start + row - 1,
+          group = item.highlight_group,
+          start_col = base_col + token_start - 1,
+          end_col = base_col + token_start - 1 + #item.highlight_icon,
+        })
+      end
+    end
+  end
+end
+
 local function build_visual_state_for_live_header(state)
   if not state then
     return nil
@@ -625,20 +644,36 @@ local function render()
   local tabs_line = menu_tabs.build_tabs_line(ui_state.tabs, ui_state.active, config.tabs_style)
   local base_title = (ui_state.opts and ui_state.opts.title) or "Idle Dungeon"
   local title = string.format("󰀘 %s", base_title)
-  local footer_hints = (ui_state.opts and ui_state.opts.footer_hints) or {}
+  local footer_hints = util.shallow_copy((ui_state.opts and ui_state.opts.footer_hints) or {})
   local screen_height = math.max(vim.o.lines - vim.o.cmdheight - 4, 12)
   local labels, visible_items = build_tab_lines(tab, config)
   local selected_item = (tab.items or {})[ui_state.selected]
   -- 右ペインは廃止し、選択中詳細を下部へ圧縮表示する。
   local detail_width = tonumber(config.min_width) or 56
   local detail_notes = {}
-  if supports_inline_detail(tab) then
+  if supports_inline_detail(tab) and ui_state.show_footer_detail == true then
     detail_notes = build_detail_footer_lines(
       resolve_tab_detail(tab, selected_item),
       lang,
       detail_width,
       can_open_detail_on_enter(tab, selected_item)
     )
+  end
+  if supports_inline_detail(tab) then
+    if lang == "ja" or lang == "jp" then
+      table.insert(footer_hints, "󰋼 詳細: dで切替")
+    else
+      table.insert(footer_hints, "󰋼 Detail: d toggle")
+    end
+  end
+  if is_credits_tab(tab) then
+    if lang == "ja" or lang == "jp" then
+      table.insert(footer_hints, "󰒭 Space: 最後まで送る")
+      table.insert(footer_hints, "󰍉 j/k: 手動スクロール")
+    else
+      table.insert(footer_hints, "󰒭 Space: Skip to end")
+      table.insert(footer_hints, "󰍉 j/k: Manual scroll")
+    end
   end
   local enter_notes = resolve_enter_hint_lines(tab, selected_item, lang)
   local footer_notes = {}
@@ -706,9 +741,10 @@ local function render()
       prefix = config.item_prefix or "󰜴 ",
       non_select_prefix = "  ",
       is_selectable = is_selectable,
-      render_line = function(label, _, mark, _, selectable)
+      render_line = function(label, item, mark, _, selectable)
         if selectable then
-          return mark .. label
+          local marker = can_execute_choice(tab, item) and "󰌑 " or "󰇀 "
+          return mark .. marker .. label
         end
         return "  " .. label
       end,
@@ -795,6 +831,7 @@ local function render()
   end
   append_live_header_highlights(highlights, current_state, source_config, live_lines, centered_top_lines, shell)
   append_dex_icon_highlights(highlights, left_lines, visible_items, shell)
+  append_row_token_highlights(highlights, left_lines, visible_items, shell)
   window.apply_highlights(buf, highlights)
   ui_state.win = win
   ui_state.buf = buf
@@ -859,16 +896,7 @@ local function open_detail_page(tab, choice)
   if not choice then
     return false
   end
-  local detail = nil
-  if tab and tab.detail_provider then
-    detail = tab.detail_provider(choice)
-  end
-  if not detail and choice.detail_lines then
-    detail = {
-      title = choice.detail_title or (choice.label or ""),
-      lines = choice.detail_lines,
-    }
-  end
+  local detail = resolve_tab_detail(tab, choice)
   if not detail or not has_detail_lines(detail.lines) then
     return false
   end
@@ -904,7 +932,17 @@ local function move(delta)
     return
   end
   if is_credits_tab(tab) then
-    -- クレジットは最後まで流れた時点で停止し、手動入力で位置を変えない。
+    -- クレジット中のj/kは手動スクロールとして扱い、読了後の再読を可能にする。
+    if not ui_state.credits.finished then
+      ui_state.credits.finished = true
+      ui_state.credits.scroll_offset = nil
+    end
+    local start = tonumber(ui_state.credits.scroll_offset)
+    if start == nil then
+      start = ui_state.credits.scroll_max or 0
+    end
+    ui_state.credits.scroll_offset = start + delta
+    render()
     return
   end
   local indexes = selectable_indexes(tab)
@@ -925,10 +963,35 @@ local function move(delta)
   selection_fx.start(ui_state.selection_fx, render)
 end
 
+local function toggle_footer_detail()
+  local tab = current_tab()
+  if not supports_inline_detail(tab) then
+    return
+  end
+  ui_state.show_footer_detail = not (ui_state.show_footer_detail == true)
+  render()
+end
+
+local function skip_credits()
+  local tab = current_tab()
+  if not is_credits_tab(tab) then
+    return
+  end
+  -- クレジット演出を最後まで送って、読了後の手動スクロールへ移る。
+  if not ui_state.credits.finished then
+    ui_state.credits.finished = true
+    ui_state.credits.scroll_offset = nil
+    render()
+  end
+end
+
 local function switch_tab(delta)
   ui_state.active = menu_tabs.shift_index(ui_state.active, delta, #ui_state.tabs)
   ui_state.offset = 0
   ui_state.selected = 1
+  ui_state.show_footer_detail = false
+  -- タブ切替時はレイアウトを再計算して、過剰に広がったサイズを戻せるようにする。
+  ui_state.layout = { width = nil, height = nil }
   reset_credits_state()
   render()
   selection_fx.start(ui_state.selection_fx, render)
@@ -943,12 +1006,9 @@ local function select_current()
   if not choice then
     return
   end
-  -- 実行操作を阻害しないよう、詳細画面は明示指定された項目だけで開く。
-  if can_open_detail_on_enter(tab, choice) and open_detail_page(tab, choice) then
-    return
-  end
-  if type(tab.can_execute_on_enter) == "function" and tab.can_execute_on_enter(choice) ~= true then
-    -- 実行対象ではない行はEnterを無視し、メニューを閉じない。
+  if not can_execute_choice(tab, choice) then
+    -- 非実行行はEnterで詳細を開く契約に統一する。
+    open_detail_page(tab, choice)
     return
   end
   if not tab.on_choice then
@@ -994,6 +1054,8 @@ local function set_keymaps(buf)
       local choice = current_choice(tab)
       open_detail_page(tab, choice)
     end },
+    { "d", toggle_footer_detail },
+    { "<Space>", skip_credits },
     { "<CR>", select_current },
     { "<LeftMouse>", function()
       local pos = vim.fn.getmousepos()
@@ -1084,6 +1146,7 @@ local function select(tabs, opts, config)
   ui_state.active = menu_view_util.clamp_selected(active, #tabs)
   ui_state.selected = 1
   ui_state.offset = 0
+  ui_state.show_footer_detail = false
   ui_state.layout = { width = nil, height = nil }
   ui_state.selection_fx = {}
   reset_credits_state()

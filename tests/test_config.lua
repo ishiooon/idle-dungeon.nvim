@@ -49,7 +49,7 @@ assert_true(type(built.game_speed_options) == "table", "ゲーム速度の選択
 assert_true(type(built.default_game_speed) == "string", "既定のゲーム速度IDが定義される")
 assert_true(built.game_tick_seconds == 0.5, "ゲーム進行ティック秒の既定値は0.5である")
 assert_true(built.battle_tick_seconds == 0.5, "戦闘進行ティック秒の既定値は0.5である")
-assert_true(built.default_game_speed == "1x", "既定のゲーム速度は1xである")
+assert_true(built.default_game_speed == "2x", "既定のゲーム速度は2xである")
 assert_true(#built.game_speed_options == 4, "ゲーム速度は1x/2x/5x/10xの4種類が定義される")
 assert_true(built.game_speed_options[1].id == "1x", "ゲーム速度1つ目のIDは1xである")
 assert_true(built.game_speed_options[1].tick_seconds == 0.5, "1xのティック秒は0.5である")

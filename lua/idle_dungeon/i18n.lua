@@ -9,6 +9,7 @@ local translations = {
   menu_tab_actions = { en = "Actions", jp = "操作" },
   menu_tab_config = { en = "Config", jp = "設定" },
   menu_tab_dex = { en = "Dex", jp = "図鑑" },
+  menu_tab_log = { en = "Log", jp = "ログ" },
   menu_tab_credits = { en = "Credits", jp = "クレジット" },
   menu_action_equip = { en = "Change Equipment", jp = "装備変更" },
   menu_action_stage = { en = "Select Starting Dungeon", jp = "開始ダンジョン設定" },

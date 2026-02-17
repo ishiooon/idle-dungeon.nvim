@@ -82,6 +82,34 @@ local function resolve_game_tick_seconds(state, config)
   return tonumber((config or {}).game_tick_seconds) or 0.5
 end
 
+local function resolve_base_tick_seconds(config)
+  local options = normalize_options(config)
+  local base_tick = nil
+  for _, option in ipairs(options) do
+    local tick = tonumber(option.tick_seconds)
+    if tick and tick > 0 and (base_tick == nil or tick > base_tick) then
+      base_tick = tick
+    end
+  end
+  if base_tick and base_tick > 0 then
+    return base_tick
+  end
+  return DEFAULT_OPTIONS[1].tick_seconds
+end
+
+local function resolve_game_speed_multiplier(state, config)
+  local base_tick = resolve_base_tick_seconds(config)
+  local current_tick = resolve_game_tick_seconds(state, config)
+  if not base_tick or base_tick <= 0 then
+    return 1
+  end
+  if not current_tick or current_tick <= 0 then
+    return 1
+  end
+  -- 最も遅い速度を1倍として、選択中速度の倍率を計算する。
+  return math.max(base_tick / current_tick, 1)
+end
+
 local function resolve_runtime_tick_seconds(state, config)
   local boost = state and state.ui and state.ui.speed_boost or nil
   if boost and boost.remaining_ticks and boost.remaining_ticks > 0 and boost.tick_seconds then
@@ -127,6 +155,7 @@ end
 
 M.resolve_game_speed_id = resolve_game_speed_id
 M.resolve_game_tick_seconds = resolve_game_tick_seconds
+M.resolve_game_speed_multiplier = resolve_game_speed_multiplier
 M.resolve_runtime_tick_seconds = resolve_runtime_tick_seconds
 M.resolve_battle_tick_seconds = resolve_battle_tick_seconds
 M.cycle_game_speed_id = cycle_game_speed_id

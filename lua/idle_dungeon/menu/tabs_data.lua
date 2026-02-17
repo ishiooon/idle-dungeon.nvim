@@ -5,6 +5,7 @@ local battle = require("idle_dungeon.game.battle")
 local dex_catalog = require("idle_dungeon.game.dex.catalog")
 local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
 local element = require("idle_dungeon.game.element")
+local game_speed = require("idle_dungeon.core.game_speed")
 local skills = require("idle_dungeon.game.skills")
 local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
@@ -362,6 +363,18 @@ local function resolve_danger_label(model, lang)
   return is_ja and "低" or "Low"
 end
 
+local function resolve_danger_tag(model, lang)
+  local ratio = (tonumber(model.lose_time) or 1) / math.max(tonumber(model.win_time) or 1, 1)
+  local is_ja = lang == "ja" or lang == "jp"
+  if ratio <= 1.0 then
+    return is_ja and "時間不利" or "Time Loss"
+  end
+  if ratio <= 1.45 then
+    return is_ja and "接戦" or "Close Fight"
+  end
+  return is_ja and "優勢" or "Advantage"
+end
+
 -- 危険度理由は単発ダメージ比ではなく、勝敗までの見込み時間を主軸に説明する。
 local function build_danger_reason_text(model, lang)
   local safe = model or {}
@@ -489,6 +502,7 @@ local function compute_combat_snapshot(state, config, lang)
     outgoing = model.outgoing,
     incoming = model.incoming,
     danger = danger,
+    danger_tag = resolve_danger_tag(model, lang),
     danger_reason = build_danger_reason_text(model, lang),
     breakthrough = breakthrough,
     stability = stability,
@@ -502,6 +516,45 @@ end
 
 local function is_ja_lang(lang)
   return lang == "ja" or lang == "jp"
+end
+
+-- イベント由来の一時加速が有効な場合に、状態タブへ表示する行を組み立てる。
+local function build_speed_boost_entry(state, config, lang)
+  local ui = (state or {}).ui or {}
+  local boost = ui.speed_boost or {}
+  local remaining_ticks = math.max(tonumber(boost.remaining_ticks) or 0, 0)
+  local boosted_tick = tonumber(boost.tick_seconds)
+  if remaining_ticks <= 0 or not boosted_tick or boosted_tick <= 0 then
+    return nil
+  end
+  local base_tick = game_speed.resolve_game_tick_seconds(state, config)
+  local runtime_tick = game_speed.resolve_runtime_tick_seconds(state, config)
+  local ratio = 1
+  if base_tick and base_tick > 0 then
+    ratio = math.max(base_tick / boosted_tick, 1)
+  end
+  local speed_id = game_speed.resolve_game_speed_id(state, config)
+  local speed_label = game_speed.label_from_id(speed_id, config)
+  local is_ja = is_ja_lang(lang)
+  local label = is_ja
+      and string.format("イベント加速 %.1fx  残り%dT", ratio, remaining_ticks)
+    or string.format("Event Boost %.1fx  %dT left", ratio, remaining_ticks)
+  return {
+    id = "entry",
+    label = with_icon("󰓅", label),
+    detail_title = is_ja and "加速状況" or "Speed Boost",
+    detail_lines = is_ja and {
+      string.format("設定ゲーム速度: %s", speed_label),
+      string.format("通常ティック: %.3fs", tonumber(base_tick) or 0),
+      string.format("加速ティック: %.3fs", tonumber(runtime_tick) or 0),
+      string.format("残りティック: %d", remaining_ticks),
+    } or {
+      string.format("Configured Game Speed: %s", speed_label),
+      string.format("Base Tick: %.3fs", tonumber(base_tick) or 0),
+      string.format("Boosted Tick: %.3fs", tonumber(runtime_tick) or 0),
+      string.format("Ticks Left: %d", remaining_ticks),
+    },
+  }
 end
 
 local function build_metrics_summary_line(metrics, lang)
@@ -693,12 +746,21 @@ local function build_status_items(state, config, lang)
   local gold = tonumber(((state.currency or {}).gold) or 0) or 0
   local affordable_count = count_affordable_purchase_options(state)
   local sellable_count = count_sellable_inventory(state)
+  local job_skills = (current_job and current_job.skills) or {}
+  local learned_skill_count = 0
+  for _, skill in ipairs(job_skills) do
+    if skills.is_learned(state.skills, skill.id) then
+      learned_skill_count = learned_skill_count + 1
+    end
+  end
 
   -- 画面導線の上段: 現在地・危険度・次行動・次報酬を表示する。
   table.insert(items, { id = "header", label = status_section_title("󰑓", is_ja and "状況" or "Situation") })
+  -- 状況行だけ見ても現在ダンジョンが分かるよう、ステージ名を先頭へ常時表示する。
+  local stage_name_brief = util.clamp_line(tostring(stage_info.name or "-"), 18)
   local stage_label = is_ja
-      and string.format("現在位置 F%d/%d  危険度:%s", stage_info.current_floor, stage_info.total_floors, snapshot.danger)
-    or string.format("Position F%d/%d  Risk:%s", stage_info.current_floor, stage_info.total_floors, snapshot.danger)
+      and string.format("現在地 %s  F%d/%d  危険度:%s[%s]", stage_name_brief, stage_info.current_floor, stage_info.total_floors, snapshot.danger, snapshot.danger_tag)
+    or string.format("Position %s  F%d/%d  Risk:%s[%s]", stage_name_brief, stage_info.current_floor, stage_info.total_floors, snapshot.danger, snapshot.danger_tag)
   table.insert(items, {
     id = "entry",
     action_id = "stage",
@@ -708,19 +770,30 @@ local function build_status_items(state, config, lang)
     detail_lines = is_ja and {
       string.format("現在ステージ: %s", stage_info.name),
       string.format("現在フロア: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
-      string.format("危険度: %s", snapshot.danger),
-      snapshot.danger_reason,
+      string.format("危険度: %s [%s]", snapshot.danger, snapshot.danger_tag),
       snapshot.next_action,
+      snapshot.danger_reason,
     } or {
       string.format("Current Stage: %s", stage_info.name),
       string.format("Current Floor: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
-      string.format("Risk: %s", snapshot.danger),
-      snapshot.danger_reason,
+      string.format("Risk: %s [%s]", snapshot.danger, snapshot.danger_tag),
       snapshot.next_action,
+      snapshot.danger_reason,
     },
+    highlight_group = snapshot.danger == "High" and "IdleDungeonMenuDangerHigh"
+      or snapshot.danger == "Medium" and "IdleDungeonMenuDangerMedium"
+      or snapshot.danger == "高" and "IdleDungeonMenuDangerHigh"
+      or snapshot.danger == "中" and "IdleDungeonMenuDangerMedium"
+      or "IdleDungeonMenuDangerLow",
+    highlight_icon = snapshot.danger,
   })
+  local speed_boost_entry = build_speed_boost_entry(state, config, lang)
+  if speed_boost_entry then
+    table.insert(items, speed_boost_entry)
+  end
   table.insert(items, build_next_reward_entry(state, config, lang, to_next))
   table.insert(items, { id = "spacer", label = "" })
+  -- 状態タブは常時詳細表示とし、表示切り替え行は設けない。
 
   -- 画面導線の中段: 現在の強さを表示する。
   table.insert(items, { id = "header", label = status_section_title("󰀘", is_ja and "強さ" or "Power") })
@@ -805,16 +878,18 @@ local function build_status_items(state, config, lang)
       string.format("現在SPD: %d", actor.speed or 0),
       string.format("推定与ダメージ: %d", snapshot.outgoing),
       string.format("推定被ダメージ: %d", snapshot.incoming),
-      snapshot.danger_reason,
+      string.format("危険タグ: %s", snapshot.danger_tag),
       string.format("現在Gold: %d", ((state.currency or {}).gold) or 0),
+      snapshot.danger_reason,
     } or {
       string.format("Current ATK: %d", actor.atk or 0),
       string.format("Current DEF: %d", actor.def or 0),
       string.format("Current SPD: %d", actor.speed or 0),
       string.format("Estimated Outgoing: %d", snapshot.outgoing),
       string.format("Estimated Incoming: %d", snapshot.incoming),
-      snapshot.danger_reason,
+      string.format("Risk Tag: %s", snapshot.danger_tag),
       string.format("Current Gold: %d", ((state.currency or {}).gold) or 0),
+      snapshot.danger_reason,
     },
   })
   table.insert(items, {
@@ -1035,6 +1110,42 @@ local function build_credits_items(lang)
   table.insert(items, { id = "entry", label = i18n.t("credits_line_message_08", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_message_09", lang) })
   table.insert(items, { id = "entry", label = i18n.t("credits_line_message_10", lang) })
+  return items
+end
+
+-- ログタブで表示する行をまとめる。最新行を上にして閲覧しやすくする。
+local function build_log_items(state, lang)
+  local items = {}
+  local is_ja = is_ja_lang(lang)
+  local logs = ((state or {}).logs) or {}
+  local total = #logs
+  local title = is_ja and "ログ" or "Log"
+  table.insert(items, { id = "header", label = string.format("%s (%d)", title, total) })
+  if total <= 0 then
+    table.insert(items, {
+      id = "empty",
+      label = is_ja and "ログはまだありません。" or "No logs yet.",
+      detail_title = title,
+      detail_lines = is_ja and {
+        "設定変更やメニュー操作を行うと履歴がここへ表示されます。",
+      } or {
+        "Settings and menu actions will appear here as history entries.",
+      },
+    })
+    return items
+  end
+  for index = total, 1, -1 do
+    local text = tostring(logs[index] or "")
+    if text ~= "" then
+      table.insert(items, {
+        id = "log_entry",
+        label = text,
+        detail_title = title,
+        detail_lines = { text },
+        open_detail_on_enter = true,
+      })
+    end
+  end
   return items
 end
 
@@ -1955,6 +2066,7 @@ M.build_action_items = build_action_items
 M.build_config_items = build_config_items
 M.build_credits_items = build_credits_items
 M.build_dex_items = build_dex_items
+M.build_log_items = build_log_items
 M.build_status_detail = build_status_detail
 M.build_status_items = build_status_items
 

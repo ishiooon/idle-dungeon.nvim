@@ -1,4 +1,4 @@
--- このテストはサブメニューでも選択中項目の詳細とEnter説明がフッター上段に表示されることを確認する。
+-- このテストはサブメニューでEnter説明を優先表示し、詳細は初期非表示であることを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -112,9 +112,9 @@ local ok, err = pcall(function()
     end
   end
   assert_true(found_divider, "サブメニューでもフッター説明の手前に区切り線が表示される")
-  assert_true(found_detail_title, "サブメニューでも詳細タイトルが下部に表示される")
-  assert_true(found_detail_header, "サブメニューでも詳細本文が下部に表示される")
-  assert_true(found_detail_value, "サブメニューでも詳細値が下部に表示される")
+  assert_true(not found_detail_title, "サブメニューでも詳細タイトルは初期表示しない")
+  assert_true(not found_detail_header, "サブメニューでも詳細本文は初期表示しない")
+  assert_true(not found_detail_value, "サブメニューでも詳細値は初期表示しない")
   assert_true(found_enter, "サブメニューでもEnter説明が表示される")
   assert_true(found_hint, "サブメニューでも補足説明が表示される")
   local has_hint_highlight = false

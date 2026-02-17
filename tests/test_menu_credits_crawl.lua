@@ -1,4 +1,4 @@
--- このテストはクレジット表示が下から上へ流れ、中央寄せで描画されることを確認する。
+-- このテストはクレジット表示が下から上へ流れ、スキップと手動スクロールに対応することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -165,6 +165,16 @@ local ok, err = pcall(function()
   assert_true(row2 ~= nil, "更新後もクレジット行が表示される")
   assert_true(row2 < row1, "時間経過でクレジット行が下から上へ流れる")
 
+  -- Spaceでクレジットを終端までスキップできることを確認する。
+  local skip_key = keymaps["<Space>"] or keymaps[" "]
+  assert_true(type(skip_key) == "function", "Spaceスキップの操作が登録される")
+  skip_key()
+  local skipped = table.concat(rendered, "\n")
+  now_sec = now_sec + 8
+  tabs_view.update(tabs)
+  local skipped_again = table.concat(rendered, "\n")
+  assert_equals(skipped_again, skipped, "Spaceで終端へスキップした後は自動スクロールしない")
+
   -- 十分な時間が経過した後は終端で停止し、ループ再生しないことを確認する。
   now_sec = now_sec + 999
   tabs_view.update(tabs)
@@ -174,11 +184,11 @@ local ok, err = pcall(function()
   local stopped_again = table.concat(rendered, "\n")
   assert_equals(stopped_again, stopped, "終端到達後はクレジット表示がループしない")
 
-  -- 停止後は入力しても表示が変化しないことを確認する。
+  -- 停止後はj/kで手動スクロールできることを確認する。
   assert_true(type(keymaps.k) == "function", "上入力の操作が登録される")
   keymaps.k()
   local after_key = table.concat(rendered, "\n")
-  assert_equals(after_key, stopped, "終端到達後は上入力しても表示を固定する")
+  assert_not_equals(after_key, stopped, "終端到達後は上入力で手動スクロールできる")
   tabs_view.close()
 end)
 

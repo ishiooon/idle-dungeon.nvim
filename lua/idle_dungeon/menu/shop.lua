@@ -4,6 +4,7 @@ local content = require("idle_dungeon.content")
 local i18n = require("idle_dungeon.i18n")
 local inventory = require("idle_dungeon.game.inventory")
 local menu_locale = require("idle_dungeon.menu.locale")
+local menu_logging = require("idle_dungeon.menu.logging")
 local menu_unlock = require("idle_dungeon.menu.unlock")
 local state_dex = require("idle_dungeon.game.dex.state")
 local state_module = require("idle_dungeon.core.state")
@@ -160,7 +161,14 @@ local function open_purchase_menu(get_state, set_state, lang, config, on_close)
         local next_currency = util.merge_tables(state.currency, { gold = gold - item.price })
         local next_state = state_module.with_inventory(state_module.with_currency(state, next_currency), next_inventory)
         -- 購入した装備を図鑑へ記録する。
-        set_state(state_dex.record_item(next_state, item.id, 1))
+        local recorded = state_dex.record_item(next_state, item.id, 1)
+        local item_name = menu_logging.resolve_item_name(item, lang)
+        set_state(menu_logging.append_localized(
+          recorded,
+          lang,
+          string.format("購入: %s (-%dG)", item_name, tonumber(item.price) or 0),
+          string.format("Purchased: %s (-%dG)", item_name, tonumber(item.price) or 0)
+        ))
       end, config)
     end, config)
   end
@@ -208,7 +216,13 @@ local function open_sell_menu(get_state, set_state, lang, config, on_close)
     local price = math.floor(item.price * 0.5)
     local next_currency = util.merge_tables(state.currency, { gold = state.currency.gold + price })
     local next_state = state_module.with_inventory(state_module.with_currency(state, next_currency), next_inventory)
-    set_state(next_state)
+    local item_name = menu_logging.resolve_item_name(item, lang)
+    set_state(menu_logging.append_localized(
+      next_state,
+      lang,
+      string.format("売却: %s (+%dG)", item_name, price),
+      string.format("Sold: %s (+%dG)", item_name, price)
+    ))
   end, config)
 end
 

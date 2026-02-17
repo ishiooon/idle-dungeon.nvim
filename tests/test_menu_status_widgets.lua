@@ -25,9 +25,9 @@ local state_module = require("idle_dungeon.core.state")
 local util = require("idle_dungeon.util")
 
 local config = {
-  stage_name = "test-stage",
+  stage_name = "azure-vault",
   stages = {
-    { id = 1, name = "test-stage", start = 0, length = 10 },
+    { id = 1, name = "azure-vault", start = 0, length = 10 },
   },
   ui = {
     language = "en",
@@ -51,7 +51,7 @@ state = util.merge_tables(state, {
   }),
 })
 
-local items = menu_data.build_status_items(state, config, "en")
+local items = menu_data.build_status_items(state, config, "en", { show_details = true })
 local joined = {}
 for _, item in ipairs(items) do
   if item and item.label then
@@ -91,6 +91,8 @@ assert_not_match(text, "Move %d+ step%(s%)", "次行動文言に残り歩数を�
 assert_not_match(text, "Approaching", "状態タブに接敵状況の文言を表示しない")
 assert_true(count_literal(text, "Exp:") == 1, "状態タブの経験値表示は勇者分のみを表示する")
 assert_match(text, "Next Reward", "状態タブに次の報酬行が表示される")
+assert_match(text, "azure%-vault", "状態タブ本文のどこかで現在ダンジョン名が分かる")
+assert_not_match(text, "Event Boost", "一時加速がない時は加速表示を出さない")
 assert_true(#items >= 8, "状態タブの項目数が不足しない")
 
 local hp_line = nil
@@ -107,5 +109,34 @@ end
 assert_true(hp_line ~= nil, "HP行が存在する")
 assert_true(exp_line ~= nil, "EXP行が存在する")
 assert_true(prefix_width(hp_line, "[") == prefix_width(exp_line, "["), "HPとEXPのバー開始位置が揃う")
+
+-- イベント由来の一時加速がある場合は、状態タブに明示する。
+local boosted_state = util.merge_tables(state, {
+  ui = util.merge_tables(state.ui or {}, {
+    game_speed = "10x",
+    speed_boost = {
+      remaining_ticks = 6,
+      tick_seconds = 0.01,
+    },
+  }),
+})
+local boosted_config = util.merge_tables(config, {
+  default_game_speed = "1x",
+  game_speed_options = {
+    { id = "1x", label = "1x", tick_seconds = 0.5 },
+    { id = "10x", label = "10x", tick_seconds = 0.05 },
+  },
+})
+local boosted_items = menu_data.build_status_items(boosted_state, boosted_config, "en", { show_details = true })
+local boosted_joined = {}
+for _, item in ipairs(boosted_items) do
+  if item and item.label then
+    table.insert(boosted_joined, item.label)
+  end
+end
+local boosted_text = table.concat(boosted_joined, " ")
+assert_match(boosted_text, "Event Boost", "一時加速の表示が状態タブに出る")
+assert_match(boosted_text, "5%.0x", "加速倍率が表示される")
+assert_match(boosted_text, "6T left", "残りティックが表示される")
 
 print("OK")

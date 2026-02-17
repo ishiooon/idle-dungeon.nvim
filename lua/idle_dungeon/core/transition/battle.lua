@@ -16,6 +16,7 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 local SPEED_WAIT_BASE = 5
+local MIN_TICK_SECONDS = 0.001
 
 -- pet_partyは配列として管理するため、状態更新時は明示代入で置き換える。
 local function merge_with_pet_party(state, updates, pet_party)
@@ -69,26 +70,33 @@ local function resolve_action_interval(speed, opponent_speed)
 end
 
 -- 撃破や敗北の演出を最低1ティックは維持する。
-local function resolve_outcome_wait(battle_config, tick_seconds)
+local function resolve_scaled_seconds(seconds, speed_multiplier)
+  local base_seconds = math.max(tonumber(seconds) or 0, 0)
+  local multiplier = math.max(tonumber(speed_multiplier) or 1, 1)
+  return base_seconds / multiplier
+end
+
+-- 撃破や敗北の演出を最低1ティックは維持する。
+local function resolve_outcome_wait(battle_config, tick_seconds, speed_multiplier)
   local base = tonumber((battle_config or {}).outcome_wait) or 0
-  local seconds = tonumber((battle_config or {}).outcome_seconds) or 0.4
-  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+  local seconds = resolve_scaled_seconds(tonumber((battle_config or {}).outcome_seconds) or 0.4, speed_multiplier)
+  local tick = math.max(tonumber(tick_seconds) or 1, MIN_TICK_SECONDS)
   local derived = math.ceil(seconds / tick)
   return math.max(base, derived, 1)
 end
 
 -- 攻撃演出の継続フレーム数を計算する。
-local function resolve_attack_frames(battle_config, tick_seconds)
-  local seconds = tonumber((battle_config or {}).attack_seconds) or 0.6
-  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+local function resolve_attack_frames(battle_config, tick_seconds, speed_multiplier)
+  local seconds = resolve_scaled_seconds(tonumber((battle_config or {}).attack_seconds) or 0.6, speed_multiplier)
+  local tick = math.max(tonumber(tick_seconds) or 1, MIN_TICK_SECONDS)
   local frames = math.ceil(seconds / tick)
   return math.max(frames, 2)
 end
 
 -- 攻撃時の前進演出フレーム数を計算する。
-local function resolve_attack_step_frames(battle_config, tick_seconds)
-  local seconds = tonumber((battle_config or {}).attack_step_seconds) or 0.2
-  local tick = math.max(tonumber(tick_seconds) or 1, 0.1)
+local function resolve_attack_step_frames(battle_config, tick_seconds, speed_multiplier)
+  local seconds = resolve_scaled_seconds(tonumber((battle_config or {}).attack_step_seconds) or 0.2, speed_multiplier)
+  local tick = math.max(tonumber(tick_seconds) or 1, MIN_TICK_SECONDS)
   local frames = math.ceil(seconds / tick)
   return math.max(frames, 1)
 end
@@ -206,7 +214,7 @@ end
 local function advance_battle_clock(combat, game_tick_seconds, battle_tick_seconds)
   local buffer = math.max(tonumber((combat or {}).battle_tick_buffer) or 0, 0)
   local elapsed = math.max(tonumber(game_tick_seconds) or 0, 0)
-  local tick = math.max(tonumber(battle_tick_seconds) or 0.5, 0.1)
+  local tick = math.max(tonumber(battle_tick_seconds) or 0.5, MIN_TICK_SECONDS)
   local charged = buffer + elapsed
   if charged + 1e-9 < tick then
     return false, charged
@@ -286,6 +294,7 @@ local function tick_battle(state, config)
   local combat = normalize_attack_state(state.combat or {})
   local game_tick_seconds = game_speed.resolve_runtime_tick_seconds(state, config)
   local battle_tick_seconds = game_speed.resolve_battle_tick_seconds(state, config)
+  local speed_multiplier = game_speed.resolve_game_speed_multiplier(state, config)
   local can_step, buffered = advance_battle_clock(combat, game_tick_seconds, battle_tick_seconds)
   if not can_step then
     local waiting_combat = util.merge_tables(combat, { battle_tick_buffer = buffered })
@@ -344,8 +353,8 @@ local function tick_battle(state, config)
   local hero_def = (state.actor.def or 0) * (passive_bonus.def or 1)
   local hero_accuracy = (battle_config.accuracy or 90) * (passive_bonus.accuracy or 1)
   local enemy_def = (enemy.def or 0) * (enemy_passive.def or 1)
-  local attack_effect_frames = resolve_attack_frames(battle_config, battle_tick_seconds)
-  local attack_step_frames = resolve_attack_step_frames(battle_config, battle_tick_seconds)
+  local attack_effect_frames = resolve_attack_frames(battle_config, battle_tick_seconds, speed_multiplier)
+  local attack_step_frames = resolve_attack_step_frames(battle_config, battle_tick_seconds, speed_multiplier)
   local next_actor = state.actor
   local next_enemy = enemy
   local next_pet_party = pets.normalize_party(state.pet_party, content.enemies, companion_icon)
@@ -404,7 +413,7 @@ local function tick_battle(state, config)
         turn = "hero",
         turn_wait = 0,
         outcome = "reward",
-        outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds),
+        outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds, speed_multiplier),
       }, last_turn)
       return merge_with_pet_party(state, { combat = next_combat, progress = next_progress }, next_pet_party)
     end
@@ -474,7 +483,7 @@ local function tick_battle(state, config)
         turn = "enemy",
         turn_wait = 0,
         outcome = "defeat",
-        outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds),
+        outcome_wait = resolve_outcome_wait(battle_config, battle_tick_seconds, speed_multiplier),
       }, last_turn)
       return merge_with_pet_party(state, { actor = next_actor, combat = next_combat, progress = next_progress }, next_pet_party)
     end

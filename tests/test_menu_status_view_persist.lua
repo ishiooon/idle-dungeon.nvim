@@ -1,4 +1,4 @@
--- このテストは状態タブが折りたたみトグルなしの固定構成で再オープン後も維持されることを確認する。
+-- このテストは状態タブが常に詳細表示で開き、再オープン後も表示が安定することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -9,6 +9,7 @@ end
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local selected_tabs = nil
+local updated_tabs = nil
 local captured_opts = nil
 
 package.loaded["idle_dungeon.menu.tabs_view"] = {
@@ -17,6 +18,7 @@ package.loaded["idle_dungeon.menu.tabs_view"] = {
     captured_opts = opts
   end,
   update = function(tabs)
+    updated_tabs = tabs or selected_tabs
     selected_tabs = tabs or selected_tabs
   end,
   close = function()
@@ -84,8 +86,14 @@ menu.open(get_state, set_state, config)
 local status_tab = find_tab(selected_tabs, "status")
 assert_true(status_tab ~= nil, "状態タブが生成される")
 assert_true(not has_status_control(status_tab), "状態タブに折りたたみトグルを表示しない")
-assert_true(has_label(status_tab, "Loadout & Skills"), "状態タブに装備と技能セクションが表示される")
-assert_true(has_label(status_tab, "Input Metrics"), "状態タブに入力統計セクションが表示される")
+assert_true(has_label(status_tab, "Loadout & Skills"), "初回表示で装備と技能セクションが表示される")
+assert_true(has_label(status_tab, "Input Metrics"), "初回表示で入力統計セクションが表示される")
+
+menu.update(get_state, set_state, config)
+local expanded_status_tab = find_tab(updated_tabs, "status")
+assert_true(expanded_status_tab ~= nil, "更新後も状態タブが生成される")
+assert_true(has_label(expanded_status_tab, "Loadout & Skills"), "更新後も装備と技能セクションが維持される")
+assert_true(has_label(expanded_status_tab, "Input Metrics"), "更新後も入力統計セクションが維持される")
 
 menu.toggle(get_state, set_state, config)
 assert_true(not menu.is_open(), "メニューを閉じるとopen状態が解除される")

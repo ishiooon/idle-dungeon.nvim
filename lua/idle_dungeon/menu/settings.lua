@@ -8,6 +8,19 @@ local state_module = require("idle_dungeon.core.state")
 
 local M = {}
 
+local function notify_setting_applied(message, lang)
+  if not (_G.vim and type(vim.notify) == "function") then
+    return
+  end
+  local title = (lang == "ja" or lang == "jp") and "設定を反映" or "Config Applied"
+  local level = (vim.log and vim.log.levels and vim.log.levels.INFO) or nil
+  -- 設定反映を短時間通知して、変更完了を見失わないようにする。
+  pcall(vim.notify, tostring(message or ""), level, {
+    title = title,
+    timeout = 1000,
+  })
+end
+
 local function open_language_menu(get_state, set_state, config)
   local lang = menu_locale.resolve_lang(get_state(), config)
   local languages = (config.ui or {}).languages or { "en", "ja" }
@@ -46,9 +59,14 @@ local function open_language_menu(get_state, set_state, config)
     if not choice then
       return
     end
+    local current = menu_locale.resolve_lang(get_state(), config)
     -- 表示言語を更新して保存する。
     local next_state = state_module.set_language(get_state(), choice)
     set_state(next_state)
+    notify_setting_applied(
+      string.format("%s -> %s", i18n.language_label(current, current), i18n.language_label(choice, choice)),
+      choice
+    )
   end, config)
 end
 

@@ -24,6 +24,7 @@ local ui_state = {
   on_choice = nil,
   meta = nil,
   selection_fx = {},
+  show_footer_detail = false,
 }
 local shared_context = { get_state = nil, config = nil }
 
@@ -34,6 +35,7 @@ local function close()
   ui_state.buf = nil
   ui_state.items = {}
   ui_state.labels = {}
+  ui_state.show_footer_detail = false
 end
 
 local function is_back_item(item)
@@ -381,13 +383,20 @@ local function render()
     -- サブメニューはゲーム風の見出しアイコンを付けて画面としての統一感を出す。
     title = string.format("󰮫 %s", title)
   end
-  local hints = ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang)
+  local hints = util.shallow_copy(ui_state.opts.footer_hints or menu_locale.submenu_footer_hints(lang))
   local tabs_line = ui_state.opts.tabs_line or ""
   local selected_item = current_choice()
   local detail_notes = {}
-  if not static_view then
+  if (not static_view) and ui_state.show_footer_detail == true then
     local detail_width = tonumber(config.min_width) or 56
     detail_notes = build_detail_footer_lines(resolve_detail(selected_item, ui_state.opts, lang), lang, detail_width)
+  end
+  if not static_view then
+    if lang == "ja" or lang == "jp" then
+      table.insert(hints, "󰋼 詳細: dで切替")
+    else
+      table.insert(hints, "󰋼 Detail: d toggle")
+    end
   end
   local enter_notes = resolve_enter_hint_lines(selected_item, ui_state.opts, lang, static_view)
   local footer_notes = {}
@@ -443,7 +452,10 @@ local function render()
       if is_back_item(item) then
         return mark .. "↩ " .. label
       end
-      return mark .. label
+      if can_execute_choice(item, ui_state.opts) then
+        return mark .. "󰌑 " .. label
+      end
+      return mark .. "󰇀 " .. label
     end,
   })
   local right_lines = {}
@@ -549,6 +561,14 @@ local function cancel()
   end
 end
 
+local function toggle_footer_detail()
+  if ui_state.opts.static_view == true then
+    return
+  end
+  ui_state.show_footer_detail = not (ui_state.show_footer_detail == true)
+  render()
+end
+
 local function select_current()
   if ui_state.opts.static_view == true then
     cancel()
@@ -594,6 +614,7 @@ local function set_keymaps(buf)
       render()
       selection_fx.start(ui_state.selection_fx, render)
     end },
+    { "d", toggle_footer_detail },
     { "<CR>", select_current },
     { "b", cancel },
     { "<BS>", cancel },
@@ -621,6 +642,7 @@ local function select(items, opts, on_choice, config)
   ui_state.offset = 0
   ui_state.meta = { lang = lang }
   ui_state.selection_fx = {}
+  ui_state.show_footer_detail = safe_opts.show_footer_detail == true
   render()
   if ui_state.buf then
     set_keymaps(ui_state.buf)

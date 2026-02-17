@@ -1,4 +1,4 @@
--- このテストは詳細情報を下部へ表示してもメインタブが1カラム表示を維持することを確認する。
+-- このテストは詳細情報を初期非表示にし、明示操作で表示しても1カラム表示を維持することを確認する。
 
 local function assert_true(value, message)
   if not value then
@@ -18,6 +18,7 @@ local original_vim = _G.vim
 local ok, err = pcall(function()
   local rendered = {}
   local window_width = 0
+  local keymaps = {}
 
   package.loaded["idle_dungeon.menu.live_header"] = {
     build_lines = function()
@@ -58,7 +59,9 @@ local ok, err = pcall(function()
       nvim_win_set_cursor = function() end,
     },
     keymap = {
-      set = function() end,
+      set = function(_, lhs, rhs)
+        keymaps[lhs] = rhs
+      end,
     },
     fn = {
       getmousepos = function()
@@ -109,10 +112,14 @@ local ok, err = pcall(function()
   local text = table.concat(rendered or {}, "\n")
   assert_contains(text, "TOP", "メインタブ本文が表示される")
   assert_true(not string.find(text, " │ ", 1, true), "詳細情報を表示しても左右ペインの区切りを表示しない")
-  assert_contains(text, "Detail: TOP", "詳細タイトルを下部へ表示する")
-  assert_contains(text, "DETAIL HEADER", "詳細本文を下部へ表示する")
-  assert_contains(text, "VALUE: 42", "詳細の値を下部へ表示する")
-  assert_contains(text, "Open detail with Enter", "長文がある場合は下部に詳細画面への案内を表示する")
+  assert_true(not string.find(text, "Detail: TOP", 1, true), "詳細は初期状態で下部へ表示しない")
+  assert_true(type(keymaps["d"]) == "function", "詳細表示を切り替えるdキーが登録される")
+  keymaps["d"]()
+  local detail_text = table.concat(rendered or {}, "\n")
+  assert_contains(detail_text, "Detail: TOP", "dキーで詳細タイトルを下部へ表示する")
+  assert_contains(detail_text, "DETAIL HEADER", "dキーで詳細本文を下部へ表示する")
+  assert_contains(detail_text, "VALUE: 42", "dキーで詳細の値を下部へ表示する")
+  assert_contains(detail_text, "Open detail with Enter", "長文がある場合は下部に詳細画面への案内を表示する")
   assert_true(window_width <= 84, "詳細表示時もメニュー横幅は広がりすぎない")
   tabs_view.close()
 end)
