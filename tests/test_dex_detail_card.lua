@@ -11,6 +11,7 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 local menu_data = require("idle_dungeon.menu.tabs_data")
 local state_dex = require("idle_dungeon.game.dex.state")
 local state_module = require("idle_dungeon.core.state")
+local enemy_catalog = require("idle_dungeon.game.enemy_catalog")
 
 local config = {
   stage_name = "dungeon1-1",
@@ -23,6 +24,12 @@ local config = {
 local state = state_module.new_state(config)
 state = state_dex.record_enemy(state, "tux_penguin", "water")
 state = state_dex.record_item(state, "short_bow", 1)
+local target_name = ((enemy_catalog.find_enemy("tux_penguin") or {}).name_en) or ""
+
+-- 検証名を文字列として扱うため、正規表現メタ文字をエスケープする。
+local function escape_pattern(text)
+  return (tostring(text):gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
+end
 
 local items = menu_data.build_dex_items(state, config, "en", {
   mode = "all",
@@ -33,7 +40,7 @@ local items = menu_data.build_dex_items(state, config, "en", {
 local enemy_detail = nil
 local item_detail = nil
 for _, item in ipairs(items or {}) do
-  if item.id == "dex_entry" and item.kind == "enemy" and (item.label or ""):match("Tux Penguin") then
+  if item.id == "dex_entry" and item.kind == "enemy" and (item.label or ""):match(escape_pattern(target_name)) then
     enemy_detail = item.detail_lines
   end
   if item.id == "dex_entry" and item.kind == "item" and (item.label or ""):match("Short Bow") then
