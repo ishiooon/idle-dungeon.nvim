@@ -166,6 +166,9 @@ local function open_window(height, width, border, theme, opts)
   vim.api.nvim_set_option_value("linebreak", wrap_lines, { win = win })
   -- 行全体の着色は使わず、選択記号で現在行を示す。
   vim.api.nvim_set_option_value("cursorline", false, { win = win })
+  -- グローバルscrolloffの影響を受けないよう、メニュー内の縦横スクロール余白を固定する。
+  vim.api.nvim_set_option_value("scrolloff", 0, { win = win })
+  vim.api.nvim_set_option_value("sidescrolloff", 0, { win = win })
   vim.api.nvim_set_option_value(
     "winhl",
     "Normal:IdleDungeonMenuNormal,FloatBorder:IdleDungeonMenuBorder,Cursor:IdleDungeonMenuCursor",
@@ -179,6 +182,9 @@ local function ensure_window(win, buf, height, width, border, theme, opts)
   if is_valid_window(win) and is_valid_buffer(buf) then
     vim.api.nvim_set_option_value("wrap", wrap_lines, { win = win })
     vim.api.nvim_set_option_value("linebreak", wrap_lines, { win = win })
+    -- 再描画時もスクロール余白を維持し、上部表示が押し流される現象を防ぐ。
+    vim.api.nvim_set_option_value("scrolloff", 0, { win = win })
+    vim.api.nvim_set_option_value("sidescrolloff", 0, { win = win })
     return win, buf
   end
   -- 既存の表示が無い場合は新規ウィンドウを作る。

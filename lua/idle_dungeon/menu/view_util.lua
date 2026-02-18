@@ -153,10 +153,11 @@ local function resolve_display_width(config, base_width, lines)
 end
 
 -- 行数に応じて高さを詰め、下方向の空白を減らす。
-local function resolve_compact_height(config, screen_height, visible_rows, top_lines, has_tabs, footer_note_count)
+local function resolve_compact_height(config, screen_height, visible_rows, top_lines, has_tabs, footer_note_count, reserved_top_rows)
   local min_height = tonumber(config.min_height) or 16
   local max_height = tonumber(config.max_height) or tonumber(config.height) or min_height
-  local top_count = #(top_lines or {})
+  -- タブ切替時に上部ゲーム表示が欠けないよう、必要行数を最低値で予約する。
+  local top_count = math.max(#(top_lines or {}), math.max(tonumber(reserved_top_rows) or 0, 0))
   local top_gap = (top_count > 0 and has_tabs) and 1 or 0
   local safe_screen = math.max(tonumber(screen_height) or min_height, min_height)
   local footer_count = math.max(tonumber(footer_note_count) or 0, 0)

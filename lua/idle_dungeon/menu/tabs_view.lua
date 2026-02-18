@@ -12,6 +12,7 @@ local util = require("idle_dungeon.util")
 local window = require("idle_dungeon.menu.window")
 
 local M = {}
+local LIVE_HEADER_RESERVED_ROWS = 2
 
 local ui_state = {
   win = nil,
@@ -39,6 +40,7 @@ local ui_state = {
     started_at_sec = nil,
   },
   show_footer_detail = false,
+  last_top_lines = {},
 }
 local shared_context = { get_state = nil, config = nil }
 
@@ -64,6 +66,7 @@ local function close(silent)
   ui_state.body_start = nil
   ui_state.body_end = nil
   ui_state.show_footer_detail = false
+  ui_state.last_top_lines = {}
   reset_credits_state()
   if (not silent) and callback then
     callback()
@@ -287,9 +290,17 @@ end
 
 local function build_top_lines(state, config, lang)
   if not state then
-    return {}, {}
+    -- 状態取得が一時的に欠落した場合でも、直前の上部表示を維持して隠れたように見せない。
+    local cached = util.shallow_copy(ui_state.last_top_lines or {})
+    return cached, cached
   end
   local live_lines = live_header.build_lines(state, config, lang)
+  if #live_lines <= 0 then
+    -- 生成結果が空のときは前回表示を再利用し、タブ切替時のちらつきを防ぐ。
+    local cached = util.shallow_copy(ui_state.last_top_lines or {})
+    return cached, cached
+  end
+  ui_state.last_top_lines = util.shallow_copy(live_lines)
   -- 状態タブ本文と重なるため、上部はライブヘッダだけを表示して情報重複を抑える。
   return live_lines, live_lines
 end
@@ -694,7 +705,8 @@ local function render()
     #labels,
     top_lines,
     tabs_line ~= "",
-    #footer_notes
+    #footer_notes,
+    LIVE_HEADER_RESERVED_ROWS
   )
   -- 下部説明行を含めた本文高さでスクロール量を計算し、選択項目が画面外に消えないようにする。
   local visible = frame.resolve_content_height({
@@ -805,9 +817,14 @@ local function render()
       end_col = (shell.left_col - 1) + marker_width,
     })
   end
-  local cursor_row = shell.body_start + (ui_state.selected - ui_state.offset) - 1
-  local cursor_col = (shell.left_col - 1) + math.max(selected_marker_width, 2)
-  vim.api.nvim_win_set_cursor(win, { math.max(cursor_row, shell.body_start), cursor_col })
+  if selected_row then
+    local cursor_row = shell.body_start + (ui_state.selected - ui_state.offset) - 1
+    -- 上部表示が隠れないよう、カーソル行は描画済み範囲へ丸める。
+    local max_row = math.max(#(shell.lines or {}), 1)
+    local clamped_row = math.max(math.min(cursor_row, max_row), 1)
+    local cursor_col = (shell.left_col - 1) + math.max(selected_marker_width, 2)
+    vim.api.nvim_win_set_cursor(win, { clamped_row, cursor_col })
+  end
   ui_state.labels = labels
   ui_state.visible_items = visible_items
   ui_state.tabs_line_index = shell.tabs_line_index
@@ -990,8 +1007,7 @@ local function switch_tab(delta)
   ui_state.offset = 0
   ui_state.selected = 1
   ui_state.show_footer_detail = false
-  -- タブ切替時はレイアウトを再計算して、過剰に広がったサイズを戻せるようにする。
-  ui_state.layout = { width = nil, height = nil }
+  -- タブ切替時に高さが縮むと上部表示が隠れやすいため、レイアウト寸法は維持する。
   reset_credits_state()
   render()
   selection_fx.start(ui_state.selection_fx, render)

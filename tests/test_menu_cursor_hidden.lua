@@ -13,6 +13,7 @@ local ok, err = pcall(function()
   local guicursor_value = "n-v-c:block"
   local win_valid = {}
   local opened = nil
+  local win_options = {}
 
   _G.vim = {
     o = { lines = 40, columns = 120, cmdheight = 1 },
@@ -27,6 +28,10 @@ local ok, err = pcall(function()
       nvim_set_option_value = function(name, value, opts)
         if name == "guicursor" and (not opts or opts.win == nil) then
           guicursor_value = value
+          return
+        end
+        if opts and opts.win ~= nil then
+          win_options[name] = value
         end
       end,
       nvim_get_option_value = function(name)
@@ -60,6 +65,8 @@ local ok, err = pcall(function()
   assert_true(type(win) == "number", "ウィンドウが生成される")
   assert_true(type(buf) == "number", "バッファが生成される")
   assert_true(guicursor_value == "a:IdleDungeonMenuHiddenCursor", "メニュー表示中はカーソルを隠す")
+  assert_true(win_options.scrolloff == 0, "メニューウィンドウは上部が隠れないようscrolloffを0に固定する")
+  assert_true(win_options.sidescrolloff == 0, "メニューウィンドウは横スクロール余白を0に固定する")
 
   window.close_window(win, nil)
   assert_true(guicursor_value == "n-v-c:block", "メニュー終了時にカーソル設定を復元する")
