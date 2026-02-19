@@ -179,8 +179,14 @@ lua tests/test_engine_stop_menu_close.lua
 lua tests/test_menu_tabs_data.lua
 # 状態遷移差分から戦闘/報酬/イベントのログが追加されることを確認する。
 lua tests/test_log_transition.lua
+# 状態遷移ログに日時・カテゴリ・敵強さ・自分のステータス変動が含まれることを確認する。
+lua tests/test_log_transition_rich_stats.lua
+# メニュー操作ログに日時とカテゴリが付与されることを確認する。
+lua tests/test_menu_logging_datetime.lua
 # ログタブとログ件数上限の表示を確認する。
 lua tests/test_menu_log_tab.lua
+# ログタブの詳細表示が時刻・カテゴリ・本文を分離して表示することを確認する。
+lua tests/test_menu_log_rich_view.lua
 # 操作タブと設定タブがカード風の行ラベルで整形されることを確認する。
 lua tests/test_menu_action_config_style.lua
 # 状態タブのクイック操作から装備/スキル画面へ遷移できることを確認する。

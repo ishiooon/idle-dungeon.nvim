@@ -11,7 +11,6 @@ local i18n = require("idle_dungeon.i18n")
 local menu_locale = require("idle_dungeon.menu.locale")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local render_stage = require("idle_dungeon.ui.render_stage")
-local stage_progress = require("idle_dungeon.game.stage_progress")
 local time_format = require("idle_dungeon.ui.time_format")
 local util = require("idle_dungeon.util")
 
@@ -76,18 +75,22 @@ end
 
 local function resolve_stage_info(state, config, lang)
   local progress = state.progress or {}
-  local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
-  local stage_name = render_stage.resolve_stage_name(stage, progress, lang)
+  local stage_parts = render_stage.build_stage_parts(progress, config or {}, lang)
+  local stage = stage_parts.stage or {}
+  local stage_name = stage_parts.name or render_stage.resolve_stage_name(stage, progress, lang)
   local floor_length = floor_progress.resolve_floor_length(config or {})
   local stage_floor = floor_progress.stage_floor_distance(progress, floor_length)
   local current_floor = math.max(stage_floor + 1, 1)
   local total_floors = floor_progress.stage_total_floors(stage, floor_length)
   local stage_ratio = clamp_ratio(current_floor, total_floors or 0)
-  local stage_text = render_stage.build_stage_progress_text(progress, stage, config)
+  -- 進行表記は「ステージ-フロア/総フロア」に統一する。
+  local stage_text = stage_parts.token or render_stage.build_stage_progress_text(progress, stage, config)
+  local floor_token = render_stage.build_stage_floor_token(progress, stage, config)
   local floor_step = floor_progress.floor_step(progress.distance or 0, floor_length)
   return {
     name = stage_name,
     text = stage_text,
+    floor_token = floor_token,
     ratio = stage_ratio,
     current_floor = current_floor,
     total_floors = total_floors or 0,
@@ -758,9 +761,10 @@ local function build_status_items(state, config, lang)
   table.insert(items, { id = "header", label = status_section_title("󰑓", is_ja and "状況" or "Situation") })
   -- 状況行だけ見ても現在ダンジョンが分かるよう、ステージ名を先頭へ常時表示する。
   local stage_name_brief = util.clamp_line(tostring(stage_info.name or "-"), 18)
+  local floor_token = tostring(stage_info.floor_token or stage_info.text or "-")
   local stage_label = is_ja
-      and string.format("現在地 %s  F%d/%d  危険度:%s[%s]", stage_name_brief, stage_info.current_floor, stage_info.total_floors, snapshot.danger, snapshot.danger_tag)
-    or string.format("Position %s  F%d/%d  Risk:%s[%s]", stage_name_brief, stage_info.current_floor, stage_info.total_floors, snapshot.danger, snapshot.danger_tag)
+      and string.format("現在地 %s  %s  危険度:%s[%s]", stage_name_brief, floor_token, snapshot.danger, snapshot.danger_tag)
+    or string.format("Position %s  %s  Risk:%s[%s]", stage_name_brief, floor_token, snapshot.danger, snapshot.danger_tag)
   table.insert(items, {
     id = "entry",
     action_id = "stage",
@@ -769,13 +773,13 @@ local function build_status_items(state, config, lang)
     detail_title = is_ja and "状況サマリー" or "Situation Summary",
     detail_lines = is_ja and {
       string.format("現在ステージ: %s", stage_info.name),
-      string.format("現在フロア: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("現在フロア: %s (%s)", floor_token, floor_ratio),
       string.format("危険度: %s [%s]", snapshot.danger, snapshot.danger_tag),
       snapshot.next_action,
       snapshot.danger_reason,
     } or {
       string.format("Current Stage: %s", stage_info.name),
-      string.format("Current Floor: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("Current Floor: %s (%s)", floor_token, floor_ratio),
       string.format("Risk: %s [%s]", snapshot.danger, snapshot.danger_tag),
       snapshot.next_action,
       snapshot.danger_reason,
@@ -1040,11 +1044,11 @@ local function build_status_items(state, config, lang)
     label = build_meter(with_icon("󰢚", i18n.t("label_progress", lang)), stage_info.current_floor, stage_info.total_floors, 14, stage_info.text, meter_style),
     detail_title = is_ja and "進行バー詳細" or "Progress Meter",
     detail_lines = is_ja and {
-      string.format("現在: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("現在: %s (%s)", floor_token, floor_ratio),
       string.format("現在位置: %s", stage_info.text),
       "ステージ選択で開始地点を変更できます。",
     } or {
-      string.format("Current: %d/%d (%s)", stage_info.current_floor, stage_info.total_floors, floor_ratio),
+      string.format("Current: %s (%s)", floor_token, floor_ratio),
       string.format("Location: %s", stage_info.text),
       "You can change start point from Stage action.",
     },
@@ -1114,6 +1118,131 @@ local function build_credits_items(lang)
 end
 
 -- ログタブで表示する行をまとめる。最新行を上にして閲覧しやすくする。
+local function parse_log_prefixes(text)
+  local raw = tostring(text or "")
+  local rest = raw
+  local elapsed_sec = nil
+  local datetime = nil
+  local tags = {}
+  -- 新形式: 行末の日時サフィックスを優先して抽出する。
+  local core, tail_datetime = raw:match("^(.-)%s*%[(%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d)%]%s*$")
+  if tail_datetime then
+    datetime = tail_datetime
+    rest = tostring(core or "")
+  end
+  while true do
+    local token, next_rest = rest:match("^%[([^%]]+)%]%s*(.*)$")
+    if not token then
+      break
+    end
+    local sec = token:match("^(%d+)s$")
+    if sec and elapsed_sec == nil then
+      elapsed_sec = math.max(tonumber(sec) or 0, 0)
+    elseif datetime == nil and token:match("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d$") then
+      datetime = token
+    else
+      table.insert(tags, tostring(token or ""))
+    end
+    rest = tostring(next_rest or "")
+  end
+  if rest == "" then
+    rest = raw
+  end
+  rest = tostring(rest):gsub("^%s+", ""):gsub("%s+$", "")
+  return {
+    raw = raw,
+    message = rest,
+    datetime = datetime,
+    elapsed_sec = elapsed_sec,
+    tags = tags,
+  }
+end
+
+local function normalize_log_tag(tag)
+  return tostring(tag or ""):upper()
+end
+
+local function resolve_log_icon(tag)
+  local normalized = normalize_log_tag(tag)
+  if normalized == "BATTLE" then
+    return "󰓥"
+  end
+  if normalized == "REWARD" or normalized == "LOOT" then
+    return "󰆐"
+  end
+  if normalized == "EVENT" then
+    return "󰋚"
+  end
+  if normalized == "STAGE" then
+    return "󰉋"
+  end
+  if normalized == "MENU" then
+    return "󰍜"
+  end
+  if normalized == "SHOP" then
+    return "󰏓"
+  end
+  if normalized == "SYSTEM" then
+    return "󰒓"
+  end
+  if normalized == "STATUS" then
+    return "󰚔"
+  end
+  return "󰌳"
+end
+
+-- ログ文字列から時刻・カテゴリ・本文を抽出し、詳細表示用の行へ整形する。
+local function build_log_display_parts(text, lang)
+  local parsed = parse_log_prefixes(text)
+  local is_ja = is_ja_lang(lang)
+  local primary_tag = normalize_log_tag(parsed.tags[1] or "SYSTEM")
+  local category = primary_tag
+  if #parsed.tags > 1 then
+    local categories = {}
+    for _, tag in ipairs(parsed.tags) do
+      table.insert(categories, normalize_log_tag(tag))
+    end
+    category = table.concat(categories, " / ")
+  end
+  local details = {}
+  if parsed.datetime ~= nil then
+    if is_ja then
+      table.insert(details, string.format("日時: %s", parsed.datetime))
+    else
+      table.insert(details, string.format("Datetime: %s", parsed.datetime))
+    end
+  end
+  if is_ja then
+    table.insert(details, string.format("カテゴリ: %s", category))
+    table.insert(details, string.format("本文: %s", parsed.message))
+    table.insert(details, string.format("原文: %s", parsed.raw))
+  else
+    table.insert(details, string.format("Category: %s", category))
+    table.insert(details, string.format("Message: %s", parsed.message))
+    table.insert(details, string.format("Raw: %s", parsed.raw))
+  end
+  local icon = resolve_log_icon(primary_tag)
+  local suffixes = {}
+  if parsed.datetime and #parsed.datetime >= 19 then
+    table.insert(suffixes, "[" .. string.sub(parsed.datetime, 12, 19) .. "]")
+  end
+  local suffix_text = table.concat(suffixes, " ")
+  local label = parsed.message
+  if label == "" then
+    label = parsed.raw
+  end
+  if suffix_text ~= "" then
+    label = string.format("%s %s", label, suffix_text)
+  end
+  label = string.format("%s %s", icon, label)
+  return {
+    label = label,
+    detail_lines = details,
+    category = category,
+  }
+end
+
+-- ログタブで表示する行をまとめる。最新行を上にして閲覧しやすくする。
 local function build_log_items(state, lang)
   local items = {}
   local is_ja = is_ja_lang(lang)
@@ -1137,11 +1266,13 @@ local function build_log_items(state, lang)
   for index = total, 1, -1 do
     local text = tostring(logs[index] or "")
     if text ~= "" then
+      local display = build_log_display_parts(text, lang)
+      local order = total - index + 1
       table.insert(items, {
         id = "log_entry",
-        label = text,
-        detail_title = title,
-        detail_lines = { text },
+        label = display.label,
+        detail_title = string.format("%s #%d", title, order),
+        detail_lines = display.detail_lines,
         open_detail_on_enter = true,
       })
     end

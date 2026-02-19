@@ -35,9 +35,11 @@ assert_match(joined, "入力文字数", "入力文字数の表示が含まれる
 assert_match(joined, "保存回数", "保存回数の表示が含まれる")
 assert_match(joined, "稼働時間", "稼働時間の表示が含まれる")
 assert_match(joined, "lua", "ファイル種別ごとの内訳が表示される")
+assert_contains(joined, "現在の階層: 1-1", "階層はステージ-フロア形式で表示する")
 
 local lines_en = menu_locale.status_lines(state, "en", config)
 local joined_en = table.concat(lines_en or {}, " ")
 assert_contains(joined_en, "Job: Swordsman", "英語設定では状態表示のジョブ名を英語で表示する")
+assert_contains(joined_en, "Current Floor: 1-1", "英語表示でも階層はステージ-フロア形式で表示する")
 
 print("OK")

@@ -4,7 +4,8 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
-local DEFAULT_MAX_LINES = 1000
+-- 長時間プレイでも履歴を十分に参照できるよう、保持上限を引き上げる。
+local DEFAULT_MAX_LINES = 9999
 
 -- ログ1行を安全な文字列へ正規化する。
 local function normalize_line(line)

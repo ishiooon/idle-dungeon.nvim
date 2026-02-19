@@ -67,6 +67,8 @@ local found_section_power = false
 local found_section_loadout = false
 local found_section_progress = false
 local found_section_metrics = false
+local found_status_floor_token_label = false
+local found_status_floor_token_detail = false
 
 local function is_equipment_detail_row(label)
   local text = tostring(label or "")
@@ -130,6 +132,15 @@ for _, item in ipairs(status_items) do
     if label:match("dungeon1%-1") then
       found_status_stage_name_visible = true
     end
+    if label:match("%f[%d]1%-1%f[%D]") then
+      found_status_floor_token_label = true
+    end
+    if not label:match("F%d+/%d+") then
+      local joined = table.concat(item.detail_lines or {}, "\n")
+      if joined:match("Current Floor:%s*1%-1") or joined:match("現在フロア:%s*1%-1") then
+        found_status_floor_token_detail = true
+      end
+    end
   end
   if item.action_id == "purchase" then
     found_status_action_purchase = true
@@ -187,6 +198,8 @@ assert_true(found_status_action_equip_keep_open, "状態タブの装備遷移は
 assert_true(found_status_action_skills_keep_open, "状態タブのスキル遷移はメインメニューを維持する")
 assert_true(found_status_next_reward, "状態タブに次の報酬行が含まれる")
 assert_true(found_status_stage_name_visible, "状態タブ本文で現在ステージ名が確認できる")
+assert_true(found_status_floor_token_label, "状態タブ本文の階層はステージ-フロア形式で表示する")
+assert_true(found_status_floor_token_detail, "状態タブ詳細の階層はステージ-フロア形式で表示する")
 assert_true(not found_status_step_count_label, "状態タブで敵まで残り歩数を表示しない")
 assert_true(not found_status_next_enemy_line, "状態タブの詳細に次の敵の行を表示しない")
 assert_true(found_status_danger_reason_detail, "状態タブの詳細に危険度判断の理由を表示する")

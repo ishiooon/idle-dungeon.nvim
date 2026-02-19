@@ -7,7 +7,6 @@ local game_speed = require("idle_dungeon.core.game_speed")
 local floor_progress = require("idle_dungeon.game.floor.progress")
 local time_format = require("idle_dungeon.ui.time_format")
 local render_stage = require("idle_dungeon.ui.render_stage")
-local stage_progress = require("idle_dungeon.game.stage_progress")
 local util = require("idle_dungeon.util")
 
 local M = {}
@@ -175,16 +174,19 @@ local function status_lines(state, lang, config)
   local progress = state.progress or {}
   local actor = state.actor or {}
   local currency = state.currency or {}
-  -- ステージ長を参照して進行度を表示する。
-  local _, stage = stage_progress.find_stage_index((config or {}).stages or {}, progress)
-  local stage_progress_text = render_stage.build_stage_progress_text(progress, stage, config)
-  local stage_name = render_stage.resolve_stage_name(stage, progress, lang)
-  -- 階層番号と階層内の進行を表示に反映する。
+  -- ステージ表示は共通整形を使い、表記ゆれを防ぐ。
+  local parts = render_stage.build_stage_parts(progress, config or {}, lang)
+  local stage = parts.stage or {}
+  local stage_name = parts.name or render_stage.resolve_stage_name(stage, progress, lang)
+  local stage_progress_text = parts.token or render_stage.build_stage_progress_text(progress, stage, config)
+  -- 階層番号は通し番号ではなく「ステージ-フロア」形式で表示する。
+  local floor_text = render_stage.build_stage_floor_token(progress, stage, config)
+  if floor_text == "" then
+    floor_text = "1-1"
+  end
+  -- 階層内の進行量は従来どおり歩数で表示する。
   local floor_length = floor_progress.resolve_floor_length(config or {})
-  local floor_index = floor_progress.floor_index(progress.distance or 0, floor_length)
   local floor_step = floor_progress.floor_step(progress.distance or 0, floor_length)
-  local floor_number = floor_index + 1
-  local floor_text = tostring(floor_number)
   local step_text = string.format("%d/%d", floor_step, floor_length)
   local auto_start_key = (state.ui and state.ui.auto_start ~= false) and "status_on" or "status_off"
   -- 現在選択中のジョブ名を表示用に取得する。

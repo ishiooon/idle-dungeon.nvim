@@ -19,6 +19,34 @@ local util = require("idle_dungeon.util")
 
 local M = {}
 
+-- ログ用の数値は0以上の整数へそろえる。
+local function normalize_non_negative_int(value)
+  return math.max(math.floor(tonumber(value) or 0), 0)
+end
+
+-- ペット一覧からHPと経験値の合計を計算する。
+local function summarize_pet_progress(party)
+  local hp_total = 0
+  local exp_total = 0
+  for _, pet in ipairs(party or {}) do
+    hp_total = hp_total + normalize_non_negative_int((pet or {}).hp)
+    exp_total = exp_total + normalize_non_negative_int((pet or {}).exp)
+  end
+  return { hp = hp_total, exp = exp_total }
+end
+
+-- 遭遇開始時点の勇者/ペット進行値を戦闘状態へ保存する。
+local function build_encounter_start_snapshot(state)
+  local actor = (state or {}).actor or {}
+  return {
+    hero = {
+      hp = normalize_non_negative_int(actor.hp),
+      exp = normalize_non_negative_int(actor.exp),
+    },
+    pet = summarize_pet_progress((state or {}).pet_party),
+  }
+end
+
 -- ステージIDから該当ステージを取得する。
 local function find_stage(config, stage_id)
   for _, stage in ipairs((config or {}).stages or {}) do
@@ -59,6 +87,7 @@ local function start_battle(state, progress, enemy, enemy_spec)
     hero_turn_wait = 0,
     enemy_turn_wait = 0,
     battle_tick_buffer = 0,
+    encounter_start = build_encounter_start_snapshot(state),
   }
   return state_dex.record_enemy(next_state, enemy.id or enemy.name, enemy.element)
 end

@@ -1,6 +1,7 @@
 -- このモジュールはメニュー関連の操作ログを整形して追記する純粋関数を提供する。
 
 local game_log = require("idle_dungeon.game.log")
+local log_format = require("idle_dungeon.game.log_format")
 
 local M = {}
 
@@ -42,8 +43,8 @@ local function append(state, text)
   if not safe_text then
     return state
   end
-  local time_sec = math.max(math.floor(tonumber(((((state or {}).metrics) or {}).time_sec) or 0) or 0), 0)
-  local line = string.format("[%ds] %s", time_sec, safe_text)
+  -- ログタブでカテゴリ表示できるよう、メニュー操作には明示タグを付与する。
+  local line = log_format.build_line(safe_text, "MENU")
   return game_log.append(state, line)
 end
 
